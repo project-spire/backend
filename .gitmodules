@@ -1,0 +1,3 @@
+[submodule "game"]
+	path = game
+	url = git@github.com:project-spire/spire-game-server.git

@@ -1,0 +1,7 @@
+services:
+  game:
+    build: game
+    env_file:
+      - .env
+    ports:
+      - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}

@@ -1,0 +1,6 @@
+services:
+  game:
+    build:
+      target: base
+    # Keep the process running
+    command: sleep infinity
