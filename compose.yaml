@@ -7,6 +7,8 @@ services:
       - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
       - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
     secrets:
+      - game-certificate
+      - game-private-key
       - db-password
       - auth-jwt-key
     depends_on:
@@ -40,6 +42,10 @@ volumes:
   db-data:
 
 secrets:
+  game-certificate:
+    file: secrets/game-cert.pem
+  game-private-key:
+    file: secrets/game-key.pem
   db-password:
     file: secrets/db-password
   auth-jwt-key:
