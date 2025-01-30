@@ -5,6 +5,7 @@ services:
       - .env
     ports:
       - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
+      - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
     secrets:
       - db-password
       - auth-jwt-key
