@@ -7,10 +7,10 @@ services:
       - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
       - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
     secrets:
-      - game-certificate
-      - game-private-key
-      - db-password
-      - auth-jwt-key
+      - game-cert.pem
+      - game-cert.pem
+      - db-password.txt
+      - auth-key.txt
     depends_on:
       db:
         condition: service_healthy
@@ -32,7 +32,7 @@ services:
       - db-data:/var/lib/mysql
     restart: unless-stopped
     secrets:
-      - db-password
+      - db-password.txt
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 10s
@@ -42,11 +42,11 @@ volumes:
   db-data:
 
 secrets:
-  game-certificate:
+  game-cert.pem:
     file: secrets/game-cert.pem
-  game-private-key:
+  game-key.pem:
     file: secrets/game-key.pem
-  db-password:
-    file: secrets/db-password
-  auth-jwt-key:
-    file: secrets/auth-jwt-key
+  db-password.txt:
+    file: secrets/db-password.txt
+  auth-key.txt:
+    file: secrets/auth-key.txt
