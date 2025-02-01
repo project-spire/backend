@@ -8,7 +8,7 @@ services:
       - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
     secrets:
       - game-cert.pem
-      - game-cert.pem
+      - game-key.pem
       - db-password.txt
       - auth-key.txt
     depends_on:
