@@ -14,6 +14,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  
+  lobby:
+    build: lobby
+    env_file:
+      - .env
+    ports:
+      - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
+    secrets:
+      - db-password.txt
+      - auth-key.txt
 
   db:
     build: db
