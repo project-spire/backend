@@ -7,3 +7,7 @@
 ### game-cert.pem
 
 ### game-key.pem
+
+### lobby-cert.pem
+
+### lobby-key.pem
