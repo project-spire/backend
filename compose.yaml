@@ -26,27 +26,33 @@ services:
       - lobby-cert.pem
       - lobby-key.pem
       - auth-key.txt
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_PORT}/ping"]
+      interval: 1m
+      timeout: 30s
+      retries: 5
 
   db:
     build: db
     env_file:
       - .env
     environment:
-      MYSQL_RANDOM_ROOT_PASSWORD: 1
-      MYSQL_HOST: ${SPIRE_DB_HOST}
-      MYSQL_PORT: ${SPIRE_DB_PORT}
-      MYSQL_DATABASE: ${SPIRE_DB_NAME}
-      MYSQL_USER: ${SPIRE_DB_USER}
-      MYSQL_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
+      MARIADB_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_HOST: ${SPIRE_DB_HOST}
+      MYSQL_TCP_PORT: ${SPIRE_DB_PORT}
+      MARIADB_DATABASE: ${SPIRE_DB_NAME}
+      MARIADB_USER: ${SPIRE_DB_USER}
+      MARIADB_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
     ports:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
+    secrets:
+      - db-password.txt
     volumes:
       - db-data:/var/lib/mysql
     restart: unless-stopped
-    secrets:
-      - db-password.txt
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       timeout: 10s
       retries: 5
 

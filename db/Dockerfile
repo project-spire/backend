@@ -1,3 +1,3 @@
-FROM mysql:latest
+FROM mariadb:latest
 
 COPY init /docker-entrypoint-initdb.d/
