@@ -3,4 +3,4 @@
 	url = git@github.com:project-spire/spire-game-server.git
 [submodule "lobby"]
 	path = lobby
-	url = git@github.com:project-spire/spire-lobby.git
+	url = git@github.com:project-spire/spire-lobby-server.git
