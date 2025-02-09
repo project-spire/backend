@@ -18,8 +18,7 @@ services:
     healthcheck:
       test: ["CMD", "/app/build/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
       interval: 1m
-      timeout: 10s
-      retries: 3
+      start_period: 1m
   
   lobby:
     build: lobby
@@ -39,8 +38,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_PORT}/ping"]
       interval: 1m
-      timeout: 30s
-      retries: 5
+      start_period: 30s
 
   db:
     build: db
@@ -62,8 +60,6 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 5
 
 volumes:
   db-data:
