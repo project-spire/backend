@@ -9,14 +9,14 @@ services:
     secrets:
       - game-cert.pem
       - game-key.pem
-      - db-password.txt
+      - mongo-password.txt
       - auth-key.txt
     depends_on:
-      db:
+      mongo:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/app/build/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
+      test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
       interval: 1m
       start_period: 1m
   
@@ -27,12 +27,12 @@ services:
     ports:
       - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
     secrets:
-      - db-password.txt
+      - mongo-password.txt
       - lobby-cert.pem
       - lobby-key.pem
       - auth-key.txt
     depends_on:
-      db:
+      mongo:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -40,37 +40,62 @@ services:
       interval: 1m
       start_period: 30s
 
-  db:
-    build: db
+  mongo:
+    build: mongo
     env_file:
       - .env
     environment:
-      MARIADB_RANDOM_ROOT_PASSWORD: 1
-      MARIADB_HOST: ${SPIRE_DB_HOST}
-      MYSQL_TCP_PORT: ${SPIRE_DB_PORT}
-      MARIADB_DATABASE: ${SPIRE_DB_NAME}
-      MARIADB_USER: ${SPIRE_DB_USER}
-      MARIADB_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD_FILE: ${SPIRE_MONGO_ROOT_PASSWORD_FILE}
+      MONGO_INITDB_DATABASE: ${SPIRE_MONGO_DATABASE}
     ports:
-      - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
+      - ${SPIRE_MONGO_PORT}:${SPIRE_MONGO_PORT}
     secrets:
-      - db-password.txt
+      - mongo-root-password.txt
+      - mongo-password.txt
     volumes:
-      - db-data:/var/lib/mysql
+      - mongo-data:/data/mongo
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+
+  mongo-express:
+    image: mongo-express:latest
+    env_file:
+      - .env
+    environment:
+      ME_CONFIG_MONGODB_SERVER: ${SPIRE_MONGO_HOST}
+      ME_CONFIG_MONGODB_PORT: ${SPIRE_MONGO_PORT}
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD_FILE: ${SPIRE_MONGO_ROOT_PASSWORD_FILE}
+      ME_CONFIG_BASICAUTH_USERNAME: ${SPIRE_MONGO_EXPRESS_USER}
+      ME_CONFIG_BASICAUTH_PASSWORD_FILE: ${SPIRE_MONGO_EXPRESS_PASSWORD_FILE}
+    ports:
+      - 8081:8081
+    secrets:
+      - mongo-express-password.txt
+      - mongo-root-password.txt
+    volumes:
+      - ./scripts/mongo-express-entrypoint.sh:/docker-entrypoint-init.sh:ro
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    # entrypoint: ["/bin/sh", "/docker-entrypoint-init.sh"]
 
 volumes:
-  db-data:
+  mongo-data:
 
 secrets:
   game-cert.pem:
     file: secrets/game-cert.pem
   game-key.pem:
     file: secrets/game-key.pem
-  db-password.txt:
-    file: secrets/db-password.txt
+  mongo-root-password.txt:
+    file: secrets/mongo-root-password.txt
+  mongo-password.txt:
+    file: secrets/mongo-password.txt
+  mongo-express-password.txt:
+    file: secrets/mongo-express-password.txt
   auth-key.txt:
     file: secrets/auth-key.txt
   lobby-cert.pem:
