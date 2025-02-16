@@ -75,12 +75,9 @@ services:
     secrets:
       - mongo-express-password.txt
       - mongo-root-password.txt
-    volumes:
-      - ./scripts/mongo-express-entrypoint.sh:/docker-entrypoint-init.sh:ro
     restart: unless-stopped
     depends_on:
       - mongo
-    # entrypoint: ["/bin/sh", "/docker-entrypoint-init.sh"]
 
 volumes:
   mongo-data:
