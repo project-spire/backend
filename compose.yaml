@@ -9,16 +9,16 @@ services:
     secrets:
       - game-cert.pem
       - game-key.pem
-      - mongo-password.txt
+      - db-password.txt
       - auth-key.txt
-    depends_on:
-      mongo:
-        condition: service_healthy
+    # depends_on:
+    #   mongo:
+    #     condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
-      interval: 1m
-      start_period: 1m
+    # healthcheck:
+    #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
+    #   interval: 1m
+    #   start_period: 1m
   
   lobby:
     build: lobby
@@ -27,12 +27,12 @@ services:
     ports:
       - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
     secrets:
-      - mongo-password.txt
+      - db-password.txt
       - lobby-cert.pem
       - lobby-key.pem
       - auth-key.txt
     depends_on:
-      mongo:
+      db:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -40,59 +40,34 @@ services:
       interval: 1m
       start_period: 30s
 
-  mongo:
-    build: mongo
+  db:
+    build: db
     env_file:
       - .env
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD_FILE: ${SPIRE_MONGO_ROOT_PASSWORD_FILE}
-      MONGO_INITDB_DATABASE: ${SPIRE_MONGO_DATABASE}
+      POSTGRES_USER: ${SPIRE_DB_USER}
+      POSTGRES_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
+      POSTGRES_DB: ${SPIRE_DB_NAME}
     ports:
-      - ${SPIRE_MONGO_PORT}:${SPIRE_MONGO_PORT}
+      - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
     secrets:
-      - mongo-root-password.txt
-      - mongo-password.txt
+      - db-password.txt
     volumes:
-      - mongo-data:/data/mongo
+      - db-data:/var/lib/postgresql/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-
-  mongo-express:
-    image: mongo-express:latest
-    env_file:
-      - .env
-    environment:
-      ME_CONFIG_MONGODB_SERVER: ${SPIRE_MONGO_HOST}
-      ME_CONFIG_MONGODB_PORT: ${SPIRE_MONGO_PORT}
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD_FILE: ${SPIRE_MONGO_ROOT_PASSWORD_FILE}
-      ME_CONFIG_BASICAUTH_USERNAME: ${SPIRE_MONGO_EXPRESS_USER}
-      ME_CONFIG_BASICAUTH_PASSWORD_FILE: ${SPIRE_MONGO_EXPRESS_PASSWORD_FILE}
-    ports:
-      - 8081:8081
-    secrets:
-      - mongo-express-password.txt
-      - mongo-root-password.txt
-    restart: unless-stopped
-    depends_on:
-      - mongo
+    # healthcheck:
+    #   test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
 
 volumes:
-  mongo-data:
+  db-data:
 
 secrets:
   game-cert.pem:
     file: secrets/game-cert.pem
   game-key.pem:
     file: secrets/game-key.pem
-  mongo-root-password.txt:
-    file: secrets/mongo-root-password.txt
-  mongo-password.txt:
-    file: secrets/mongo-password.txt
-  mongo-express-password.txt:
-    file: secrets/mongo-express-password.txt
+  db-password.txt:
+    file: secrets/db-password.txt
   auth-key.txt:
     file: secrets/auth-key.txt
   lobby-cert.pem:
