@@ -1,5 +1,5 @@
 CREATE TABLE accounts
 (
-    id serial primary key,
+    id bigserial primary key,
     created timestamp default now()
 );

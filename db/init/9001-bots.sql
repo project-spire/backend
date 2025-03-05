@@ -1,5 +1,5 @@
 CREATE TABLE bots
 (
-    id integer primary key,
-    account_id integer references accounts(id)
+    id bigserial primary key,
+    account_id bigint references accounts(id)
 );
