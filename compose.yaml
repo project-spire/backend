@@ -55,8 +55,8 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
 
 volumes:
   db-data:
