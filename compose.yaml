@@ -31,9 +31,9 @@ services:
       - lobby-cert.pem
       - lobby-key.pem
       - auth-key.txt
-    depends_on:
-      db:
-        condition: service_healthy
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_PORT}/ping"]
