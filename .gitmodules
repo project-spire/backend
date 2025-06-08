@@ -1,6 +1,3 @@
-[submodule "game"]
-	path = game
-	url = git@github.com:project-spire/spire-game-server.git
-[submodule "lobby"]
-	path = lobby
-	url = git@github.com:project-spire/spire-lobby-server.git
+[submodule "logic-server/logic-protocol"]
+	path = logic-server/logic-protocol
+	url = git@github.com:project-spire/logic-protocol.git

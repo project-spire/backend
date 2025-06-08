@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spire.target.schema.json",
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string",
+      "enum": ["all", "client", "server"],
+      "description": "Name of the skill"
+    }
+  },
+  "required": ["target"]
+}
