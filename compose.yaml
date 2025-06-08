@@ -1,73 +1,67 @@
 services:
-  game:
-    build: game
+  logic-server:
+    build: logic-server
     env_file:
       - .env
     ports:
-      - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
+      - ${SPIRE_LOGIC_LISTEN_PORT}:${SPIRE_LOGIC_LISTEN_PORT}
       - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
     secrets:
-      - game-cert.pem
-      - game-key.pem
-      - db-password.txt
+      - logic-cert.pem
+      - logic-key.pem
+      - database-password.txt
       - auth-key.txt
-    # depends_on:
-    #   mongo:
-    #     condition: service_healthy
     restart: unless-stopped
     # healthcheck:
-    #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
+    #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_LOGIC_LISTEN_PORT}"]
     #   interval: 1m
     #   start_period: 1m
   
-  lobby:
-    build: lobby
+  lobby-server:
+    build: lobby-server
     env_file:
       - .env
     ports:
       - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
     secrets:
-      - db-password.txt
+      - database-password.txt
       - lobby-cert.pem
       - lobby-key.pem
       - auth-key.txt
-    # depends_on:
-    #   db:
-    #     condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_PORT}/ping"]
       interval: 1m
       start_period: 30s
 
-  db:
-    build: db
+  database:
+    build: database
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${SPIRE_DB_USER}
-      POSTGRES_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
-      POSTGRES_DB: ${SPIRE_DB_NAME}
+      POSTGRES_USER: ${SPIRE_DATABASE_USER}
+      POSTGRES_PASSWORD_FILE: ${SPIRE_DATABASE_PASSWORD_FILE}
+      POSTGRES_DB: ${SPIRE_DATABASE_NAME}
     ports:
-      - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
+      - ${SPIRE_DATABASE_PORT}:${SPIRE_DATABASE_PORT}
     secrets:
-      - db-password.txt
+      - database-password.txt
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - database-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
+      test: ["CMD", "pg_isready", "-U", "${SPIRE_DATABASE_USER}", "-d", "${SPIRE_DATABASE_NAME}"]
 
 volumes:
-  db-data:
+  database-data:
 
 secrets:
-  game-cert.pem:
-    file: secrets/game-cert.pem
-  game-key.pem:
-    file: secrets/game-key.pem
-  db-password.txt:
-    file: secrets/db-password.txt
+  logic-cert.pem:
+    file: secrets/logic-cert.pem
+  logic-key.pem:
+    file: secrets/logic-key.pem
+  database-password.txt:
+    file: secrets/database-password.txt
   auth-key.txt:
     file: secrets/auth-key.txt
   lobby-cert.pem:
