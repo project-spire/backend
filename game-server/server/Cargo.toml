@@ -8,6 +8,7 @@ macros = { path = "macros" }
 protocol = { path = "../protocol/rs" }
 
 async-trait = "0.1.88"
+actix = "0.13"
 bevy_ecs = "0.16.1"
 bytes = { version = "1", default-features = false }
 clap = { version = "4", features = ["derive"] }

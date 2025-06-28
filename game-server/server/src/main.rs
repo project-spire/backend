@@ -3,7 +3,6 @@ mod core;
 mod player;
 mod auth;
 mod net;
-mod module;
 pub mod config;
 pub mod server;
 mod world;

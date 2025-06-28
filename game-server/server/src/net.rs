@@ -1,3 +1,4 @@
 pub mod session;
-mod game_listener_module;
-mod control_listener_module;
+mod game_listener;
+mod control_listener;
+mod authenticator;
