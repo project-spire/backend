@@ -1,4 +1,4 @@
-FROM rust:latest AS base
+FROM rust:latest AS build
 
 WORKDIR /root
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-linux-x86_64.zip && \
@@ -8,10 +8,6 @@ RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v29.3/pro
 WORKDIR /app
 COPY . .
 
-
-
-FROM base AS build
-
 RUN cargo build
 
-ENTRYPOINT ["/app/target/debug/spire-game-server"]
+CMD ["/app/target/debug/spire-game-server"]

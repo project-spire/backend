@@ -1,6 +1,6 @@
 services:
-  game:
-    build: game
+  game-server:
+    build: game-server
     env_file:
       - .env
     ports:
@@ -20,8 +20,8 @@ services:
     #   interval: 1m
     #   start_period: 1m
   
-  lobby:
-    build: lobby
+  lobby-server:
+    build: lobby-server
     env_file:
       - .env
     ports:
