@@ -3,7 +3,7 @@
     "../compose.yaml",
     "compose.extend.yaml"
   ],
-  "service": "game",
-  "workspaceMount": "source=${localWorkspaceFolder}/game,target=/workspace,type=bind",
+  "service": "game-server",
+  "workspaceMount": "source=${localWorkspaceFolder}/game-server,target=/workspace,type=bind",
   "workspaceFolder": "/workspace"
 }
