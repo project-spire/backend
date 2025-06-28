@@ -1,6 +1,6 @@
 use bevy_ecs::world::World;
-use crate::core::server::ServerContext;
-use crate::core::session::{InMessage, OutMessage};
+use crate::server::ServerContext;
+use crate::net::session::{InMessage, OutMessage};
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Arc;

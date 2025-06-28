@@ -1,7 +1,7 @@
-use crate::core::config::AuthConfig;
+use crate::config::AuthConfig;
 use crate::core::room::{handle_room_message, InMessageHandleResult, RoomBuilder, RoomPort};
-use crate::core::server::{ServerContext, ServerMessage};
-use crate::core::session::{InMessage, SessionPort};
+use crate::server::{ServerContext, ServerMessage};
+use crate::net::session::{InMessage, SessionPort};
 use crate::player::account::*;
 use crate::protocol::*;
 use crate::protocol::auth::{*, auth_client_protocol::Protocol};

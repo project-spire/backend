@@ -1,8 +1,8 @@
 use crate::auth::auth_room;
-use crate::core::config::*;
+use crate::config::*;
 use crate::core::resource::Resource;
 use crate::core::room::{RoomPort, RoomMessage};
-use crate::core::session::{run_session, InMessage, OutMessage, SessionPort};
+use crate::net::session::{run_session, InMessage, OutMessage, SessionPort};
 use crate::player::PlayerBundle;
 use crate::player::account::*;
 use std::collections::HashMap;

@@ -1,3 +1,4 @@
-[submodule "logic-server/logic-protocol"]
-	path = logic-server/logic-protocol
-	url = git@github.com:project-spire/logic-protocol.git
+
+[submodule "game-server/protocol"]
+	path = game-server/protocol
+	url = git@github.com:project-spire/game-protocol.git

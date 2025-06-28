@@ -1,4 +1,4 @@
-use crate::core::config::DatabaseConfig;
+use crate::config::DatabaseConfig;
 use deadpool_postgres::{Config, Client, Pool, PoolError, Runtime};
 use tokio_postgres::NoTls;
 

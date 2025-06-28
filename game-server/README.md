@@ -1,4 +1,4 @@
-# Logic Server
+# Game Server
 A game server of Project Spire.
 
 (In development)

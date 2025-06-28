@@ -7,15 +7,16 @@ edition = "2024"
 macros = { path = "macros" }
 protocol = { path = "../protocol/rs" }
 
-bevy_ecs = "0.15"
+async-trait = "0.1.88"
+bevy_ecs = "0.16.1"
 bytes = { version = "1", default-features = false }
 clap = { version = "4", features = ["derive"] }
 deadpool-postgres = "0.14"
 jsonwebtoken = "9"
 nalgebra = { workspace = true }
 postgres-types = { version = "0.2.9", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+ron = "0.10"
+serde = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = "0.7"
