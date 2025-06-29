@@ -1,4 +1,4 @@
-use actix::{Actor, ActorFutureExt, AsyncContext, Context, Handler, Message, WrapFuture};
+use actix::{Actor, ActorFutureExt, AsyncContext, Context, Handler, WrapFuture};
 use bytes::BytesMut;
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
@@ -28,7 +28,7 @@ impl Actor for Authenticator {
     type Context = Context<Self>;
 }
 
-#[derive(Message)]
+#[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewUnauthorizedSession {
     pub socket: TcpStream,
@@ -98,17 +98,20 @@ impl Authenticator {
             return;
         }
 
-        let protocol = AuthClientProtocol::decode(body);
-        if let Err(e) = protocol {
-            eprintln!("Error decoding auth protocol: {}", e);
-            return;
-        }
+        let protocol = match AuthClientProtocol::decode(body) {
+            Ok(p) => p.protocol,
+            Err(e) => {
+                eprintln!("Error decoding auth protocol: {}", e);
+                return;
+            },
+        };
 
-        let login = if let Some(Protocol::Login(l)) = protocol.unwrap() {
-            l
-        } else {
-            eprintln!("Invalid auth protocol");
-            return;
+        let login = match protocol {
+            Some(Protocol::Login(l)) => l,
+            _ => {
+                eprintln!("Invalid auth protocol");
+                return;
+            },
         };
 
         if let Err(e) = validate_login(login, &self.decoding_key, &self.validation) {
@@ -116,7 +119,7 @@ impl Authenticator {
             return;
         }
 
-        todo!();
+        println!("Authenticated");
     }
 
 }

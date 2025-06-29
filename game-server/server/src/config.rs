@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::sync::OnceLock;
+use config::Source;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -29,10 +30,13 @@ pub struct NetworkConfig {
     pub db_host: String,
     pub db_port: u16,
     pub db_user: String,
+    pub db_name: String,
+    
+    #[serde(skip_deserializing)]
     pub db_password: String,
     db_password_file: String,
-    pub db_name: String,
 
+    #[serde(skip_deserializing)]
     pub auth_key: Vec<u8>,
     auth_key_file: String,
 }
@@ -40,7 +44,7 @@ pub struct NetworkConfig {
 impl NetworkConfig {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let mut config: NetworkConfig = config::Config::builder()
-            .add_source(config::Environment::with_prefix("SPIRE").separator("_"))
+            .add_source(config::Environment::with_prefix("SPIRE"))
             .build()?
             .try_deserialize()?;
 
