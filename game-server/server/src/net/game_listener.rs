@@ -1,59 +1,67 @@
-use actix::{Actor, Context};
-use std::error::Error;
+use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, StreamHandler, WrapFuture};
+use crate::net::authenticator::{Authenticator, NewConnection};
 use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tokio::sync::broadcast;
+use tokio::net::{TcpListener, TcpStream};
+use tokio_stream::wrappers::TcpListenerStream;
 
 pub struct GameListener {
     port: u16,
-
-    stop_tx: broadcast::Sender<()>,
+    authenticator_addr: Addr<Authenticator>,
 }
 
 impl GameListener {
-    pub fn new(port: u16) -> Self {
-        let (stop_tx, _) = broadcast::channel(1);
-        GameListener{port, stop_tx}
+    pub fn new(port: u16, authenticator_addr: Addr<Authenticator>) -> Self {
+        GameListener {
+            port,
+            authenticator_addr,
+        }
     }
 }
 
 impl Actor for GameListener {
     type Context = Context<Self>;
 
-    fn started(&mut self, _: &mut Self::Context) {
-        let address = SocketAddr::from(([0, 0, 0, 0], self.port));
-        let mut stop_rx = self.stop_tx.subscribe();
-
-        tokio::spawn(async move {
-            let mut listener = match TcpListener::bind(address).await {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("Error binding: {}", e);
-                    return;
-                }
-            };
-
-            loop {
-                tokio::select! {
-                    result = accept(&mut listener) => match result {
-                        Ok(_) => {},
-                        Err(e) => {
-                            eprintln!("Error accepting: {}", e);
-                        }
+    fn started(&mut self, ctx: &mut Self::Context) {
+        let listen_addr = SocketAddr::from(([0, 0, 0, 0], self.port));
+        let listener_future = TcpListener::bind(listen_addr)
+            .into_actor(self)
+            .then(move |res, _, ctx| {
+                match res {
+                    Ok(listener) => {
+                        println!("Listening on {}", listen_addr);
+                        _ = ctx.add_stream(TcpListenerStream::new(listener))
                     },
-                    _ = stop_rx.recv() => break,
+                    Err(e) => {
+                        eprintln!("Error binding: {}", e);
+                        ctx.stop();
+                    }
                 }
-            }
-        });
+                
+                actix::fut::ready(())
+            });
+
+        ctx.wait(listener_future);
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
-        _ = self.stop_tx.send(());
+        println!("Game Listener stopped");
     }
 }
 
-async fn accept(listener: &mut TcpListener) -> Result<(), Box<dyn Error>> {
-    let (socket, _) = listener.accept().await?;
-
-    Ok(())
+impl StreamHandler<std::io::Result<TcpStream>> for GameListener {
+    fn handle(
+        &mut self,
+        item: std::io::Result<TcpStream>,
+        _: &mut Self::Context,
+    ) {
+        match item {
+            Ok(socket) => {
+                println!("Accepted from {}", socket.peer_addr().unwrap());
+                self.authenticator_addr.do_send(NewConnection { socket });
+            },
+            Err(e) => {
+                eprintln!("Error accepting: {}", e);
+            }
+        }
+    }
 }

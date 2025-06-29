@@ -1,5 +1,6 @@
-use actix::{Actor, Context};
+use actix::{Actor, Context, Handler, Message};
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpStream;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -12,4 +13,18 @@ pub struct Authenticator {}
 
 impl Actor for Authenticator {
     type Context = Context<Self>;
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct NewConnection {
+    pub socket: TcpStream,
+}
+
+impl Handler<NewConnection> for Authenticator {
+    type Result = ();
+
+    fn handle(&mut self, msg: NewConnection, ctx: &mut Self::Context) -> Self::Result {
+        println!("New connection received");
+    }
 }
