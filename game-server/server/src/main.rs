@@ -1,18 +1,15 @@
 // mod character;
 // mod core;
-pub mod player;
-pub mod net;
-// mod config;
+mod net;
+mod player;
+mod config;
 // mod server;
-pub mod world;
+mod world;
 
 use actix::prelude::*;
 use clap::Parser;
-use net::{
-    authenticator::Authenticator,
-    game_listener::GameListener,
-};
-// use server::ServerRunOptions;
+use crate::net::authenticator::Authenticator;
+use crate::net::game_listener::GameListener;
 
 #[derive(Parser, Debug)]
 struct Options {
@@ -22,16 +19,30 @@ struct Options {
 
 #[actix::main]
 async fn main() {
-    // let options = Options::parse();
-    // config::Config::init();
+    let options = Options::parse();
 
-    // let server_options = ServerRunOptions {
-    //     dry_run: options.dry_run,
-    // };
-    // _ = server::run_server(server_options).await;
+    let config = match config::Config::new() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Error loading configuration: {}", e);
+            return;
+        }
+    };
+    config::CONFIG.set(config).unwrap();
 
-    let authenticator_addr = Authenticator {}.start();
-    _ = GameListener::new(6400, authenticator_addr).start();
+    let network_config = match config::NetworkConfig::new() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Error loading network configuration: {}", e);
+            return;
+        }
+    };
+
+    let authenticator = Authenticator::new(network_config.auth_key);
+    let authenticator_addr = authenticator.start();
+
+    let game_listener = GameListener::new(6400, authenticator_addr);
+    _ = game_listener.start();
 
     tokio::signal::ctrl_c().await.unwrap();
 }

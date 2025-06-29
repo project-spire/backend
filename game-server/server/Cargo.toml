@@ -11,6 +11,7 @@ actix = "0.13"
 bevy_ecs = "0.16.1"
 bytes = { version = "1", default-features = false }
 clap = { version = "4", features = ["derive"] }
+config = { version = "0.15", features = ["ron"] }
 deadpool-postgres = "0.14"
 jsonwebtoken = "9"
 nalgebra = { workspace = true }
