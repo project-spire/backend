@@ -3,27 +3,26 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 use std::sync::OnceLock;
-use config::Source;
 
 #[derive(Debug, Deserialize)]
-pub struct Config {
+pub struct Settings {
     pub cheat_enabled: bool,
 }
 
-impl Config {
+impl Settings {
     pub fn new() -> Result<Self, config::ConfigError> {
-        let config = config::Config::builder()
-            .add_source(config::File::with_name("config.ron").required(true))
+        let settings = config::Config::builder()
+            .add_source(config::File::with_name("settings.ron").required(true))
             .build()?;
 
-        config.try_deserialize()
+        settings.try_deserialize()
     }
 }
 
-pub static CONFIG: OnceLock<Config> = OnceLock::new();
+pub static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
-pub struct NetworkConfig {
+pub struct NetworkSettings {
     pub game_listen_port: u16,
     pub control_listen_port: u16,
 
@@ -41,17 +40,17 @@ pub struct NetworkConfig {
     auth_key_file: String,
 }
 
-impl NetworkConfig {
+impl NetworkSettings {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let mut config: NetworkConfig = config::Config::builder()
+        let mut settings: NetworkSettings = config::Config::builder()
             .add_source(config::Environment::with_prefix("SPIRE"))
             .build()?
             .try_deserialize()?;
 
-        config.db_password = read_from_file(Path::new(&config.db_password_file))?;
-        config.auth_key = read_from_file(Path::new(&config.auth_key_file))?.into_bytes();
+        settings.db_password = read_from_file(Path::new(&settings.db_password_file))?;
+        settings.auth_key = read_from_file(Path::new(&settings.auth_key_file))?.into_bytes();
 
-        Ok(config)
+        Ok(settings)
     }
 }
 
