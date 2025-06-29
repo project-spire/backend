@@ -1,3 +1,4 @@
+pub use std::str::FromStr;
 use bevy_ecs::component::Component;
 use strum::EnumString;
 

@@ -1,5 +1,5 @@
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, StreamHandler, WrapFuture};
-use crate::net::authenticator::{Authenticator, NewConnection};
+use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::wrappers::TcpListenerStream;
@@ -57,7 +57,7 @@ impl StreamHandler<std::io::Result<TcpStream>> for GameListener {
         match item {
             Ok(socket) => {
                 println!("Accepted from {}", socket.peer_addr().unwrap());
-                self.authenticator_addr.do_send(NewConnection { socket });
+                self.authenticator_addr.do_send(NewUnauthorizedSession { socket });
             },
             Err(e) => {
                 eprintln!("Error accepting: {}", e);

@@ -1,11 +1,10 @@
 // mod character;
 // mod core;
-// mod player;
-// mod auth;
-mod net;
+pub mod player;
+pub mod net;
 // mod config;
 // mod server;
-// mod world;
+pub mod world;
 
 use actix::prelude::*;
 use clap::Parser;
@@ -13,7 +12,6 @@ use net::{
     authenticator::Authenticator,
     game_listener::GameListener,
 };
-use protocol;
 // use server::ServerRunOptions;
 
 #[derive(Parser, Debug)]
