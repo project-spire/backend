@@ -1,4 +1,5 @@
 // mod character;
+mod db;
 mod net;
 mod player;
 mod settings;
@@ -8,6 +9,7 @@ use actix::prelude::*;
 use clap::Parser;
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
+use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 struct Options {
@@ -32,6 +34,14 @@ async fn main() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error loading network configuration: {}", e);
+            return;
+        }
+    };
+
+    let db_pool = match db::new_pool(&network_settings).await {
+        Ok(p) => Arc::new(p),
+        Err(e) => {
+            eprintln!("Error creating DB pool: {}", e);
             return;
         }
     };
