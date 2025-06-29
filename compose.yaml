@@ -5,15 +5,12 @@ services:
       - .env
     ports:
       - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
-      - ${SPIRE_ADMIN_LISTEN_PORT}:${SPIRE_ADMIN_LISTEN_PORT}
+      - ${SPIRE_CONTROL_LISTEN_PORT}:${SPIRE_CONTROL_LISTEN_PORT}
     secrets:
       - game-cert.pem
       - game-key.pem
       - db-password.txt
       - auth-key.txt
-    # depends_on:
-    #   mongo:
-    #     condition: service_healthy
     restart: unless-stopped
     # healthcheck:
     #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
