@@ -1,5 +1,6 @@
-use actix::{Actor, ActorFutureExt, AsyncContext, Context, Handler, WrapFuture};
+use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::BytesMut;
+use crate::net::gateway::{Gateway, NewSession};
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use protocol::*;
@@ -13,14 +14,16 @@ use tokio::time::timeout;
 pub struct Authenticator {
     decoding_key: DecodingKey,
     validation: Validation,
+
+    gateway: Addr<Gateway>,
 }
 
 impl Authenticator {
-    pub fn new(decoding_key: Vec<u8>) -> Self {
+    pub fn new(decoding_key: Vec<u8>, gateway: Addr<Gateway>) -> Self {
         let decoding_key = DecodingKey::from_secret(&decoding_key);
         let validation = Validation::new(Algorithm::HS256);
 
-        Authenticator { decoding_key, validation }
+        Authenticator { decoding_key, validation, gateway }
     }
 }
 
@@ -71,7 +74,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
         .then(|res, act, ctx| {
             match res {
                 Ok((header, body, socket)) => {
-                    act.authenticate(header, body, socket, ctx);
+                    act.authenticate(header, body, socket);
                 }
                 Err((e, _socket)) => {
                     eprintln!("Error receiving message from unauthorized session: {}", e);
@@ -90,8 +93,7 @@ impl Authenticator {
         &self,
         header: ProtocolHeader,
         body: BytesMut,
-        socket: TcpStream,
-        ctx: &mut <Authenticator as Actor>::Context
+        socket: TcpStream
     ) {
         if header.category != ProtocolCategory::Auth {
             eprintln!("Invalid protocol category: {:?}", header.category);
@@ -114,18 +116,26 @@ impl Authenticator {
             },
         };
 
-        if let Err(e) = validate_login(login, &self.decoding_key, &self.validation) {
+        if let Err(e) = validate_login(&login, &self.decoding_key, &self.validation) {
             eprintln!("Error validating login: {}", e);
             return;
         }
-
         println!("Authenticated");
-    }
 
+        let kind = match login::Kind::try_from(login.kind) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("Invalid login method: {}", e);
+                return;
+            },
+        };
+
+        self.gateway.do_send(NewSession { socket, kind });
+    }
 }
 
 fn validate_login(
-    login: Login,
+    login: &Login,
     decoding_key: &DecodingKey,
     validation: &Validation,
 ) -> Result<(), Box<dyn std::error::Error>> {

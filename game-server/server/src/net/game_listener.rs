@@ -6,14 +6,14 @@ use tokio_stream::wrappers::TcpListenerStream;
 
 pub struct GameListener {
     port: u16,
-    authenticator_addr: Addr<Authenticator>,
+    authenticator: Addr<Authenticator>,
 }
 
 impl GameListener {
-    pub fn new(port: u16, authenticator_addr: Addr<Authenticator>) -> Self {
+    pub fn new(port: u16, authenticator: Addr<Authenticator>) -> Self {
         GameListener {
             port,
-            authenticator_addr,
+            authenticator,
         }
     }
 }
@@ -57,7 +57,7 @@ impl StreamHandler<std::io::Result<TcpStream>> for GameListener {
         match item {
             Ok(socket) => {
                 println!("Accepted from {}", socket.peer_addr().unwrap());
-                self.authenticator_addr.do_send(NewUnauthorizedSession { socket });
+                self.authenticator.do_send(NewUnauthorizedSession { socket });
             },
             Err(e) => {
                 eprintln!("Error accepting: {}", e);

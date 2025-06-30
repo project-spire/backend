@@ -9,6 +9,7 @@ use actix::prelude::*;
 use clap::Parser;
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
+use crate::net::gateway::Gateway;
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
@@ -46,11 +47,9 @@ async fn main() {
         }
     };
 
-    let authenticator = Authenticator::new(network_settings.auth_key);
-    let authenticator_addr = authenticator.start();
-
-    let game_listener = GameListener::new(network_settings.game_listen_port, authenticator_addr);
-    _ = game_listener.start();
+    let gateway = Gateway::new().start();
+    let authenticator = Authenticator::new(network_settings.auth_key, gateway).start();
+    let _game_listener = GameListener::new(network_settings.game_listen_port, authenticator).start();
 
     if options.dry_run {
         println!("Dry running done");
