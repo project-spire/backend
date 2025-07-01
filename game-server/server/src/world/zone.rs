@@ -1,11 +1,14 @@
+use std::time::Duration;
 use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
 use tokio::sync::mpsc;
 
-const IN_MESSAGE_BUFFER_SIZE: usize = 32;
+const IN_MESSAGE_BUFFER_SIZE: usize = 64;
+const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
     in_message_tx: mpsc::Sender<()>,
     in_message_rx: Option<mpsc::Receiver<()>>,
+    ticks: u64,
 }
 
 impl Zone {
@@ -16,6 +19,7 @@ impl Zone {
         Zone {
             in_message_tx,
             in_message_rx,
+            ticks: 0,
         }
     }
 
@@ -41,7 +45,7 @@ impl Zone {
                     act.handle_in_message(ctx, in_message);
                 }
 
-                // Recursion without starving Actor's update task
+                // Recursion without starving Actor's tick task
                 act.handle_in_messages(ctx, in_message_rx);
 
                 actix::fut::ready(())
@@ -49,12 +53,10 @@ impl Zone {
         );
     }
 
-    fn handle_in_message(
-        &mut self,
-        ctx: &mut <Self as Actor>::Context,
-        in_message: (),
-    ) {
+    fn handle_in_message(&mut self, ctx: &mut <Self as Actor>::Context, in_message: ()) {}
 
+    fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
+        self.ticks += 1;
     }
 }
 
@@ -68,5 +70,9 @@ impl Actor for Zone {
             .expect("InMessage channel should be set before start");
 
         self.handle_in_messages(ctx, in_message_rx);
+
+        ctx.run_interval(TICK_INTERVAL, |act, ctx| {
+            act.tick(ctx);
+        });
     }
 }
