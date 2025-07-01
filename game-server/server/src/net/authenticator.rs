@@ -31,6 +31,12 @@ impl Actor for Authenticator {
     type Context = Context<Self>;
 }
 
+pub struct Entry {
+    account_id: u64,
+    character_id: u64,
+    privilege: Privilege
+}
+
 #[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewUnauthorizedSession {
@@ -116,13 +122,16 @@ impl Authenticator {
             },
         };
 
-        if let Err(e) = validate_login(&login, &self.decoding_key, &self.validation) {
-            eprintln!("Error validating login: {}", e);
-            return;
-        }
+        let entry = match validate_login(&login, &self.decoding_key, &self.validation) {
+            Ok(entry) => entry,
+            Err(e) => {
+                eprintln!("Error validating login: {}", e);
+                return;
+            }
+        };
         println!("Authenticated");
 
-        let kind = match login::Kind::try_from(login.kind) {
+        let login_kind = match login::Kind::try_from(login.kind) {
             Ok(m) => m,
             Err(e) => {
                 eprintln!("Invalid login method: {}", e);
@@ -130,7 +139,7 @@ impl Authenticator {
             },
         };
 
-        self.gateway.do_send(NewSession { socket, kind });
+        self.gateway.do_send(NewSession { socket, login_kind, entry });
     }
 }
 
@@ -138,7 +147,7 @@ fn validate_login(
     login: &Login,
     decoding_key: &DecodingKey,
     validation: &Validation,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(Entry), Box<dyn std::error::Error>> {
     #[derive(Debug, Serialize, Deserialize)]
     struct RawClaims {
         aid: String, // account_id
@@ -168,5 +177,9 @@ fn validate_login(
         Err(e) => return Err(Box::new(e)),
     };
 
-    Ok(())
+    Ok(Entry {
+        account_id,
+        character_id,
+        privilege,
+    })
 }
