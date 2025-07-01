@@ -1,8 +1,9 @@
-use std::time::Duration;
 use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 const IN_MESSAGE_BUFFER_SIZE: usize = 64;
+const OUT_MESSAGE_BUFFER_SIZE: usize = 16;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
