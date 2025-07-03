@@ -23,16 +23,16 @@ impl Actor for Gateway {
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
-pub struct NewSession {
+pub struct NewPlayer {
     pub socket: TcpStream,
     pub login_kind: login::Kind,
     pub entry: Entry,
 }
 
-impl Handler<NewSession> for Gateway {
+impl Handler<NewPlayer> for Gateway {
     type Result = ();
 
-    fn handle(&mut self, msg: NewSession, ctx: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
         let socket = msg.socket;
         let kind = msg.login_kind;
 

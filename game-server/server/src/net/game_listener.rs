@@ -23,24 +23,26 @@ impl Actor for GameListener {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         let listen_addr = SocketAddr::from(([0, 0, 0, 0], self.port));
-        let listener_future = TcpListener::bind(listen_addr)
-            .into_actor(self)
-            .then(move |res, _, ctx| {
-                match res {
-                    Ok(listener) => {
-                        println!("Listening on {}", listen_addr);
-                        _ = ctx.add_stream(TcpListenerStream::new(listener))
-                    },
-                    Err(e) => {
-                        eprintln!("Error binding: {}", e);
-                        ctx.stop();
-                    }
-                }
-                
-                actix::fut::ready(())
-            });
 
-        ctx.wait(listener_future);
+        ctx.spawn(async move {
+            let listener = TcpListener::bind(listen_addr).await?;
+            Ok::<TcpListener, std::io::Error>(listener)
+        }
+        .into_actor(self)
+        .then(|res, _, ctx| {
+            match res {
+                Ok(listener) => {
+                    println!("Listening on {}", listener.local_addr().unwrap());
+                    _ = ctx.add_stream(TcpListenerStream::new(listener))
+                },
+                Err(e) => {
+                    eprintln!("Error binding: {}", e);
+                    ctx.stop();
+                }
+            }
+
+            actix::fut::ready(())
+        }));
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {

@@ -1,6 +1,6 @@
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::BytesMut;
-use crate::net::gateway::{Gateway, NewSession};
+use crate::net::gateway::{Gateway, NewPlayer};
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use protocol::*;
@@ -139,7 +139,7 @@ impl Authenticator {
             },
         };
 
-        self.gateway.do_send(NewSession { socket, login_kind, entry });
+        self.gateway.do_send(NewPlayer { socket, login_kind, entry });
     }
 }
 
