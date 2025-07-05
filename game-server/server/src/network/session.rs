@@ -162,10 +162,15 @@ async fn recv(
     reader.read_exact(&mut header_buf).await?;
     let header = deserialize_header(&header_buf);
 
-    let mut body_buf = BytesMut::with_capacity(header.length);
-    reader.read_exact(&mut body_buf[..header.length]).await?;
+    if header.category == ProtocolCategory::None || header.length == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData, "Invalid header"));
+    }
 
-    Ok((header.category, body_buf.freeze()))
+    let mut body_buf = vec![0u8; header.length];
+    reader.read_exact(&mut body_buf).await?;
+
+    Ok((header.category, Bytes::from(body_buf)))
 }
 
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {

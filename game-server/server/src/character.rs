@@ -21,7 +21,7 @@ pub enum Race {
     Elf
 }
 
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub struct Character {
     pub id: u64,
     pub name: String,

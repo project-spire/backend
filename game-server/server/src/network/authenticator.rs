@@ -1,5 +1,5 @@
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
-use bytes::BytesMut;
+use bytes::Bytes;
 use crate::network::gateway::{Gateway, NewPlayer};
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
@@ -50,7 +50,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
         const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
         // Read only one message with timeout
-        let future = async move {
+        ctx.spawn(async move {
             let mut socket = msg.socket;
 
             let mut header_buf = [0u8; HEADER_SIZE];
@@ -64,7 +64,14 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
             };
             let header = deserialize_header(&header_buf);
 
-            let mut body_buf = BytesMut::with_capacity(header.length);
+            if header.category == ProtocolCategory::None || header.length == 0 {
+                return Err((
+                   std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid header"),
+                   socket
+               ));
+            }
+
+            let mut body_buf = vec![0u8; header.length];
             match timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf[..header.length])).await {
                 Ok(Ok(_)) => {},
                 Ok(Err(e)) => return Err((e, socket)),
@@ -74,7 +81,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                 )),
             };
 
-            Ok((header, body_buf, socket))
+            Ok((header, Bytes::from(body_buf), socket))
         }
         .into_actor(self)
         .then(|res, act, ctx| {
@@ -88,9 +95,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
             }
 
             actix::fut::ready(())
-        });
-
-        ctx.spawn(future);
+        }));
     }
 }
 
@@ -98,7 +103,7 @@ impl Authenticator {
     fn authenticate(
         &self,
         header: ProtocolHeader,
-        body: BytesMut,
+        body: Bytes,
         socket: TcpStream
     ) {
         if header.category != ProtocolCategory::Auth {

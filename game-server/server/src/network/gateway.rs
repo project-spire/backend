@@ -50,14 +50,16 @@ impl Handler<NewPlayer> for Gateway {
             Ok::<PlayerData, Box<dyn std::error::Error>>(player_data)
         }
         .into_actor(self)
-        .then(|res, act, ctx| {
+        .then(|res, _, _| {
             match res {
-                Ok(_) => {},
+                Ok(data) => {
+                    println!("Player loaded: {:?}, {:?}", data.account, data.character );
+                },
                 Err(e) => {
                     eprintln!("Error loading player: {}", e);
                 }
             }
-            
+
             actix::fut::ready(())
         }));
     }

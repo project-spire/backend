@@ -2,7 +2,7 @@ pub use std::str::FromStr;
 use bevy_ecs::component::Component;
 use strum::EnumString;
 
-#[derive(Debug, EnumString)]
+#[derive(Clone, Copy, Debug, EnumString)]
 pub enum Privilege {
     None,
     Manager,
