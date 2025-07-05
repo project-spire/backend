@@ -37,8 +37,8 @@ services:
       interval: 1m
       start_period: 30s
 
-  db:
-    build: db
+  database:
+    build: database
     env_file:
       - .env
     environment:

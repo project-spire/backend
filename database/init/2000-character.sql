@@ -4,11 +4,11 @@ CREATE TYPE Race AS ENUM (
     'Elf'
 );
 
-CREATE TABLE characters (
+CREATE TABLE character (
     id         bigserial primary key,
-    account_id bigint    references accounts(id),
+    account_id bigint    references account(id),
     created    timestamp not null default now(),
 
-    name varchar(32) unique not null,
+    name varchar(24) unique not null,
     race Race               not null
 );

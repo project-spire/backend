@@ -5,7 +5,7 @@ CREATE TYPE ItemType AS ENUM (
     'Material'
 );
 
-CREATE TABLE items (
+CREATE TABLE item (
     id   bigserial primary key,
     type ItemType not null
 );

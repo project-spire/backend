@@ -8,8 +8,8 @@ CREATE TYPE CharacterStatType AS ENUM (
     'Faith'
 );
 
-CREATE TABLE character_stats (
-    character_id bigint            not null references characters(id),
+CREATE TABLE character_stat (
+    character_id bigint            not null references character(id),
     type         CharacterStatType not null,
     value        int               not null default 0,
 

@@ -4,7 +4,7 @@ CREATE TYPE EquipmentItemType AS ENUM (
 );
 
 CREATE TABLE equipment_items (
-    item_id bigint primary key references items(id),
+    item_id bigint primary key references item(id),
     type    EquipmentItemType not null,
     created timestamp not null default now(),
 

@@ -3,8 +3,8 @@ CREATE TYPE AssetItemType AS ENUM (
     'Soul'
 );
 
-CREATE TABLE asset_items (
-    item_id bigint primary key references items(id),
+CREATE TABLE asset_item (
+    item_id bigint primary key references item(id),
     type    AssetItemType not null,
 
     quantity integer not null default 0
