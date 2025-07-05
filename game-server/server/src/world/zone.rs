@@ -1,5 +1,5 @@
 use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
-use crate::net::session::IngressMessage;
+use crate::network::session::IngressMessage;
 use std::time::Duration;
 use tokio::sync::mpsc;
 

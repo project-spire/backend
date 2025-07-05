@@ -1,6 +1,6 @@
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::BytesMut;
-use crate::net::gateway::{Gateway, NewPlayer};
+use crate::network::gateway::{Gateway, NewPlayer};
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use protocol::*;
@@ -32,9 +32,9 @@ impl Actor for Authenticator {
 }
 
 pub struct Entry {
-    account_id: u64,
-    character_id: u64,
-    privilege: Privilege
+    pub account_id: u64,
+    pub character_id: u64,
+    pub privilege: Privilege
 }
 
 #[derive(actix::Message)]

@@ -1,15 +1,16 @@
-// mod character;
-mod db;
-mod net;
+mod character;
+mod database;
+mod network;
 mod player;
 mod settings;
 mod world;
 
 use actix::prelude::*;
 use clap::Parser;
-use crate::net::authenticator::Authenticator;
-use crate::net::game_listener::GameListener;
-use crate::net::gateway::Gateway;
+use crate::database::DatabaseContext;
+use crate::network::authenticator::Authenticator;
+use crate::network::game_listener::GameListener;
+use crate::network::gateway::Gateway;
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
@@ -31,7 +32,7 @@ async fn main() {
     };
     settings::SETTINGS.set(settings).unwrap();
 
-    let network_settings = match settings::NetworkSettings::new() {
+    let net_settings = match settings::NetworkSettings::new() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error loading network configuration: {}", e);
@@ -39,17 +40,17 @@ async fn main() {
         }
     };
 
-    let db_pool = match db::new_pool(&network_settings).await {
-        Ok(p) => Arc::new(p),
+    let db_ctx = match DatabaseContext::new(&net_settings).await {
+        Ok(ctx) => Arc::new(ctx),
         Err(e) => {
-            eprintln!("Error creating DB pool: {}", e);
+            eprintln!("Error creating database context: {}", e);
             return;
         }
     };
 
-    let gateway = Gateway::new().start();
-    let authenticator = Authenticator::new(network_settings.auth_key, gateway).start();
-    let _game_listener = GameListener::new(network_settings.game_listen_port, authenticator).start();
+    let gateway = Gateway::new(db_ctx.clone()).start();
+    let authenticator = Authenticator::new(net_settings.auth_key, gateway).start();
+    let _game_listener = GameListener::new(net_settings.game_listen_port, authenticator).start();
 
     if options.dry_run {
         println!("Dry running done");
