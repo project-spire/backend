@@ -57,9 +57,9 @@ func NewContext(ns *NetworkSettings) *Context {
 	}
 
 	return &Context{
-		S:  s,
-		P:  pool,
-		ID: node,
+		S: s,
+		P: pool,
+		N: node,
 	}
 }
 

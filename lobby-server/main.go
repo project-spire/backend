@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"spire/lobby/api"
 	"spire/lobby/core"
-	"spire/lobby/route"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 	log.SetOutput(gin.DefaultWriter)
 
-	r := route.NewRouter(ctx)
+	r := api.NewRouter(ctx)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
