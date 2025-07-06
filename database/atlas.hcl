@@ -2,6 +2,6 @@ data "hcl_schema" "main" {
     paths = fileset("schemas/**/*.hcl")
 }
 
-env "local" {
+env "dev" {
     src = data.hcl_schema.main.url
 }
