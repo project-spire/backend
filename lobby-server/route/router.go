@@ -2,10 +2,10 @@ package route
 
 import (
 	"github.com/gin-gonic/gin"
-	"spire/lobby/internal/core"
-	"spire/lobby/internal/route/account"
-	"spire/lobby/internal/route/account/dev"
-	"spire/lobby/internal/route/character"
+	"spire/lobby/core"
+	"spire/lobby/route/account"
+	"spire/lobby/route/account/dev"
+	"spire/lobby/route/character"
 )
 
 func NewRouter(ctx *core.Context) *gin.Engine {

@@ -2,23 +2,38 @@ package dev
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/internal/core"
+	"spire/lobby/core"
+)
+
+const (
+	DevIdMaxLength = 16
+	DevIdMinLength = 4
 )
 
 func HandleAccountDevCreate(c *gin.Context, x *core.Context) {
 	type Request struct {
-		DevID string `json:"dev_id" binding:"required,min=4,max=16"`
+		DevID string `json:"dev_id" binding:"required"`
 	}
 
 	type Response struct {
-		AccountID uint64 `json:"account_id"`
+		AccountID int64 `json:"account_id"`
 	}
 
 	var r Request
 	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
+		return
+	}
+
+	devIdLength := utf8.RuneCountInString(r.DevID)
+	if devIdLength < DevIdMinLength || devIdLength > DevIdMaxLength {
+		c.AbortWithStatusJSON(http.StatusNotAcceptable, gin.H{
+			"error": fmt.Sprintf("Device ID length must be between %d and %d", DevIdMinLength, DevIdMaxLength),
+		})
 		return
 	}
 
@@ -30,17 +45,17 @@ func HandleAccountDevCreate(c *gin.Context, x *core.Context) {
 	}
 	defer tx.Rollback(ctx)
 
-	var accountID uint64
-	err = tx.QueryRow(ctx,
-		`INSERT INTO accounts (platform, platform_id)
-		VALUES ('Dev', 0) RETURNING id`).Scan(&accountID)
+	accountID := x.GenerateID()
+	_, err = tx.Exec(ctx,
+		`INSERT INTO account (id, platform, platform_id)
+		VALUES (accountID, 'Dev', 0)`)
 	if err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	_, err = tx.Exec(ctx,
-		`INSERT INTO dev_accounts (id, account_id) VALUES ($1, $2)`,
+		`INSERT INTO dev_account (id, account_id) VALUES ($1, $2)`,
 		r.DevID,
 		accountID)
 	if err != nil {

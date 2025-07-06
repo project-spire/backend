@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/internal/core"
+	"spire/lobby/core"
 )
 
 func HandleAccountDevMe(c *gin.Context, x *core.Context) {
@@ -16,8 +16,8 @@ func HandleAccountDevMe(c *gin.Context, x *core.Context) {
 	}
 
 	type Response struct {
-		Found     bool   `json:"found"`
-		AccountID uint64 `json:"account_id"`
+		Found     bool  `json:"found"`
+		AccountID int64 `json:"account_id"`
 	}
 
 	var r Request
@@ -26,8 +26,8 @@ func HandleAccountDevMe(c *gin.Context, x *core.Context) {
 	}
 
 	found := true
-	var accountID uint64 = 0
-	err := x.P.QueryRow(context.Background(), "SELECT account_id FROM dev_accounts WHERE id=$1", r.DevID).Scan(&accountID)
+	var accountID int64 = 0
+	err := x.P.QueryRow(context.Background(), "SELECT account_id FROM dev_account WHERE id=$1", r.DevID).Scan(&accountID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			core.Check(err, c, http.StatusInternalServerError)

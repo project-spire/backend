@@ -3,6 +3,7 @@ module spire/lobby
 go 1.24.0
 
 require (
+	github.com/bwmarrin/snowflake v0.3.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/jackc/pgx/v5 v5.7.4

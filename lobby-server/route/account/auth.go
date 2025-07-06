@@ -11,13 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/jackc/pgx/v5"
-	"spire/lobby/internal/core"
+	"spire/lobby/core"
 )
 
 func HandleAccountAuth(c *gin.Context, x *core.Context) {
 	type Request struct {
-		AccountID   uint64 `json:"account_id" binding:"required"`
-		CharacterID uint64 `json:"character_id" binding:"required"`
+		AccountID   int64 `json:"account_id" binding:"required"`
+		CharacterID int64 `json:"character_id" binding:"required"`
 	}
 
 	type Response struct {
@@ -32,8 +32,8 @@ func HandleAccountAuth(c *gin.Context, x *core.Context) {
 	var privilege string
 	err := x.P.QueryRow(context.Background(),
 		`SELECT a.privilege
-		FROM accounts a
-		JOIN characters c ON a.id = c.account_id
+		FROM account a
+		JOIN character c ON a.id = c.account_id
 		WHERE a.id = $1 AND c.id = $2`,
 		r.AccountID,
 		r.CharacterID).Scan(&privilege)
@@ -47,8 +47,8 @@ func HandleAccountAuth(c *gin.Context, x *core.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"aid": strconv.FormatUint(r.AccountID, 10),
-		"cid": strconv.FormatUint(r.CharacterID, 10),
+		"aid": strconv.FormatInt(r.AccountID, 10),
+		"cid": strconv.FormatInt(r.CharacterID, 10),
 		"prv": privilege,
 
 		"exp": jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),

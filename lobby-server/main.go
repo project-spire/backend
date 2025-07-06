@@ -8,12 +8,13 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/internal/core"
-	"spire/lobby/internal/route"
+	"spire/lobby/core"
+	"spire/lobby/route"
 )
 
 func main() {
-	ctx := core.NewContext()
+	ns := core.NewNetworkSettings()
+	ctx := core.NewContext(ns)
 
 	f, _ := os.Create("gin.log")
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
@@ -28,8 +29,8 @@ func main() {
 		defer ctx.Close()
 		defer wg.Done()
 
-		listenAddr := fmt.Sprintf(":%d", ctx.S.ListenPort)
-		if err := r.RunTLS(listenAddr, ctx.S.CertificateFile, ctx.S.PrivateKeyFile); err != nil {
+		listenAddr := fmt.Sprintf(":%d", ns.ListenPort)
+		if err := r.RunTLS(listenAddr, ns.CertificateFile, ns.PrivateKeyFile); err != nil {
 			panic(err)
 		}
 	}()

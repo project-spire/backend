@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/internal/core"
+	"spire/lobby/core"
 )
 
 func HandleCharacterList(c *gin.Context, x *core.Context) {
 	type Request struct {
-		AccountID uint64 `json:"account_id" binding:"required"`
+		AccountID int64 `json:"account_id" binding:"required"`
 	}
 
 	type Response struct {
@@ -23,7 +23,7 @@ func HandleCharacterList(c *gin.Context, x *core.Context) {
 	}
 
 	rows, err := x.P.Query(context.Background(),
-		"SELECT id, name, race FROM characters WHERE account_id=$1", r.AccountID)
+		"SELECT id, name, race FROM character WHERE account_id=$1", r.AccountID)
 	if err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
@@ -33,7 +33,7 @@ func HandleCharacterList(c *gin.Context, x *core.Context) {
 	characters := make([]Character, 0)
 
 	for rows.Next() {
-		var characterID uint64
+		var characterID int64
 		var characterName string
 		var characterRace string
 		if err := rows.Scan(&characterID, &characterName, &characterRace); err != nil {
