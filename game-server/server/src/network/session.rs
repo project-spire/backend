@@ -1,10 +1,9 @@
 use actix::{Actor, ActorContext, ActorFutureExt, AsyncContext, Context, Handler, WrapFuture};
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use protocol::{deserialize_header, ProtocolCategory, HEADER_SIZE};
-use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::mpsc;
 
 const EGRESS_MESSAGE_BUFFER_SIZE: usize = 16;
 
