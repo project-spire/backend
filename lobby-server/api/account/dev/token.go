@@ -14,7 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5"
 )
 
-func HandleAccountToken(c *gin.Context, x *core.Context) {
+func HandleToken(c *gin.Context, x *core.Context) {
 	type Request struct {
 		AccountId int64 `json:"account_id" binding:"required"`
 	}

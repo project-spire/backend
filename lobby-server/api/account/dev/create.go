@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	context2 "spire/lobby/core"
+	"spire/lobby/core"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -15,7 +15,7 @@ const (
 	DevIdMinLength = 4
 )
 
-func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
+func HandleCreate(c *gin.Context, x *core.Context) {
 	type Request struct {
 		DevId string `json:"dev_id" binding:"required"`
 	}
@@ -25,7 +25,7 @@ func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
 	}
 
 	var r Request
-	if !context2.Check(c.Bind(&r), c, http.StatusBadRequest) {
+	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
 		return
 	}
 
@@ -40,7 +40,7 @@ func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
 	ctx := context.Background()
 	tx, err := x.P.Begin(ctx)
 	if err != nil {
-		context2.Check(err, c, http.StatusInternalServerError)
+		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback(ctx)
@@ -51,7 +51,7 @@ func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
 		VALUES ($1, 'Dev', 0)`,
 		accountId)
 	if err != nil {
-		context2.Check(err, c, http.StatusInternalServerError)
+		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
@@ -60,12 +60,12 @@ func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
 		r.DevId,
 		accountId)
 	if err != nil {
-		context2.Check(err, c, http.StatusInternalServerError)
+		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	if tx.Commit(ctx) != nil {
-		context2.Check(err, c, http.StatusInternalServerError)
+		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 

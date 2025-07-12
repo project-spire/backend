@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func HandleAccountDevMe(c *gin.Context, x *context2.Context) {
+func HandleMe(c *gin.Context, x *context2.Context) {
 	type Request struct {
 		DevId string `json:"dev_id" binding:"required"`
 	}

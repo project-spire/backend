@@ -3,12 +3,12 @@ package character
 import (
 	"context"
 	"net/http"
-	context2 "spire/lobby/core"
+	"spire/lobby/core"
 
 	"github.com/gin-gonic/gin"
 )
 
-func HandleCharacterCreate(c *gin.Context, x *context2.Context) {
+func HandleCreate(c *gin.Context, x *core.Context) {
 	type Request struct {
 		CharacterName string `json:"character_name" binding:"required"`
 		Race          string `json:"race" binding:"required"`
@@ -19,7 +19,7 @@ func HandleCharacterCreate(c *gin.Context, x *context2.Context) {
 	}
 
 	var r Request
-	if !context2.Check(c.Bind(&r), c, http.StatusBadRequest) {
+	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
 		return
 	}
 
@@ -30,7 +30,7 @@ func HandleCharacterCreate(c *gin.Context, x *context2.Context) {
 		"INSERT INTO character (id, account_id, name, race) VALUES ($1, $2, $3, $4)",
 		characterId, accountId, r.CharacterName, r.Race)
 	if err != nil {
-		context2.Check(err, c, http.StatusInternalServerError)
+		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
