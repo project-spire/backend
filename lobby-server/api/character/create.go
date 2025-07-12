@@ -15,7 +15,7 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 	}
 
 	type Response struct {
-		CharacterId int64 `json:"character_id"`
+		Character Character `json:"character"`
 	}
 
 	var r Request
@@ -34,5 +34,9 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, Response{CharacterId: characterId})
+	c.JSON(http.StatusOK, Response{Character: Character{
+		Id:   characterId,
+		Name: r.CharacterName,
+		Race: r.CharacterRace,
+	}})
 }
