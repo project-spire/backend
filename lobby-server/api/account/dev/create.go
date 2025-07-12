@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	context2 "spire/lobby/core"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/core"
 )
 
 const (
@@ -15,24 +15,24 @@ const (
 	DevIdMinLength = 4
 )
 
-func HandleAccountDevCreate(c *gin.Context, x *core.Context) {
+func HandleAccountDevCreate(c *gin.Context, x *context2.Context) {
 	type Request struct {
-		DevID string `json:"dev_id" binding:"required"`
+		DevId string `json:"dev_id" binding:"required"`
 	}
 
 	type Response struct {
-		AccountID int64 `json:"account_id"`
+		AccountId int64 `json:"account_id"`
 	}
 
 	var r Request
-	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
+	if !context2.Check(c.Bind(&r), c, http.StatusBadRequest) {
 		return
 	}
 
-	devIdLength := utf8.RuneCountInString(r.DevID)
+	devIdLength := utf8.RuneCountInString(r.DevId)
 	if devIdLength < DevIdMinLength || devIdLength > DevIdMaxLength {
 		c.AbortWithStatusJSON(http.StatusNotAcceptable, gin.H{
-			"error": fmt.Sprintf("Device ID length must be between %d and %d", DevIdMinLength, DevIdMaxLength),
+			"error": fmt.Sprintf("Device Id length must be between %d and %d", DevIdMinLength, DevIdMaxLength),
 		})
 		return
 	}
@@ -40,35 +40,36 @@ func HandleAccountDevCreate(c *gin.Context, x *core.Context) {
 	ctx := context.Background()
 	tx, err := x.P.Begin(ctx)
 	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
+		context2.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 	defer tx.Rollback(ctx)
 
-	accountID := x.GenerateID()
+	accountId := x.GenerateID()
 	_, err = tx.Exec(ctx,
 		`INSERT INTO account (id, platform, platform_id)
-		VALUES (accountID, 'Dev', 0)`)
+		VALUES ($1, 'Dev', 0)`,
+		accountId)
 	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
+		context2.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	_, err = tx.Exec(ctx,
 		`INSERT INTO dev_account (id, account_id) VALUES ($1, $2)`,
-		r.DevID,
-		accountID)
+		r.DevId,
+		accountId)
 	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
+		context2.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	if tx.Commit(ctx) != nil {
-		core.Check(err, c, http.StatusInternalServerError)
+		context2.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	c.JSON(http.StatusOK, Response{
-		AccountID: accountID,
+		AccountId: accountId,
 	})
 }

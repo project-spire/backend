@@ -5,11 +5,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"spire/lobby/core"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"spire/lobby/api"
-	"spire/lobby/core"
 )
 
 func main() {

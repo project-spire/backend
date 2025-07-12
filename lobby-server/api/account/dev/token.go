@@ -1,23 +1,22 @@
-package account
+package dev
 
 import (
 	"context"
 	"database/sql"
 	"errors"
 	"net/http"
+	"spire/lobby/core"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/jackc/pgx/v5"
-	"spire/lobby/core"
 )
 
-func HandleAccountAuth(c *gin.Context, x *core.Context) {
+func HandleAccountToken(c *gin.Context, x *core.Context) {
 	type Request struct {
-		AccountID   int64 `json:"account_id" binding:"required"`
-		CharacterID int64 `json:"character_id" binding:"required"`
+		AccountId int64 `json:"account_id" binding:"required"`
 	}
 
 	type Response struct {
@@ -33,10 +32,8 @@ func HandleAccountAuth(c *gin.Context, x *core.Context) {
 	err := x.P.QueryRow(context.Background(),
 		`SELECT a.privilege
 		FROM account a
-		JOIN character c ON a.id = c.account_id
-		WHERE a.id = $1 AND c.id = $2`,
-		r.AccountID,
-		r.CharacterID).Scan(&privilege)
+		WHERE a.id = $1`,
+		r.AccountId).Scan(&privilege)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			core.Check(err, c, http.StatusUnauthorized)
@@ -47,16 +44,14 @@ func HandleAccountAuth(c *gin.Context, x *core.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"aid": strconv.FormatInt(r.AccountID, 10),
-		"cid": strconv.FormatInt(r.CharacterID, 10),
+		"aid": strconv.FormatInt(r.AccountId, 10),
 		"prv": privilege,
-
 		"exp": jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 	})
-	signedString, err := token.SignedString([]byte(x.S.AuthKey))
+	tokenString, err := token.SignedString([]byte(x.S.AuthKey))
 	if !core.Check(err, c, http.StatusInternalServerError) {
 		return
 	}
 
-	c.JSON(http.StatusOK, Response{Token: signedString})
+	c.JSON(http.StatusOK, Response{Token: tokenString})
 }

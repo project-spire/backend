@@ -5,32 +5,32 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	context2 "spire/lobby/core"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/core"
 )
 
-func HandleAccountDevMe(c *gin.Context, x *core.Context) {
+func HandleAccountDevMe(c *gin.Context, x *context2.Context) {
 	type Request struct {
-		DevID string `json:"dev_id" binding:"required"`
+		DevId string `json:"dev_id" binding:"required"`
 	}
 
 	type Response struct {
 		Found     bool  `json:"found"`
-		AccountID int64 `json:"account_id"`
+		AccountId int64 `json:"account_id"`
 	}
 
 	var r Request
-	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
+	if !context2.Check(c.Bind(&r), c, http.StatusBadRequest) {
 		return
 	}
 
 	found := true
-	var accountID int64 = 0
-	err := x.P.QueryRow(context.Background(), "SELECT account_id FROM dev_account WHERE id=$1", r.DevID).Scan(&accountID)
+	var accountId int64 = 0
+	err := x.P.QueryRow(context.Background(), "SELECT account_id FROM dev_account WHERE id=$1", r.DevId).Scan(&accountId)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			core.Check(err, c, http.StatusInternalServerError)
+			context2.Check(err, c, http.StatusInternalServerError)
 			return
 		}
 
@@ -39,6 +39,6 @@ func HandleAccountDevMe(c *gin.Context, x *core.Context) {
 
 	c.JSON(http.StatusOK, Response{
 		Found:     found,
-		AccountID: accountID,
+		AccountId: accountId,
 	})
 }

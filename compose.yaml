@@ -21,6 +21,8 @@ services:
     build: lobby-server
     env_file:
       - .env
+    environment:
+      - NODE_ID=101
     ports:
       - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
     secrets:
@@ -42,9 +44,9 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${SPIRE_DB_USER}
-      POSTGRES_PASSWORD_FILE: ${SPIRE_DB_PASSWORD_FILE}
-      POSTGRES_DB: ${SPIRE_DB_NAME}
+      - POSTGRES_USER=${SPIRE_DB_USER}
+      - POSTGRES_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
+      - POSTGRES_DB=${SPIRE_DB_NAME}
     ports:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
     secrets:

@@ -3,29 +3,22 @@ package character
 import (
 	"context"
 	"net/http"
+	context2 "spire/lobby/core"
 
 	"github.com/gin-gonic/gin"
-	"spire/lobby/core"
 )
 
-func HandleCharacterList(c *gin.Context, x *core.Context) {
-	type Request struct {
-		AccountID int64 `json:"account_id" binding:"required"`
-	}
-
+func HandleCharacterList(c *gin.Context, x *context2.Context) {
 	type Response struct {
 		Characters []Character `json:"characters"`
 	}
 
-	var r Request
-	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
-		return
-	}
+	accountId := c.MustGet("account_id").(int64)
 
 	rows, err := x.P.Query(context.Background(),
-		"SELECT id, name, race FROM character WHERE account_id=$1", r.AccountID)
+		"SELECT id, name, race FROM character WHERE account_id=$1", accountId)
 	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
+		context2.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -33,15 +26,15 @@ func HandleCharacterList(c *gin.Context, x *core.Context) {
 	characters := make([]Character, 0)
 
 	for rows.Next() {
-		var characterID int64
+		var characterId int64
 		var characterName string
 		var characterRace string
-		if err := rows.Scan(&characterID, &characterName, &characterRace); err != nil {
-			core.Check(err, c, http.StatusInternalServerError)
+		if err := rows.Scan(&characterId, &characterName, &characterRace); err != nil {
+			context2.Check(err, c, http.StatusInternalServerError)
 			return
 		}
 		characters = append(characters, Character{
-			ID:   characterID,
+			Id:   characterId,
 			Name: characterName,
 			Race: characterRace,
 		})
