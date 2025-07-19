@@ -33,18 +33,12 @@ impl Character {
         account_id: i64,
         client: &DatabaseClient
     ) -> Result<Character, DatabaseError> {
-        static STATEMENT: LazyLock<OnceCell<Statement>> = LazyLock::new(|| {
-            OnceCell::new()
-        });
-        let statement = STATEMENT.get_or_try_init(|| async {
-            client.prepare(
-                "SELECT name, race \
-                FROM character \
-                WHERE id=$1 and account_id=$2"
-            ).await
-        }).await?;
-
-        let row = client.query_one(statement, &[&character_id, &account_id]).await?;
+        let row = client.query_one(
+            "SELECT name, race \
+            FROM character \
+            WHERE id=$1 and account_id=$2", 
+            &[&character_id, &account_id]
+        ).await?;
 
         Ok(Character {
             id: character_id,

@@ -155,7 +155,7 @@ fn validate_login(
 ) -> Result<(Entry), Box<dyn std::error::Error>> {
     #[derive(Debug, Serialize, Deserialize)]
     struct Claims {
-        aid: i64, // account_id
+        aid: String, // account_id
         prv: String, // privilege
     }
 
@@ -168,13 +168,18 @@ fn validate_login(
         Err(e) => return Err(Box::new(e)),
     };
 
+    let account_id: i64 = match claims.aid.parse() {
+        Ok(id) => id,
+        Err(e) => return Err(Box::new(e)),
+    };
+
     let privilege = match Privilege::from_str(&claims.prv) {
         Ok(privilege) => privilege,
         Err(e) => return Err(Box::new(e)),
     };
 
     Ok(Entry {
-        account_id: claims.aid,
+        account_id,
         character_id: login.character_id,
         privilege,
     })
