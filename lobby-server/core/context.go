@@ -68,9 +68,9 @@ func (c *Context) Close() {
 }
 
 func newSettings() *Settings {
-	s := &Settings{}
-
-	s.AuthKey = readFileEnv("SPIRE_AUTH_KEY_FILE")
+	s := &Settings{
+		AuthKey: readFileEnv("SPIRE_AUTH_KEY_FILE"),
+	}
 
 	return s
 }
@@ -114,7 +114,7 @@ func readIntEnv(key string, max int) int {
 }
 
 func readFileEnv(key string) string {
-	data, err := os.ReadFile(os.Getenv("SPIRE_DB_PASSWORD_FILE"))
+	data, err := os.ReadFile(os.Getenv(key))
 	if err != nil {
 		panic(err)
 	}

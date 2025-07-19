@@ -11,4 +11,4 @@ openssl req -x509 -newkey rsa:4096 -keyout lobby-key.pem -out lobby-cert.pem \
     -addext "subjectAltName=DNS:localhost"
 
 # 256 bit authentication token key
-openssl rand -base64 32 > auth-key.txt
+openssl rand -base64 32 | head -c -1 > auth-key.txt

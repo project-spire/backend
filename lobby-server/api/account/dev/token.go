@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"spire/lobby/core"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,7 +43,7 @@ func HandleToken(c *gin.Context, x *core.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"aid": strconv.FormatInt(r.AccountId, 10),
+		"aid": r.AccountId,
 		"prv": privilege,
 		"exp": jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 	})
