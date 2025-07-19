@@ -6,6 +6,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"spire/lobby/core"
+	"strconv"
 	"strings"
 )
 
@@ -37,7 +38,7 @@ func Authenticate(x *core.Context) gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			aid, okAid := claims["aid"].(float64)
+			accountIdStr, okAid := claims["aid"].(string)
 			privilege, okPrv := claims["prv"].(string)
 
 			if !okAid || !okPrv {
@@ -45,7 +46,11 @@ func Authenticate(x *core.Context) gin.HandlerFunc {
 				return
 			}
 
-			accountId := int64(aid)
+			accountId, err := strconv.ParseInt(accountIdStr, 10, 64)
+			if err != nil {
+				c.AbortWithStatus(http.StatusUnauthorized)
+				return
+			}
 
 			c.Set("account_id", accountId)
 			c.Set("privilege", privilege)
