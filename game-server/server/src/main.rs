@@ -10,7 +10,8 @@ use clap::Parser;
 use crate::database::DatabaseContext;
 use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
-use crate::network::gateway::Gateway;
+use crate::network::gateway::{Gateway, NewZone};
+use crate::world::zone::Zone;
 use std::sync::Arc;
 use tracing::{info, error};
 use tracing_subscriber::fmt;
@@ -52,9 +53,12 @@ async fn main() {
         }
     };
 
+    let default_zone = Zone::new(0).start();
     let gateway = Gateway::new(db_ctx.clone()).start();
-    let authenticator = Authenticator::new(net_settings.auth_key, gateway).start();
+    let authenticator = Authenticator::new(net_settings.auth_key, gateway.clone()).start();
     let _game_listener = GameListener::new(net_settings.game_listen_port, authenticator).start();
+    
+    gateway.do_send(NewZone { id: 0, zone: default_zone.clone() });
 
     if options.dry_run {
         info!("Dry running done");

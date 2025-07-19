@@ -1,25 +1,41 @@
+mod new_player;
+
+use std::collections::HashMap;
+pub use new_player::NewPlayer;
+
 use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
-use crate::network::session::IngressMessage;
+use bevy_ecs::prelude::*;
+use std::fmt;
+use std::fmt::Formatter;
 use std::time::Duration;
 use tokio::sync::mpsc;
+use crate::network::session::IngressMessage;
 
 const INGRESS_MESSAGE_BUFFER_SIZE: usize = 64;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
+    id: i64,
+
     ingress_msg_tx: mpsc::Sender<IngressMessage>,
     ingress_msg_rx: Option<mpsc::Receiver<IngressMessage>>,
+
+    world: World,
     ticks: u64,
+    players: HashMap<i64, Entity>,
 }
 
 impl Zone {
-    pub fn new() -> Self {
+    pub fn new(id: i64) -> Self {
         let (ingress_msg_tx, ingress_msg_rx) = mpsc::channel(INGRESS_MESSAGE_BUFFER_SIZE);
 
         Zone {
+            id,
             ingress_msg_tx,
             ingress_msg_rx: Some(ingress_msg_rx),
+            world: World::new(),
             ticks: 0,
+            players: HashMap::new(),
         }
     }
 
@@ -56,6 +72,9 @@ impl Zone {
     fn handle_ingress_message(&mut self, ctx: &mut <Self as Actor>::Context, msg: IngressMessage) {}
 
     fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
+        let mut schedule = Schedule::default();
+        schedule.run(&mut self.world);
+
         self.ticks += 1;
     }
 }
@@ -74,5 +93,11 @@ impl Actor for Zone {
         ctx.run_interval(TICK_INTERVAL, |act, ctx| {
             act.tick(ctx);
         });
+    }
+}
+
+impl fmt::Display for Zone {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Zone[{}]", self.id)
     }
 }
