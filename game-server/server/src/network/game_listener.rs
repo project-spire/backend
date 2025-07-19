@@ -3,6 +3,7 @@ use crate::network::authenticator::{Authenticator, NewUnauthorizedSession};
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::wrappers::TcpListenerStream;
+use tracing::{info, error};
 
 pub struct GameListener {
     port: u16,
@@ -32,11 +33,11 @@ impl Actor for GameListener {
         .then(|res, _, ctx| {
             match res {
                 Ok(listener) => {
-                    println!("Listening on {}", listener.local_addr().unwrap());
+                    info!("Listening on {}", listener.local_addr().unwrap());
                     _ = ctx.add_stream(TcpListenerStream::new(listener))
                 },
                 Err(e) => {
-                    eprintln!("Error binding: {}", e);
+                    error!("Error binding: {}", e);
                     ctx.stop();
                 }
             }
@@ -46,7 +47,7 @@ impl Actor for GameListener {
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
-        println!("Game Listener stopped");
+        info!("Game Listener stopped");
     }
 }
 
@@ -58,11 +59,11 @@ impl StreamHandler<std::io::Result<TcpStream>> for GameListener {
     ) {
         match item {
             Ok(socket) => {
-                println!("Accepted from {}", socket.peer_addr().unwrap());
+                info!("Accepted from {}", socket.peer_addr().unwrap());
                 self.authenticator.do_send(NewUnauthorizedSession { socket });
             },
             Err(e) => {
-                eprintln!("Error accepting: {}", e);
+                error!("Failed to accept: {}", e);
             }
         }
     }

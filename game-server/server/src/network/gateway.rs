@@ -1,5 +1,5 @@
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
-use crate::database::{DatabaseClient, DatabaseContext};
+use crate::database::DatabaseContext;
 use crate::network::authenticator::Entry;
 use crate::player::PlayerData;
 use crate::world::zone::Zone;
@@ -7,6 +7,7 @@ use protocol::auth::login;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpStream;
+use tracing::{info, error};
 
 pub struct Gateway {
     zones: HashMap<u32, Addr<Zone>>,
@@ -53,10 +54,10 @@ impl Handler<NewPlayer> for Gateway {
         .then(|res, _, _| {
             match res {
                 Ok(data) => {
-                    println!("Player loaded: {:?}, {:?}", data.account, data.character );
+                    info!("Player loaded: {:?}, {:?}", data.account, data.character );
                 },
                 Err(e) => {
-                    eprintln!("Error loading player: {}", e);
+                    error!("Error loading player: {}", e);
                 }
             }
 

@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
+use tracing::{info, error};
 
 pub struct Authenticator {
     decoding_key: DecodingKey,
@@ -31,6 +32,7 @@ impl Actor for Authenticator {
     type Context = Context<Self>;
 }
 
+#[derive(Debug)]
 pub struct Entry {
     pub account_id: i64,
     pub character_id: i64,
@@ -90,7 +92,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                     act.authenticate(header, body, socket);
                 }
                 Err((e, _socket)) => {
-                    eprintln!("Error receiving message from unauthorized session: {}", e);
+                    error!("Error receiving message from unauthorized session: {}", e);
                 }
             }
 
@@ -107,14 +109,14 @@ impl Authenticator {
         socket: TcpStream
     ) {
         if header.category != ProtocolCategory::Auth {
-            eprintln!("Invalid protocol category: {:?}", header.category);
+            error!("Invalid protocol category: {:?}", header.category);
             return;
         }
 
         let protocol = match AuthClientProtocol::decode(body) {
             Ok(p) => p.protocol,
             Err(e) => {
-                eprintln!("Error decoding auth protocol: {}", e);
+                error!("Failed to decode auth protocol: {}", e);
                 return;
             },
         };
@@ -122,7 +124,7 @@ impl Authenticator {
         let login = match protocol {
             Some(Protocol::Login(l)) => l,
             _ => {
-                eprintln!("Invalid auth protocol");
+                error!("Invalid auth protocol");
                 return;
             },
         };
@@ -130,16 +132,16 @@ impl Authenticator {
         let entry = match validate_login(&login, &self.decoding_key, &self.validation) {
             Ok(entry) => entry,
             Err(e) => {
-                eprintln!("Error validating login: {}", e);
+                error!("Failed to validate login: {}", e);
                 return;
             }
         };
-        println!("Authenticated");
+        info!("Authenticated: {:?}", entry);
 
         let login_kind = match login::Kind::try_from(login.kind) {
             Ok(m) => m,
             Err(e) => {
-                eprintln!("Invalid login method: {}", e);
+                error!("Invalid login method: {}", e);
                 return;
             },
         };

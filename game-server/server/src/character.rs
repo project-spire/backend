@@ -7,11 +7,9 @@
 // pub mod status_effect;
 // pub mod vision;
 
-use std::sync::LazyLock;
 use bevy_ecs::prelude::*;
-use crate::database::{DatabaseClient, DatabaseError, Statement};
+use crate::database::{DatabaseClient, DatabaseError};
 use postgres_types::{FromSql, ToSql};
-use tokio::sync::OnceCell;
 
 #[derive(Debug, FromSql, ToSql)]
 #[postgres(name = "race")]
@@ -36,7 +34,7 @@ impl Character {
         let row = client.query_one(
             "SELECT name, race \
             FROM character \
-            WHERE id=$1 and account_id=$2", 
+            WHERE id=$1 and account_id=$2",
             &[&character_id, &account_id]
         ).await?;
 

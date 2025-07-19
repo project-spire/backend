@@ -4,6 +4,7 @@ use protocol::{deserialize_header, ProtocolCategory, HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
+use tracing::{info, error};
 
 const EGRESS_MESSAGE_BUFFER_SIZE: usize = 16;
 
@@ -79,7 +80,7 @@ impl Session {
                 match res {
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("Error receiving: {}", e);
+                        error!("Error receiving: {}", e);
                     }
                 }
 
@@ -116,7 +117,7 @@ impl Session {
                 match res {
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("Error sending: {}", e);
+                        error!("Error sending: {}", e);
                     }
                 }
 
@@ -175,22 +176,4 @@ async fn recv(
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {
     writer.write_all(&buffer[..]).await?;
     Ok(())
-}
-
-#[derive(actix::Message)]
-#[rtype(result = "()")]
-pub struct Transfer {
-    ingress_msg_tx: mpsc::Sender<IngressMessage>,
-}
-
-impl Handler<Transfer> for Session {
-    type Result = ();
-
-    fn handle(&mut self, msg: Transfer, ctx: &mut Self::Context) -> Self::Result {
-        let transfer_tx = self.transfer_tx.clone();
-
-        ctx.spawn(async move {
-            _ = transfer_tx.send(msg.ingress_msg_tx).await;
-        }.into_actor(self));
-    }
 }

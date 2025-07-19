@@ -12,6 +12,8 @@ use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
 use crate::network::gateway::Gateway;
 use std::sync::Arc;
+use tracing::{info, error};
+use tracing_subscriber::fmt;
 
 #[derive(Parser, Debug)]
 struct Options {
@@ -21,12 +23,14 @@ struct Options {
 
 #[actix::main]
 async fn main() {
+    fmt::init();
+
     let options = Options::parse();
 
     let settings = match settings::Settings::new() {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error loading configuration: {}", e);
+            error!("Error loading configuration: {}", e);
             return;
         }
     };
@@ -35,7 +39,7 @@ async fn main() {
     let net_settings = match settings::NetworkSettings::new() {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error loading network configuration: {}", e);
+            error!("Error loading network configuration: {}", e);
             return;
         }
     };
@@ -43,7 +47,7 @@ async fn main() {
     let db_ctx = match DatabaseContext::new(&net_settings).await {
         Ok(ctx) => Arc::new(ctx),
         Err(e) => {
-            eprintln!("Error creating database context: {}", e);
+            error!("Error creating database context: {}", e);
             return;
         }
     };
@@ -53,7 +57,7 @@ async fn main() {
     let _game_listener = GameListener::new(net_settings.game_listen_port, authenticator).start();
 
     if options.dry_run {
-        println!("Dry running done");
+        info!("Dry running done");
         return;
     }
 
