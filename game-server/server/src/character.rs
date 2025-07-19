@@ -18,29 +18,33 @@ use tokio::sync::OnceCell;
 pub enum Race {
     Human,
     Barbarian,
-    Elf
 }
 
 #[derive(Debug, Component)]
 pub struct Character {
-    pub id: u64,
+    pub id: i64,
     pub name: String,
     pub race: Race,
 }
 
 impl Character {
-    pub async fn load(character_id: u64, client: &DatabaseClient) -> Result<Character, DatabaseError> {
+    pub async fn load(
+        character_id: i64,
+        account_id: i64,
+        client: &DatabaseClient
+    ) -> Result<Character, DatabaseError> {
         static STATEMENT: LazyLock<OnceCell<Statement>> = LazyLock::new(|| {
             OnceCell::new()
         });
         let statement = STATEMENT.get_or_try_init(|| async {
             client.prepare(
                 "SELECT name, race \
-                FROM characters WHERE id=$1"
+                FROM character \
+                WHERE id=$1 and account_id=$2"
             ).await
         }).await?;
 
-        let row = client.query_one(statement, &[&(character_id as i64)]).await?;
+        let row = client.query_one(statement, &[&character_id, &account_id]).await?;
 
         Ok(Character {
             id: character_id,

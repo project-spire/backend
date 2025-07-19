@@ -10,6 +10,6 @@ pub enum Privilege {
 
 #[derive(Component, Debug)]
 pub struct Account {
-    pub account_id: u64,
+    pub account_id: i64,
     pub privilege: Privilege,
 }

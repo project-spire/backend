@@ -32,8 +32,8 @@ impl Actor for Authenticator {
 }
 
 pub struct Entry {
-    pub account_id: u64,
-    pub character_id: u64,
+    pub account_id: i64,
+    pub character_id: i64,
     pub privilege: Privilege
 }
 
@@ -154,13 +154,12 @@ fn validate_login(
     validation: &Validation,
 ) -> Result<(Entry), Box<dyn std::error::Error>> {
     #[derive(Debug, Serialize, Deserialize)]
-    struct RawClaims {
-        aid: String, // account_id
-        cid: String, // character_id
+    struct Claims {
+        aid: i64, // account_id
         prv: String, // privilege
     }
 
-    let claims = match jsonwebtoken::decode::<RawClaims>(
+    let claims = match jsonwebtoken::decode::<Claims>(
         &login.token,
         decoding_key,
         validation,
@@ -169,22 +168,14 @@ fn validate_login(
         Err(e) => return Err(Box::new(e)),
     };
 
-    let account_id: u64 = match claims.aid.parse() {
-        Ok(id) => id,
-        Err(e) => return Err(Box::new(e)),
-    };
-    let character_id: u64 = match claims.cid.parse() {
-        Ok(id) => id,
-        Err(e) => return Err(Box::new(e)),
-    };
     let privilege = match Privilege::from_str(&claims.prv) {
         Ok(privilege) => privilege,
         Err(e) => return Err(Box::new(e)),
     };
 
     Ok(Entry {
-        account_id,
-        character_id,
+        account_id: claims.aid,
+        character_id: login.character_id,
         privilege,
     })
 }

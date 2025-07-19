@@ -28,7 +28,7 @@ impl PlayerData {
         entry: &Entry,
     ) -> Result<Self, DatabaseError> {
         let account = Account { account_id: entry.account_id, privilege: entry.privilege };
-        let character = Character::load(entry.character_id, client).await?;
+        let character = Character::load(entry.character_id, entry.account_id, client).await?;
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 
         Ok(PlayerData {
