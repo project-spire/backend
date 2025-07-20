@@ -1,15 +1,15 @@
 // pub mod audition;
 // pub mod cognition;
 // pub mod combat;
-// pub mod movement;
+pub mod movement;
 // pub mod resource;
 // pub mod stat;
 // pub mod status_effect;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
-use crate::database::{DatabaseClient, DatabaseError};
 use postgres_types::{FromSql, ToSql};
+use crate::database::{DatabaseClient, DatabaseError};
 
 #[derive(Debug, FromSql, ToSql)]
 #[postgres(name = "race")]

@@ -1,247 +1,182 @@
 use bevy_ecs::prelude::*;
-use crate::character::stat::MobilityStat;
-use crate::character::status_effect::StatusEffectController;
-use crate::physics::object::Transform;
-use crate::protocol::*;
-use crate::protocol::game::*;
-use crate::world::time::WorldTime;
-use nalgebra::{Point2, UnitVector2, Vector2};
-
-use crate::character::movement::MovementState::*;
-use crate::character::movement::MovementMode::*;
-use crate::character::movement::MovementInterpolation::*;
-use crate::character::movement::MovementCommand::*;
-
-type Transition = (MovementState, std::time::Instant);
+use game_protocol::{*, game::*};
+use nalgebra::{UnitVector2, Vector2, Vector3};
+use tracing::error;
+use crate::network::session::{SessionContext};
+use crate::world::transform::Transform;
 
 #[derive(Eq, PartialEq, Copy, Clone, Default)]
+#[repr(i32)]
 pub enum MovementState {
     #[default]
     Idle = 0,
     Walking = 1,
     Running = 2,
     Rolling = 3,
+    Jumping = 4,
 }
 
-#[derive(Eq, PartialEq, Copy, Clone, Default)]
-pub enum MovementMode {
-    #[default]
-    Standing = 0,
-    Crouching = 1,
-    Crawling = 2,
-    Swimming = 3,
-    Flying = 4,
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-pub enum MovementInterpolation {
-    None = 0,
-    Linear = 1,
-    DeadReckoning = 2,
+impl From<PMovementState> for MovementState {
+    fn from(value: PMovementState) -> Self {
+        match value {
+            PMovementState::Idle => MovementState::Idle,
+            PMovementState::Walking => MovementState::Walking,
+            PMovementState::Running => MovementState::Running,
+            PMovementState::Rolling => MovementState::Rolling,
+            PMovementState::Jumping => MovementState::Jumping,
+        }
+    }
 }
 
 pub enum MovementCommand {
-    // State changes
     Halt,
     Walk { direction: UnitVector2<f32> },
     Run { direction: UnitVector2<f32> },
     Roll { direction: UnitVector2<f32> },
-
-    // Mode changes
-    Stand,
-    Crouch,
-    Crawl,
-    Swim,
-    Fly,
-
-    // etc
-    Teleport { position: Point2<f32>, forced: bool },
+    Jump,
 }
 
+// impl From<HaltMovementCommand> for MovementCommand {
+//     fn from(_: HaltMovementCommand) -> Self {
+//         MovementCommand::Halt
+//     }
+// }
+//
+// impl From<WalkMovementCommand> for MovementCommand {
+//     fn from(value: WalkMovementCommand) -> Self {
+//         MovementCommand::Walk {
+//             direction: value.direction.into(),
+//         }
+//     }
+// }
+//
+// impl From<RunMovementCommand> for MovementCommand {
+//     fn from(value: RunMovementCommand) -> Self {
+//         MovementCommand::Run {
+//             direction: value.direction.into(),
+//         }
+//     }
+// }
+//
+// impl From<RollMovementCommand> for MovementCommand {
+//     fn from(value: RollMovementCommand) -> Self {
+//         MovementCommand::Roll {
+//             direction: value.direction.into(),
+//         }
+//     }
+// }
+//
+// impl From<JumpMovementCommand> for MovementCommand {
+//     fn from(_: JumpMovementCommand) -> Self {
+//         MovementCommand::Jump
+//     }
+// }
+
 #[derive(Component, Default)]
-pub struct MovementController {
+pub struct Movement {
     state: MovementState,
-    mode: MovementMode,
+    direction: Option<UnitVector2<f32>>,
     commands: Vec<MovementCommand>,
-    transition: Option<Transition>,
-    interpolation: Option<MovementInterpolation>,
 }
 
 pub fn update(
-    mut query: Query<(
-        &mut MovementController,
-        &mut Transform,
-        &MobilityStat,
-        Option<&StatusEffectController>)>,
-    time: Res<WorldTime>,
+    mut query: Query<(&mut Movement, &mut Transform)>,
 ) {
-    query.iter_mut().for_each(
-        |(mut controller, mut transform, mobility, status)| {
-        if let Some(transition) = controller.transition.take() {
-            handle_transition(transition, &mut controller, &time);
-        }
-
-        let commands: Vec<_> = controller.commands.drain(..).collect();
+    query.iter_mut().for_each(|(mut movement, mut transform)| {
+        let commands: Vec<_> = movement.commands.drain(..).collect();
         for command in commands {
-            handle_command(command, &mut controller, &mut transform, status);
+            handle_command(command, &mut movement, &mut transform);
         }
 
-        handle_movement(&controller, &mut transform, &mobility, &time);
+        handle_movement(&movement, &mut transform);
     })
-}
-
-fn handle_transition(
-    transition: Transition,
-    controller: &mut MovementController,
-    time: &Res<WorldTime>,
-) {
-    let (state, then) = transition;
-
-    if time.now < then {
-        controller.transition = Some((state, then)); // give back
-        return;
-    }
-
-    controller.state = state;
 }
 
 fn handle_command(
     command: MovementCommand,
-    controller: &mut MovementController,
+    movement: &mut Movement,
     transform: &mut Transform,
-    status: Option<&StatusEffectController>,
 ) {
+    use MovementCommand::*;
+
     match command {
-        Halt => if controller.state == Walking || controller.state == Running {
-            controller.state = Idle;
-        }
+        Halt => {
+            movement.state = MovementState::Idle;
+            movement.direction = None;
+        },
         Walk { direction } => {
-            //TODO: Check status
-            controller.state = Walking;
-            transform.rotation = direction;
+            movement.state = MovementState::Walking;
+            movement.direction = Some(direction);
+            transform.direction = direction;
         }
         Run { direction } => {
-            //TODO: Check status
-            controller.state = Running;
-            transform.rotation = direction;
+            movement.state = MovementState::Running;
+            movement.direction = Some(direction);
+            transform.direction = direction;
         }
         Roll { direction } => {
-            //TODO: Check status
-            //TODO: Set rolling expiration as transition
-            controller.state = Rolling;
-            transform.rotation = direction;
+            movement.state = MovementState::Rolling;
+            movement.direction = Some(direction);
+            transform.direction = direction;
         }
-        Stand => {
-            //TODO: Check status
-            controller.mode = Standing;
-        }
-        Crouch => {
-            //TODO: Check status
-            controller.mode = Crouching;
-        }
-        Crawl => {
-            //TODO: Check status
-            controller.mode = Crawling;
-        }
-        Swim => {
-            //TODO: Check status
-            controller.mode = Swimming;
-        }
-        Fly => {
-            //TODO: Check status
-            controller.mode = Flying;
-        }
-        Teleport { position, forced } => {
-            controller.interpolation = Some(None); // Don't interpolate the teleportation
-
-            if forced {
-                //TODO: Check if movable to the position
-                transform.position = position;
-                return;
-            }
-
-            //TODO: Check status
-            transform.position = position;
+        Jump => {
+            movement.state = MovementState::Jumping;
+            movement.direction = None;
         }
     }
 }
 
 fn handle_movement(
-    controller: &MovementController,
+    movement: &Movement,
     transform: &mut Transform,
-    mobility: &MobilityStat,
-    time: &Res<WorldTime>,
 ) {
-    //TODO: Extract to config?
-    const WALK_MULTIPLIER: f32 = 1.0;
-    const RUN_MULTIPLIER: f32 = 1.5;
-
-    const STAND_MULTIPLIER: f32 = 1.0;
-    const CROUCH_MULTIPLIER: f32 = 0.6;
-    const CRAWL_MULTIPLIER: f32 = 0.3;
-
-    if controller.state == Idle {
-        transform.velocity = Vector2::<f32>::zeros();
+    if movement.state == MovementState::Idle {
         return;
     }
 
-    if controller.state == Rolling {
-        //TODO
-        return;
-    }
+    //TODO: Use stat and base speed
+    let mut speed = 1.0;
 
-    let mut speed = mobility.speed;
-    speed *= match controller.state {
-        Walking => WALK_MULTIPLIER,
-        Running => RUN_MULTIPLIER,
-        _ => 1.0,
-    };
-    speed *= match controller.mode {
-        Standing => STAND_MULTIPLIER,
-        Crouching => CROUCH_MULTIPLIER,
-        Crawling => CRAWL_MULTIPLIER,
-        _ => 1.0,
-    };
-
-    let velocity = speed * (time.dt.as_millis() as f32) * (*transform.rotation);
+    //TODO: Use tick interval for delta time
+    let velocity = speed * 0.1 * (*transform.direction);
+    let velocity = Vector3::new(velocity.x, 0.0, velocity.y);
     transform.position += velocity;
-    transform.velocity = velocity;
 }
 
 //TODO: Add session as component?
 pub fn sync(
-    mut query: Query<(Entity, &mut MovementController, &Transform), Changed<MovementController>>,
+    mut query: Query<(Entity, &mut Movement, &Transform), Changed<Movement>>,
+    mut sessions: Query<(&SessionContext)>,
 ) {
     //TODO: initialize Vec with query size
-    let mut movements = Vec::new();
+    let mut syncs = Vec::new();
 
-    query.iter_mut().for_each(|(entity, mut controller, transform)| {
-        let interpolation = if let Some(interpolation) = controller.interpolation.take() {
-            interpolation
-        } else {
-            // Default interpolation is linear
-            Linear
+    query.iter_mut().for_each(|(entity, movement, transform)| {
+        let direction: PVector2 = match movement.direction {
+            Some(d) => d.into(),
+            None => PVector2 { x: 0.0, y: 0.0 },
         };
 
-        let movement = Movement {
+        let sync = MovementSync {
             entity: entity.to_bits(),
-            state: controller.state as i32,
-            mode: controller.mode as i32,
-            interpolation: interpolation as i32,
-            position: Some(transform.position.into()),
-            velocity: Some(transform.velocity.into()),
+            state: movement.state as i32,
+            transform: Some(transform.clone().into()),
+            direction: Some(direction),
         };
-        movements.push(movement);
+        syncs.push(sync);
     });
 
-    let protocol = GameServerProtocol {
-        protocol: Some(game_server_protocol::Protocol::MovementSync(MovementSync { movements }))
+    let buf = match game::encode(&GameServerProtocol {
+        protocol: Some(game_server_protocol::Protocol::MovementSyncs(MovementSyncs { syncs }))
+    }) {
+        Ok(buf) => buf,
+        Err(e) => {
+            error!("Failed to encode: {}", e);
+            return;
+        }
     };
-    let buf = serialize_protocol(ProtocolCategory::Game, &protocol);
-    if let Err(e) = buf {
-        //TODO: Log
-        return;
-    }
 
-    //TODO: How to broadcast?
+    sessions.iter().for_each(|session| {
+        session.do_send(buf.clone());
+    });
 }

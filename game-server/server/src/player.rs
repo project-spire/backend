@@ -4,6 +4,7 @@ use bevy_ecs::prelude::*;
 use crate::character::*;
 use crate::database::{DatabaseClient, DatabaseError};
 use crate::network::authenticator::Entry;
+use crate::world::transform::Transform;
 use self::account::Account;
 // use crate::character::movement::MovementController;
 // use crate::character::stat::*;
@@ -18,7 +19,7 @@ pub struct PlayerData {
     // pub mobility_stat: MobilityStat,
 
     // movement
-    // pub transform: Transform,
+    pub transform: Transform,
     // pub movement_controller: MovementController,
 }
 
@@ -35,7 +36,7 @@ impl PlayerData {
             account,
             character,
             // character_stat,
-            // transform: Transform::default(),
+            transform: Transform::default(),
             // movement_controller: MovementController::default(),
         })
     }
