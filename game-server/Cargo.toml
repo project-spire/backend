@@ -2,7 +2,7 @@
 resolver = "3"
 members = [
     # "console",
-    "protocol/rs",
+    "game-protocol/rs",
     "server",
 ]
 

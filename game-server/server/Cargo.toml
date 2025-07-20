@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 macros = { path = "macros" }
-protocol = { path = "../protocol/rs" }
+game_protocol = { path = "../game-protocol/rs" }
 
 actix = "0.13"
 bevy_ecs = "0.16.1"

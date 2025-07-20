@@ -1,7 +1,7 @@
 mod net;
 
 use actix::Actor;
-use protocol::{*, net::*};
+use game_protocol::{*, net::*};
 use tracing::error;
 use crate::network::session::IngressProtocol;
 use crate::world::zone::Zone;

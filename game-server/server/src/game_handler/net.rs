@@ -1,7 +1,7 @@
 mod ping;
 
 use actix::Actor;
-use protocol::net::*;
+use game_protocol::net::*;
 use tracing::error;
 use crate::network::session::SessionContext;
 use crate::world::zone::Zone;
@@ -12,7 +12,7 @@ pub fn handle(
     session_ctx: SessionContext,
     proto: NetClientProtocol
 ) {
-    use protocol::net::net_client_protocol::Protocol;
+    use net_client_protocol::Protocol;
 
     let proto = match proto.protocol {
         Some(p) => p,

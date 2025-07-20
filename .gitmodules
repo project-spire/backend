@@ -1,4 +1,3 @@
-
-[submodule "game-server/protocol"]
-	path = game-server/protocol
+[submodule "game-server/game-protocol"]
+	path = game-server/game-protocol
 	url = git@github.com:project-spire/game-protocol.git

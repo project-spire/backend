@@ -1,5 +1,5 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use protocol::auth::login;
+use game_protocol::auth::login;
 use tokio::net::TcpStream;
 use tracing::{error, info};
 use crate::network::authenticator::Entry;

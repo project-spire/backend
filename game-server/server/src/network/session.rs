@@ -1,7 +1,7 @@
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use protocol::{decode_header, ProtocolCategory, PROTOCOL_HEADER_SIZE};
+use game_protocol::{decode_header, ProtocolCategory, PROTOCOL_HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
