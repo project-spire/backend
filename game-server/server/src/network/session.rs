@@ -20,8 +20,14 @@ pub struct SessionContext {
 }
 
 impl SessionContext {
-    pub async fn send(&mut self, proto: EgressProtocol) {
+    pub async fn send(&self, proto: EgressProtocol) {
         _ = self.egress_proto_tx.send(proto).await;
+    }
+    
+    pub fn do_send(&self, proto: EgressProtocol) {
+        if let Err(e) = self.egress_proto_tx.try_send(proto) {
+            error!("Error sending egress protocol: {}", e);
+        }
     }
 }
 
