@@ -18,9 +18,9 @@ impl Handler<NewPlayer> for Zone {
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
         let character_id = msg.player_data.character.id;
         let entity = self.world.spawn(msg.player_data).id();
-        self.players.insert(character_id, entity);
+        self.characters.insert(character_id, entity);
         
-        Session::new(msg.socket, self.ingress_msg_tx.clone()).start();
+        Session::new(msg.socket, self.ingress_proto_tx.clone()).start();
         
         info!("{}: New player added", self);
     }

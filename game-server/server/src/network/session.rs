@@ -1,4 +1,4 @@
-use actix::{Actor, ActorContext, ActorFutureExt, AsyncContext, Context, Handler, WrapFuture};
+use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::Bytes;
 use protocol::{deserialize_header, ProtocolCategory, HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
@@ -6,71 +6,70 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tracing::{info, error};
 
-const EGRESS_MESSAGE_BUFFER_SIZE: usize = 16;
+const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
-pub type IngressMessage = (SessionContext, ProtocolCategory, Bytes);
-pub type EgressMessage = Bytes;
+pub type IngressProtocol = (SessionContext, ProtocolCategory, Bytes);
+pub type EgressProtocol = Bytes;
 
 #[derive(Clone)]
 pub struct SessionContext {
-    egress_msg_tx: mpsc::Sender<EgressMessage>,
+    pub session: Addr<Session>,
+    pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
 }
 
 impl SessionContext {
-    pub async fn send(&mut self, msg: EgressMessage) {
-        _ = self.egress_msg_tx.send(msg).await;
+    pub async fn send(&mut self, proto: EgressProtocol) {
+        _ = self.egress_proto_tx.send(proto).await;
     }
 }
 
 pub struct Session {
     socket: Option<TcpStream>,
 
-    egress_msg_tx: mpsc::Sender<EgressMessage>,
-    egress_msg_rx: Option<mpsc::Receiver<EgressMessage>>,
+    egress_proto_tx: mpsc::Sender<EgressProtocol>,
+    egress_proto_rx: Option<mpsc::Receiver<EgressProtocol>>,
 
-    ingress_msg_tx: Option<mpsc::Sender<IngressMessage>>,
-    transfer_tx: mpsc::Sender<mpsc::Sender<IngressMessage>>,
-    transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressMessage>>>,
+    ingress_proto_tx: Option<mpsc::Sender<IngressProtocol>>,
+    transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
+    transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
 }
 
 impl Session {
-    pub fn new(socket: TcpStream, ingress_msg_tx: mpsc::Sender<IngressMessage>) -> Self {
-        let (egress_msg_tx, egress_msg_rx) = mpsc::channel(EGRESS_MESSAGE_BUFFER_SIZE);
-        let (transfer_tx, transfer_rx) = mpsc::channel(1);
+    pub fn new(socket: TcpStream, ingress_proto_tx: mpsc::Sender<IngressProtocol>) -> Self {
+        let (egress_proto_tx, egress_proto_rx) = mpsc::channel(EGRESS_PROTOCOL_BUFFER_SIZE);
+        let (transfer_tx, transfer_rx) = mpsc::channel(2);
 
         Session {
             socket: Some(socket),
-            egress_msg_tx,
-            egress_msg_rx: Some(egress_msg_rx),
-            ingress_msg_tx: Some(ingress_msg_tx),
+            egress_proto_tx,
+            egress_proto_rx: Some(egress_proto_rx),
+            ingress_proto_tx: Some(ingress_proto_tx),
             transfer_tx,
             transfer_rx: Some(transfer_rx),
-        }
-    }
-    
-    pub fn new_ctx(&mut self) -> SessionContext {
-        SessionContext {
-            egress_msg_tx: self.egress_msg_tx.clone(),
         }
     }
 
     fn start_recv(
         &mut self,
         mut reader: ReadHalf<TcpStream>,
-        mut ingress_msg_tx: mpsc::Sender<IngressMessage>,
-        mut transfer_rx: mpsc::Receiver<mpsc::Sender<IngressMessage>>,
+        mut ingress_proto_tx: mpsc::Sender<IngressProtocol>,
+        mut transfer_rx: mpsc::Receiver<mpsc::Sender<IngressProtocol>>,
         ctx: &mut <Session as Actor>::Context,
     ) {
-        let session_ctx = self.new_ctx();
+        let session_ctx = SessionContext { 
+            session: ctx.address(),
+            egress_proto_tx: self.egress_proto_tx.clone(),
+        };
+        
         ctx.spawn(
             async move {
                 loop {
-                    let (category, body) = recv(&mut reader).await?;
+                    let (category, data) = recv(&mut reader).await?;
 
                     if let Ok(tx) = transfer_rx.try_recv() {
-                        ingress_msg_tx = tx;
+                        ingress_proto_tx = tx;
                     }
-                    _ = ingress_msg_tx.send((session_ctx.clone(), category, body)).await;
+                    _ = ingress_proto_tx.send((session_ctx.clone(), category, data)).await;
                 }
 
                 Ok::<(), std::io::Error>(())
@@ -93,20 +92,20 @@ impl Session {
     fn start_send(
         &mut self,
         mut writer: WriteHalf<TcpStream>,
-        mut egress_msg_rx: mpsc::Receiver<EgressMessage>,
+        mut egress_proto_rx: mpsc::Receiver<EgressProtocol>,
         ctx: &mut <Session as Actor>::Context,
     ) {
         ctx.spawn(
             async move {
-                let mut egress_msg_buf = Vec::with_capacity(EGRESS_MESSAGE_BUFFER_SIZE);
+                let mut protos = Vec::with_capacity(EGRESS_PROTOCOL_BUFFER_SIZE);
 
                 loop {
-                    egress_msg_rx
-                        .recv_many(&mut egress_msg_buf, EGRESS_MESSAGE_BUFFER_SIZE)
+                    egress_proto_rx
+                        .recv_many(&mut protos, EGRESS_PROTOCOL_BUFFER_SIZE)
                         .await;
 
-                    for msg in egress_msg_buf.drain(..) {
-                        send(&mut writer, msg).await?;
+                    for proto in protos.drain(..) {
+                        send(&mut writer, proto).await?;
                     }
                 }
 
@@ -135,23 +134,23 @@ impl Actor for Session {
         let socket = self.socket.take().expect("Socket must be set before start");
         let (reader, writer) = tokio::io::split(socket);
 
-        let egress_msg_rx = self
-            .egress_msg_rx
+        let egress_proto_rx = self
+            .egress_proto_rx
             .take()
-            .expect("out-message channel must be set before start");
+            .expect("Egress protocol channel must be set before start");
 
-        let ingress_msg_tx = self
-            .ingress_msg_tx
+        let ingress_proto_tx = self
+            .ingress_proto_tx
             .take()
-            .expect("in-message channel must be set before start");
+            .expect("Ingress protocol channel must be set before start");
 
         let transfer_rx = self
             .transfer_rx
             .take()
-            .expect("transfer channel must be set before start");
+            .expect("Transfer channel must be set before start");
 
-        self.start_recv(reader, ingress_msg_tx, transfer_rx, ctx);
-        self.start_send(writer, egress_msg_rx, ctx);
+        self.start_recv(reader, ingress_proto_tx, transfer_rx, ctx);
+        self.start_send(writer, egress_proto_rx, ctx);
     }
 }
 

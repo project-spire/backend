@@ -9,67 +9,67 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use crate::network::session::IngressMessage;
+use crate::network::session::IngressProtocol;
 
-const INGRESS_MESSAGE_BUFFER_SIZE: usize = 64;
+const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
     id: i64,
 
-    ingress_msg_tx: mpsc::Sender<IngressMessage>,
-    ingress_msg_rx: Option<mpsc::Receiver<IngressMessage>>,
+    ingress_proto_tx: mpsc::Sender<IngressProtocol>,
+    ingress_proto_rx: Option<mpsc::Receiver<IngressProtocol>>,
 
     world: World,
     ticks: u64,
-    players: HashMap<i64, Entity>,
+    characters: HashMap<i64, Entity>,
 }
 
 impl Zone {
     pub fn new(id: i64) -> Self {
-        let (ingress_msg_tx, ingress_msg_rx) = mpsc::channel(INGRESS_MESSAGE_BUFFER_SIZE);
+        let (ingress_proto_tx, ingress_proto_rx) = mpsc::channel(INGRESS_PROTOCOL_BUFFER_SIZE);
 
         Zone {
             id,
-            ingress_msg_tx,
-            ingress_msg_rx: Some(ingress_msg_rx),
+            ingress_proto_tx,
+            ingress_proto_rx: Some(ingress_proto_rx),
             world: World::new(),
             ticks: 0,
-            players: HashMap::new(),
+            characters: HashMap::new(),
         }
     }
 
-    fn handle_ingress_messages(
+    fn handle_protocol_loop(
         &self,
         ctx: &mut <Self as Actor>::Context,
-        mut ingress_msg_rx: mpsc::Receiver<IngressMessage>,
+        mut ingress_proto_rx: mpsc::Receiver<IngressProtocol>,
     ) {
-        // Start a message handling recursion
+        // Start a protocol handling recursion
         ctx.spawn(
             async move {
-                let mut ingress_msg_buf = Vec::with_capacity(INGRESS_MESSAGE_BUFFER_SIZE);
-                _ = ingress_msg_rx
-                    .recv_many(&mut ingress_msg_buf, INGRESS_MESSAGE_BUFFER_SIZE)
+                let mut protos = Vec::with_capacity(INGRESS_PROTOCOL_BUFFER_SIZE);
+                _ = ingress_proto_rx
+                    .recv_many(&mut protos, INGRESS_PROTOCOL_BUFFER_SIZE)
                     .await;
 
-                (ingress_msg_rx, ingress_msg_buf)
+                (ingress_proto_rx, protos)
             }
             .into_actor(self)
             .then(|res, act, ctx| {
-                let (in_message_rx, mut msg_buf) = res;
-                for msg in msg_buf.drain(..) {
-                    act.handle_ingress_message(ctx, msg);
+                let (ingress_proto_rx, mut protos) = res;
+                for proto in protos.drain(..) {
+                    act.handle_protocol(ctx, proto);
                 }
 
                 // Recursion without starving Actor's tick task
-                act.handle_ingress_messages(ctx, in_message_rx);
+                act.handle_protocol_loop(ctx, ingress_proto_rx);
 
                 actix::fut::ready(())
             }),
         );
     }
 
-    fn handle_ingress_message(&mut self, ctx: &mut <Self as Actor>::Context, msg: IngressMessage) {}
+    fn handle_protocol(&mut self, ctx: &mut <Self as Actor>::Context, msg: IngressProtocol) {}
 
     fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
         let mut schedule = Schedule::default();
@@ -83,12 +83,12 @@ impl Actor for Zone {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let ingress_msg_rx = self
-            .ingress_msg_rx
+        let ingress_proto_rx = self
+            .ingress_proto_rx
             .take()
-            .expect("InMessage channel should be set before start");
+            .expect("Ingress protocol channel must be set before start");
 
-        self.handle_ingress_messages(ctx, ingress_msg_rx);
+        self.handle_protocol_loop(ctx, ingress_proto_rx);
 
         ctx.run_interval(TICK_INTERVAL, |act, ctx| {
             act.tick(ctx);
