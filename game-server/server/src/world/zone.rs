@@ -15,13 +15,13 @@ const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
-    id: i64,
+    pub id: i64,
 
     ingress_proto_tx: mpsc::Sender<IngressProtocol>,
     ingress_proto_rx: Option<mpsc::Receiver<IngressProtocol>>,
 
-    world: World,
-    ticks: u64,
+    pub world: World,
+    pub ticks: u64,
     characters: HashMap<i64, Entity>,
 }
 
@@ -69,7 +69,7 @@ impl Zone {
         );
     }
 
-    fn handle_protocol(&mut self, ctx: &mut <Self as Actor>::Context, msg: IngressProtocol) {}
+    fn handle_protocol(&mut self, ctx: &mut <Self as Actor>::Context, proto: IngressProtocol) {}
 
     fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
         let mut schedule = Schedule::default();

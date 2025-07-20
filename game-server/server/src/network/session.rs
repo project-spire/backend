@@ -1,6 +1,7 @@
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
+use bevy_ecs::component::Component;
 use bytes::Bytes;
-use protocol::{deserialize_header, ProtocolCategory, HEADER_SIZE};
+use protocol::{decode_header, ProtocolCategory, PROTOCOL_HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
@@ -11,10 +12,11 @@ const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 pub type IngressProtocol = (SessionContext, ProtocolCategory, Bytes);
 pub type EgressProtocol = Bytes;
 
-#[derive(Clone)]
+#[derive(Component, Clone)]
 pub struct SessionContext {
     pub session: Addr<Session>,
     pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
+    pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
 }
 
 impl SessionContext {
@@ -26,11 +28,11 @@ impl SessionContext {
 pub struct Session {
     socket: Option<TcpStream>,
 
-    egress_proto_tx: mpsc::Sender<EgressProtocol>,
+    pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
     egress_proto_rx: Option<mpsc::Receiver<EgressProtocol>>,
 
     ingress_proto_tx: Option<mpsc::Sender<IngressProtocol>>,
-    transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
+    pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
     transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
 }
 
@@ -56,11 +58,12 @@ impl Session {
         mut transfer_rx: mpsc::Receiver<mpsc::Sender<IngressProtocol>>,
         ctx: &mut <Session as Actor>::Context,
     ) {
-        let session_ctx = SessionContext { 
+        let session_ctx = SessionContext {
             session: ctx.address(),
             egress_proto_tx: self.egress_proto_tx.clone(),
+            transfer_tx: self.transfer_tx.clone(),
         };
-        
+
         ctx.spawn(
             async move {
                 loop {
@@ -157,19 +160,23 @@ impl Actor for Session {
 async fn recv(
     reader: &mut ReadHalf<TcpStream>,
 ) -> Result<(ProtocolCategory, Bytes), std::io::Error> {
-    let mut header_buf = [0u8; HEADER_SIZE];
+    let mut header_buf = [0u8; PROTOCOL_HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
-    let header = deserialize_header(&header_buf);
+    let (category, length) = match decode_header(&header_buf) {
+        Ok((c, l)) => (c, l),
+        Err(_) => return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData, "Invalid header")),
+    };
 
-    if header.category == ProtocolCategory::None || header.length == 0 {
+    if length == 0 {
         return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData, "Invalid header"));
+            std::io::ErrorKind::InvalidData, "Invalid body length"));
     }
 
-    let mut body_buf = vec![0u8; header.length];
+    let mut body_buf = vec![0u8; length];
     reader.read_exact(&mut body_buf).await?;
 
-    Ok((header.category, Bytes::from(body_buf)))
+    Ok((category, Bytes::from(body_buf)))
 }
 
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {

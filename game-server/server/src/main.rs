@@ -1,5 +1,6 @@
 mod character;
 mod database;
+mod game_handler;
 mod network;
 mod player;
 mod settings;

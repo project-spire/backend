@@ -4,7 +4,7 @@ use crate::network::gateway::{Gateway, NewPlayer};
 use crate::player::account::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use protocol::*;
-use protocol::auth::{*, auth_client_protocol::Protocol};
+use protocol::auth::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::io::AsyncReadExt;
@@ -55,43 +55,45 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
         ctx.spawn(async move {
             let mut socket = msg.socket;
 
-            let mut header_buf = [0u8; HEADER_SIZE];
+            let mut header_buf = [0u8; PROTOCOL_HEADER_SIZE];
             match timeout(READ_TIMEOUT, socket.read_exact(&mut header_buf)).await {
                 Ok(Ok(_)) => {},
-                Ok(Err(e)) => return Err((e, socket)),
-                Err(_) => return Err((
-                    std::io::Error::new(std::io::ErrorKind::TimedOut, "Header read timed out"),
-                    socket
-                )),
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut, "Header read timed out")),
             };
-            let header = deserialize_header(&header_buf);
 
-            if header.category == ProtocolCategory::None || header.length == 0 {
-                return Err((
-                   std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid header"),
-                   socket
-               ));
+            let (category, length) = match decode_header(&header_buf) {
+                Ok(header) => header,
+                Err(_) => return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData, "Invalid header")),
+            };
+            if length == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData, "Invalid body length"));
+            }
+            if category != ProtocolCategory::Auth {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData, "Invalid protocol category"));
             }
 
-            let mut body_buf = vec![0u8; header.length];
-            match timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf[..header.length])).await {
+            let mut body_buf = vec![0u8; length];
+            match timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf)).await {
                 Ok(Ok(_)) => {},
-                Ok(Err(e)) => return Err((e, socket)),
-                Err(_) => return Err((
-                    std::io::Error::new(std::io::ErrorKind::TimedOut, "Body read timed out"),
-                    socket
-                )),
+                Ok(Err(e)) => return Err(e),
+                Err(_) => return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut, "Body read timed out")),
             };
 
-            Ok((header, Bytes::from(body_buf), socket))
+            Ok((Bytes::from(body_buf), socket))
         }
         .into_actor(self)
         .then(|res, act, ctx| {
             match res {
-                Ok((header, body, socket)) => {
-                    act.authenticate(header, body, socket);
+                Ok((body, socket)) => {
+                    act.authenticate(body, socket);
                 }
-                Err((e, _socket)) => {
+                Err(e) => {
                     error!("Error receiving message from unauthorized session: {}", e);
                 }
             }
@@ -104,16 +106,10 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
 impl Authenticator {
     fn authenticate(
         &self,
-        header: ProtocolHeader,
-        body: Bytes,
+        data: Bytes,
         socket: TcpStream
     ) {
-        if header.category != ProtocolCategory::Auth {
-            error!("Invalid protocol category: {:?}", header.category);
-            return;
-        }
-
-        let protocol = match AuthClientProtocol::decode(body) {
+        let protocol = match AuthClientProtocol::decode(data) {
             Ok(p) => p.protocol,
             Err(e) => {
                 error!("Failed to decode auth protocol: {}", e);
@@ -122,7 +118,7 @@ impl Authenticator {
         };
 
         let login = match protocol {
-            Some(Protocol::Login(l)) => l,
+            Some(auth_client_protocol::Protocol::Login(l)) => l,
             _ => {
                 error!("Invalid auth protocol");
                 return;
