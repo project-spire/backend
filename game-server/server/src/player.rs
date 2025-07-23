@@ -3,7 +3,7 @@ pub mod account;
 use bevy_ecs::prelude::*;
 use crate::character::*;
 use crate::database::{DatabaseClient, DatabaseError};
-use crate::network::authenticator::Entry;
+use crate::network::session::Entry;
 use crate::world::transform::Transform;
 use self::account::Account;
 // use crate::character::movement::MovementController;

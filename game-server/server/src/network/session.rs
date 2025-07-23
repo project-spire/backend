@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bevy_ecs::component::Component;
 use bytes::Bytes;
@@ -5,15 +6,24 @@ use game_protocol::{decode_header, ProtocolCategory, PROTOCOL_HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
-use tracing::{info, error};
+use tracing::error;
+use crate::player::account::Privilege;
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
 pub type IngressProtocol = (SessionContext, ProtocolCategory, Bytes);
 pub type EgressProtocol = Bytes;
 
+#[derive(Debug, Clone)]
+pub struct Entry {
+    pub account_id: i64,
+    pub character_id: i64,
+    pub privilege: Privilege
+}
+
 #[derive(Component, Clone)]
 pub struct SessionContext {
+    pub entry: Entry,
     pub session: Addr<Session>,
     pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
     pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
@@ -31,23 +41,42 @@ impl SessionContext {
     }
 }
 
+impl Display for SessionContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Session(account_id: {}, character_id: {}, privilege: {:?})",
+            self.entry.account_id,
+            self.entry.character_id,
+            self.entry.privilege,
+        )
+    }
+}
+
 pub struct Session {
+    entry: Entry,
     socket: Option<TcpStream>,
 
     pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
     egress_proto_rx: Option<mpsc::Receiver<EgressProtocol>>,
 
     ingress_proto_tx: Option<mpsc::Sender<IngressProtocol>>,
+
     pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
     transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
 }
 
 impl Session {
-    pub fn new(socket: TcpStream, ingress_proto_tx: mpsc::Sender<IngressProtocol>) -> Self {
+    pub fn new(
+        entry: Entry,
+        socket: TcpStream,
+        ingress_proto_tx: mpsc::Sender<IngressProtocol>,
+    ) -> Self {
         let (egress_proto_tx, egress_proto_rx) = mpsc::channel(EGRESS_PROTOCOL_BUFFER_SIZE);
         let (transfer_tx, transfer_rx) = mpsc::channel(2);
 
         Session {
+            entry,
             socket: Some(socket),
             egress_proto_tx,
             egress_proto_rx: Some(egress_proto_rx),
@@ -65,6 +94,7 @@ impl Session {
         ctx: &mut <Session as Actor>::Context,
     ) {
         let session_ctx = SessionContext {
+            entry: self.entry.clone(),
             session: ctx.address(),
             egress_proto_tx: self.egress_proto_tx.clone(),
             transfer_tx: self.transfer_tx.clone(),

@@ -3,30 +3,8 @@ use game_protocol::{*, game::*};
 use nalgebra::{UnitVector2, Vector2, Vector3};
 use tracing::error;
 use crate::network::session::{SessionContext};
+use crate::timestamp::Timestamp;
 use crate::world::transform::Transform;
-
-#[derive(Eq, PartialEq, Copy, Clone, Default)]
-#[repr(i32)]
-pub enum MovementState {
-    #[default]
-    Idle = 0,
-    Walking = 1,
-    Running = 2,
-    Rolling = 3,
-    Jumping = 4,
-}
-
-impl From<PMovementState> for MovementState {
-    fn from(value: PMovementState) -> Self {
-        match value {
-            PMovementState::Idle => MovementState::Idle,
-            PMovementState::Walking => MovementState::Walking,
-            PMovementState::Running => MovementState::Running,
-            PMovementState::Rolling => MovementState::Rolling,
-            PMovementState::Jumping => MovementState::Jumping,
-        }
-    }
-}
 
 pub enum MovementCommand {
     Halt,
@@ -34,6 +12,19 @@ pub enum MovementCommand {
     Run { direction: UnitVector2<f32> },
     Roll { direction: UnitVector2<f32> },
     Jump,
+}
+
+impl From<movement_command_protocol::Command> for MovementCommand {
+    fn from(value: movement_command_protocol::Command) -> Self {
+        use movement_command_protocol::Command;
+
+        match value {
+            Command::Halt(_) => MovementCommand::Halt,
+            Command::Walk(walk) => MovementCommand::Walk { direction: walk.direction.unwrap().into() },
+            Command::Run(run) => MovementCommand::Run { direction: run.direction.unwrap().into() },
+            Command::Roll(roll) => MovementCommand::Roll { direction: roll.direction.unwrap().into() },
+        }
+    }
 }
 
 // impl From<HaltMovementCommand> for MovementCommand {
@@ -76,7 +67,13 @@ pub enum MovementCommand {
 pub struct Movement {
     state: MovementState,
     direction: Option<UnitVector2<f32>>,
-    commands: Vec<MovementCommand>,
+    commands: Vec<(Timestamp, MovementCommand)>,
+}
+
+impl Movement {
+    pub fn add_command(&mut self, timestamp: Timestamp, command: MovementCommand) {
+        self.commands.push((timestamp, command));
+    }
 }
 
 pub fn update(
@@ -84,8 +81,8 @@ pub fn update(
 ) {
     query.iter_mut().for_each(|(mut movement, mut transform)| {
         let commands: Vec<_> = movement.commands.drain(..).collect();
-        for command in commands {
-            handle_command(command, &mut movement, &mut transform);
+        for (timestamp, command) in commands {
+            handle_command(timestamp, command, &mut movement, &mut transform);
         }
 
         handle_movement(&movement, &mut transform);
@@ -93,6 +90,7 @@ pub fn update(
 }
 
 fn handle_command(
+    timestamp: Timestamp,
     command: MovementCommand,
     movement: &mut Movement,
     transform: &mut Transform,
@@ -160,14 +158,14 @@ pub fn sync(
         let sync = MovementSync {
             entity: entity.to_bits(),
             state: movement.state as i32,
-            transform: Some(transform.clone().into()),
+            position: Some(transform.position.into()),
             direction: Some(direction),
         };
         syncs.push(sync);
     });
 
     let buf = match game::encode(&GameServerProtocol {
-        protocol: Some(game_server_protocol::Protocol::MovementSyncs(MovementSyncs { syncs }))
+        protocol: Some(game_server_protocol::Protocol::MovementSyncs(MovementSyncProtocol { syncs }))
     }) {
         Ok(buf) => buf,
         Err(e) => {

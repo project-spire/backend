@@ -1,6 +1,5 @@
 use bevy_ecs::prelude::*;
 use nalgebra::{Point3, UnitVector2, Vector2};
-use game_protocol::game::PTransform;
 
 #[derive(Component, Clone, Copy)]
 pub struct Transform {
@@ -13,15 +12,6 @@ impl Default for Transform {
         Transform {
             position: Point3::default(),
             direction: UnitVector2::new_normalize(Vector2::new(1.0, 0.0))
-        }
-    }
-}
-
-impl Into<PTransform> for Transform {
-    fn into(self) -> PTransform {
-        PTransform {
-            position: Some(self.position.into()),
-            direction: Some(self.direction.into()),
         }
     }
 }

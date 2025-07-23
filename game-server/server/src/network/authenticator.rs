@@ -11,6 +11,7 @@ use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tracing::{info, error};
 use crate::network::gateway::{Gateway, NewPlayer};
+use crate::network::session::Entry;
 use crate::player::account::*;
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
@@ -33,13 +34,6 @@ impl Authenticator {
 
 impl Actor for Authenticator {
     type Context = Context<Self>;
-}
-
-#[derive(Debug)]
-pub struct Entry {
-    pub account_id: i64,
-    pub character_id: i64,
-    pub privilege: Privilege
 }
 
 #[derive(actix::Message)]

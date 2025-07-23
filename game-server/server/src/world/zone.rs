@@ -22,7 +22,7 @@ pub struct Zone {
 
     pub world: World,
     pub ticks: u64,
-    characters: HashMap<i64, Entity>,
+    pub characters: HashMap<i64, Entity>,
 }
 
 impl Zone {

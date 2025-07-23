@@ -1,7 +1,7 @@
-mod ping;
+mod movement_command;
 
 use actix::Actor;
-use game_protocol::net::*;
+use game_protocol::game::*;
 use tracing::error;
 use crate::network::session::SessionContext;
 use crate::world::zone::Zone;
@@ -10,9 +10,9 @@ pub fn handle(
     zone: &mut Zone,
     ctx: &mut <Zone as Actor>::Context,
     session_ctx: SessionContext,
-    proto: NetClientProtocol
+    proto: GameClientProtocol
 ) {
-    use net_client_protocol::Protocol;
+    use game_client_protocol::Protocol::*;
 
     let proto = match proto.protocol {
         Some(p) => p,
@@ -23,7 +23,7 @@ pub fn handle(
     };
 
     match proto {
-        Protocol::Ping(ping) => ping::handle(session_ctx, ping),
+        MovementCommand(cmd) => movement_command::handle(zone, session_ctx, cmd),
         _ => {
             error!("Unhandled protocol");
         },
