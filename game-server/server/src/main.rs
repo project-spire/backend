@@ -1,5 +1,5 @@
 mod character;
-mod database;
+mod db;
 mod game_handler;
 mod network;
 mod player;
@@ -9,12 +9,11 @@ mod timestamp;
 
 use actix::prelude::*;
 use clap::Parser;
-use crate::database::DatabaseContext;
+use crate::db::DbContext;
 use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
 use crate::network::gateway::{Gateway, NewZone};
 use crate::world::zone::Zone;
-use std::sync::Arc;
 use tracing::{info, error};
 use tracing_subscriber::fmt;
 
@@ -47,8 +46,8 @@ async fn main() {
         }
     };
 
-    let db_ctx = match DatabaseContext::new(&net_settings).await {
-        Ok(ctx) => Arc::new(ctx),
+    let db_ctx = match DbContext::new(&net_settings).await {
+        Ok(ctx) => ctx,
         Err(e) => {
             error!("Error creating database context: {}", e);
             return;
@@ -57,8 +56,8 @@ async fn main() {
 
     let default_zone = Zone::new(0).start();
     let gateway = Gateway::new(db_ctx.clone()).start();
-    let authenticator = Authenticator::new(net_settings.auth_key, gateway.clone()).start();
-    let _game_listener = GameListener::new(net_settings.game_listen_port, authenticator).start();
+    let authenticator = Authenticator::new(net_settings.token_key, gateway.clone()).start();
+    let _game_listener = GameListener::new(net_settings.port, authenticator).start();
     
     gateway.do_send(NewZone { id: 0, zone: default_zone.clone() });
 

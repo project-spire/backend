@@ -9,6 +9,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::time::Duration;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 use crate::network::session::IngressProtocol;
 
 const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
@@ -22,7 +23,7 @@ pub struct Zone {
 
     pub world: World,
     pub ticks: u64,
-    pub characters: HashMap<i64, Entity>,
+    pub characters: HashMap<Uuid, Entity>,
 }
 
 impl Zone {

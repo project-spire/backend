@@ -84,7 +84,6 @@ impl Authenticator {
         #[derive(Debug, Serialize, Deserialize)]
         struct Claims {
             aid: String, // account_id
-            prv: String, // privilege
         }
 
         let claims = jsonwebtoken::decode::<Claims>(
@@ -93,15 +92,14 @@ impl Authenticator {
             &self.validation,
         )?.claims;
 
-        let account_id: i64 = claims.aid.parse()?;
-        let privilege = Privilege::from_str(&claims.prv)?;
+        let account_id = uuid::Uuid::parse_str(&claims.aid)?;
+        let character_id = match login.character_id {
+            Some(id) => uuid::Uuid::from(id),
+            None => return Err(Box::new(ProtocolError::InvalidData)),
+        };
         let login_kind = login::Kind::try_from(login.kind)?;
 
-        Ok((Entry {
-            account_id,
-            character_id: login.character_id,
-            privilege,
-        }, login_kind))
+        Ok((Entry { account_id, character_id }, login_kind))
     }
 }
 

@@ -23,21 +23,22 @@ pub static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
 pub struct NetworkSettings {
-    pub game_listen_port: u16,
-    pub control_listen_port: u16,
+    #[serde(skip_deserializing)] pub port: u16,
+    game_server_port: u16,
+
+    #[serde(skip_deserializing)] pub control_port: u16,
+    game_server_control_port: u16,
 
     pub db_host: String,
     pub db_port: u16,
     pub db_user: String,
     pub db_name: String,
-    
-    #[serde(skip_deserializing)]
-    pub db_password: String,
+
+    #[serde(skip_deserializing)] pub db_password: String,
     db_password_file: String,
 
-    #[serde(skip_deserializing)]
-    pub auth_key: Vec<u8>,
-    auth_key_file: String,
+    #[serde(skip_deserializing)] pub token_key: Vec<u8>,
+    token_key_file: String,
 }
 
 impl NetworkSettings {
@@ -47,8 +48,10 @@ impl NetworkSettings {
             .build()?
             .try_deserialize()?;
 
+        settings.port = settings.game_server_port;
+        settings.control_port = settings.game_server_control_port;
         settings.db_password = read_from_file(Path::new(&settings.db_password_file))?;
-        settings.auth_key = read_from_file(Path::new(&settings.auth_key_file))?.into_bytes();
+        settings.token_key = read_from_file(Path::new(&settings.token_key_file))?.into_bytes();
 
         Ok(settings)
     }

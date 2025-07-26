@@ -8,40 +8,40 @@ pub mod movement;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
-use postgres_types::{FromSql, ToSql};
-use crate::database::{DatabaseClient, DatabaseError};
+use gel_derive::Queryable;
+use serde::Deserialize;
+use uuid::Uuid;
+use crate::db::{DbClient, DbError};
 
-#[derive(Debug, FromSql, ToSql)]
-#[postgres(name = "race")]
+#[derive(Debug, Queryable)]
 pub enum Race {
     Human,
     Barbarian,
 }
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Queryable)]
 pub struct Character {
-    pub id: i64,
+    pub id: Uuid,
     pub name: String,
     pub race: Race,
 }
 
 impl Character {
     pub async fn load(
-        character_id: i64,
-        account_id: i64,
-        client: &DatabaseClient
-    ) -> Result<Character, DatabaseError> {
-        let row = client.query_one(
-            "SELECT name, race \
-            FROM character \
-            WHERE id=$1 and account_id=$2",
-            &[&character_id, &account_id]
-        ).await?;
+        client: &DbClient,
+        character_id: &Uuid
+    ) -> Result<Character, DbError> {
+        let query = "
+            SELECT Character {
+                id,
+                name,
+                race
+            }
+            FILTER .id = <uuid>$0
+            LIMIT 1;
+        ";
 
-        Ok(Character {
-            id: character_id,
-            name: row.get::<_, String>(0),
-            race: row.get::<_, Race>(1),
-        })
+        let character = client.query_required_single(query, &(character_id,)).await?;
+        Ok(character)
     }
 }

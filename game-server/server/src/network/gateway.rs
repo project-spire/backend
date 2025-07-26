@@ -7,17 +7,17 @@ pub use new_zone::NewZone;
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::database::DatabaseContext;
+use crate::db::DbContext;
 use crate::world::zone::Zone;
 
 pub struct Gateway {
     zones: HashMap<i64, Addr<Zone>>,
 
-    db_ctx: Arc<DatabaseContext>,
+    db_ctx: DbContext,
 }
 
 impl Gateway {
-    pub fn new(db_ctx: Arc<DatabaseContext>) -> Self {
+    pub fn new(db_ctx: DbContext) -> Self {
         let zones = HashMap::new();
 
         Gateway { zones, db_ctx }

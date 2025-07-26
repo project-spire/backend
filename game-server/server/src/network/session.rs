@@ -7,7 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tracing::error;
-use crate::player::account::Privilege;
+use uuid::Uuid;
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
@@ -16,9 +16,8 @@ pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub account_id: i64,
-    pub character_id: i64,
-    pub privilege: Privilege
+    pub account_id: Uuid,
+    pub character_id: Uuid,
 }
 
 #[derive(Component, Clone)]
@@ -45,10 +44,9 @@ impl Display for SessionContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Session(account_id: {}, character_id: {}, privilege: {:?})",
+            "Session(account_id: {}, character_id: {})",
             self.entry.account_id,
             self.entry.character_id,
-            self.entry.privilege,
         )
     }
 }

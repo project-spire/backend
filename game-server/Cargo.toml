@@ -10,3 +10,4 @@ members = [
 nalgebra = "0.33"
 prost = "0.14"
 serde = { version = "1.0", features = ["derive"] }
+uuid = { version = "1.17.0", features = ["v4"] }

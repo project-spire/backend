@@ -22,9 +22,8 @@ impl Handler<NewPlayer> for Gateway {
         let db_ctx = self.db_ctx.clone();
 
         ctx.spawn(async move {
-            let db_client = db_ctx.client().await?;
             let player_data = match msg.login_kind {
-                login::Kind::Enter => PlayerData::load(&db_client, &msg.entry).await?,
+                login::Kind::Enter => PlayerData::load(&db_ctx.client, &msg.entry).await?,
                 login::Kind::Transfer => todo!(),
             };
 
