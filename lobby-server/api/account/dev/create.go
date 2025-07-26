@@ -7,6 +7,7 @@ import (
 	"spire/lobby/core"
 	"unicode/utf8"
 
+	"github.com/geldata/gel-go/geltypes"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,7 +22,7 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 	}
 
 	type Response struct {
-		AccountId int64 `json:"account_id"`
+		AccountId geltypes.UUID `json:"account_id"`
 	}
 
 	var r Request
@@ -37,34 +38,16 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		return
 	}
 
-	ctx := context.Background()
-	tx, err := x.P.Begin(ctx)
-	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(ctx)
+	query := `
+		SELECT (
+			INSERT DevAccount { 
+				dev_id := <str>$dev_id
+			}
+		) { id };`
+	args := map[string]interface{}{"dev_id": r.DevId}
 
-	accountId := x.GenerateID()
-	_, err = tx.Exec(ctx,
-		`INSERT INTO account (id, platform, platform_id)
-		VALUES ($1, 'Dev', 0)`,
-		accountId)
-	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
-		return
-	}
-
-	_, err = tx.Exec(ctx,
-		`INSERT INTO dev_account (id, account_id) VALUES ($1, $2)`,
-		r.DevId,
-		accountId)
-	if err != nil {
-		core.Check(err, c, http.StatusInternalServerError)
-		return
-	}
-
-	if tx.Commit(ctx) != nil {
+	var accountId geltypes.UUID
+	if err := x.D.QuerySingle(context.Background(), query, &accountId, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}

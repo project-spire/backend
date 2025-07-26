@@ -2,28 +2,24 @@ package core
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/bwmarrin/snowflake"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/geldata/gel-go"
+	"github.com/geldata/gel-go/gelcfg"
+	"github.com/geldata/gel-go/geltypes"
 )
 
 type Context struct {
 	S *Settings
-	P *pgxpool.Pool
-	N *snowflake.Node
-}
-
-func (c *Context) GenerateID() int64 {
-	return int64(c.N.Generate())
+	D *gel.Client
 }
 
 type Settings struct {
-	AuthKey string
+	TokenKey string
 }
 
 type NetworkSettings struct {
@@ -35,8 +31,8 @@ type NetworkSettings struct {
 
 	ListenPort int
 
-	CertificateFile string
-	PrivateKeyFile  string
+	TlsCertFile string
+	TlsKeyFile  string
 
 	NodeID uint16
 }
@@ -44,32 +40,38 @@ type NetworkSettings struct {
 func NewContext(ns *NetworkSettings) *Context {
 	s := newSettings()
 
-	pool, err := pgxpool.New(context.Background(), fmt.Sprintf(
-		"postgresql://%s:%s@%s:%d/%s?sslmode=disable",
-		ns.DbUser, ns.DbPassword, ns.DbHost, ns.DbPort, ns.DbName))
+	client, err := gel.CreateClient(gelcfg.Options{
+		Host:     ns.DbHost,
+		Port:     ns.DbPort,
+		User:     ns.DbUser,
+		Password: geltypes.NewOptionalStr(ns.DbPassword),
+		TLSOptions: gelcfg.TLSOptions{
+			SecurityMode: gelcfg.TLSModeInsecure,
+		},
+	})
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	node, err := snowflake.NewNode(int64(readIntEnv("NODE_ID", math.MaxInt16)))
-	if err != nil {
-		panic(err)
+	if err = client.EnsureConnected(context.Background()); err != nil {
+		log.Fatal(err)
 	}
 
 	return &Context{
 		S: s,
-		P: pool,
-		N: node,
+		D: client,
 	}
 }
 
 func (c *Context) Close() {
-	c.P.Close()
+	if err := c.D.Close(); err != nil {
+		log.Printf("Error closing database connection: %v", err)
+	}
 }
 
 func newSettings() *Settings {
 	s := &Settings{
-		AuthKey: readFileEnv("SPIRE_AUTH_KEY_FILE"),
+		TokenKey: readFileEnv("SPIRE_TOKEN_KEY_FILE"),
 	}
 
 	return s
@@ -84,10 +86,10 @@ func NewNetworkSettings() *NetworkSettings {
 	s.DbUser = readEnv("SPIRE_DB_USER")
 	s.DbPassword = readFileEnv("SPIRE_DB_PASSWORD_FILE")
 
-	s.ListenPort = readIntEnv("SPIRE_LOBBY_PORT", math.MaxUint16)
+	s.ListenPort = readIntEnv("SPIRE_LOBBY_SERVER_PORT", math.MaxUint16)
 
-	s.CertificateFile = readEnv("SPIRE_LOBBY_CERTIFICATE_FILE")
-	s.PrivateKeyFile = readEnv("SPIRE_LOBBY_PRIVATE_KEY_FILE")
+	s.TlsCertFile = readEnv("SPIRE_LOBBY_SERVER_TLS_CERT_FILE")
+	s.TlsKeyFile = readEnv("SPIRE_LOBBY_SERVER_TLS_KEY_FILE")
 
 	return s
 }
@@ -95,7 +97,7 @@ func NewNetworkSettings() *NetworkSettings {
 func readEnv(key string) string {
 	s := strings.TrimSpace(os.Getenv(key))
 	if len(s) == 0 {
-		panic(fmt.Errorf("environment variable %s not set", key))
+		log.Fatalf("environment variable %s not set", key)
 	}
 	return s
 }
@@ -104,10 +106,10 @@ func readIntEnv(key string, max int) int {
 	s := readEnv(key)
 	i, err := strconv.Atoi(s)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if i > max {
-		panic(fmt.Errorf("environment variable %s out of range: %d", key, i))
+		log.Fatalf("environment variable %s out of range: %d", key, i)
 	}
 
 	return i
@@ -116,11 +118,11 @@ func readIntEnv(key string, max int) int {
 func readFileEnv(key string) string {
 	data, err := os.ReadFile(os.Getenv(key))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	s := strings.TrimSpace(string(data))
 	if len(s) == 0 {
-		panic(fmt.Errorf("empty file from environment variable %s", key))
+		log.Fatalf("empty file from environment variable %s", key)
 	}
 
 	return s

@@ -30,8 +30,8 @@ func main() {
 		defer wg.Done()
 
 		listenAddr := fmt.Sprintf(":%d", ns.ListenPort)
-		if err := r.RunTLS(listenAddr, ns.CertificateFile, ns.PrivateKeyFile); err != nil {
-			panic(err)
+		if err := r.RunTLS(listenAddr, ns.TlsCertFile, ns.TlsKeyFile); err != nil {
+			log.Fatal(err)
 		}
 	}()
 

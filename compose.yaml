@@ -4,13 +4,13 @@ services:
     env_file:
       - .env
     ports:
-      - ${SPIRE_GAME_LISTEN_PORT}:${SPIRE_GAME_LISTEN_PORT}
-      - ${SPIRE_CONTROL_LISTEN_PORT}:${SPIRE_CONTROL_LISTEN_PORT}
+      - ${SPIRE_GAME_SERVER_PORT}:${SPIRE_GAME_SERVER_PORT}
+      - ${SPIRE_GAME_SERVER_CONTROL_PORT}:${SPIRE_GAME_SERVER_CONTROL_PORT}
     secrets:
-      - game-cert.pem
-      - game-key.pem
-      - db-password.txt
-      - auth-key.txt
+      - game-server-cert.pem
+      - game-server-key.pem
+      - db-password.key
+      - token.key
     restart: unless-stopped
     # healthcheck:
     #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
@@ -24,18 +24,18 @@ services:
     environment:
       - NODE_ID=101
     ports:
-      - ${SPIRE_LOBBY_PORT}:${SPIRE_LOBBY_PORT}
+      - ${SPIRE_LOBBY_SERVER_PORT}:${SPIRE_LOBBY_SERVER_PORT}
     secrets:
-      - db-password.txt
-      - lobby-cert.pem
-      - lobby-key.pem
-      - auth-key.txt
+      - lobby-server-cert.pem
+      - lobby-server-key.pem
+      - token.key
+      - db-password.key
     # depends_on:
     #   db:
     #     condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_PORT}/ping"]
+      test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_SERVER_PORT}/ping"]
       interval: 1m
       start_period: 30s
 
@@ -47,14 +47,18 @@ services:
       - GEL_SERVER_USER=${SPIRE_DB_USER}
       - GEL_SERVER_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
       - GEL_SERVER_TLS_CERT_MODE=generate_self_signed
+      # - GEL_SERVER_TLS_CERT_FILE=${SPIRE_DB_TLS_CERT_FILE}
+      # - GEL_SERVER_TLS_KEY_FILE=${SPIRE_DB_TLS_KEY_FILE}
+      - GEL_SERVER_INSTANCE_NAME=spire-db
       - GEL_SERVER_ADMIN_UI=enabled
-      # - POSTGRES_DB=${SPIRE_DB_NAME}
     ports:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
-    secrets:
-      - db-password.txt
     volumes:
       - db-data:/var/lib/gel/data
+    secrets:
+      - db-password.key
+      - db-cert.pem
+      - db-key.pem
     restart: unless-stopped
     # healthcheck:
     #   test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
@@ -63,15 +67,19 @@ volumes:
   db-data:
 
 secrets:
-  game-cert.pem:
-    file: secrets/game-cert.pem
-  game-key.pem:
-    file: secrets/game-key.pem
-  db-password.txt:
-    file: secrets/db-password.txt
-  auth-key.txt:
-    file: secrets/auth-key.txt
-  lobby-cert.pem:
-    file: secrets/lobby-cert.pem
-  lobby-key.pem:
-    file: secrets/lobby-key.pem
+  token.key:
+    file: secrets/token.key
+  game-server-cert.pem:
+    file: secrets/game-server-cert.pem
+  game-server-key.pem:
+    file: secrets/game-server-key.pem
+  db-cert.pem:
+    file: secrets/db-cert.pem
+  db-key.pem:
+    file: secrets/db-key.pem
+  db-password.key:
+    file: secrets/db-password.key
+  lobby-server-cert.pem:
+    file: secrets/lobby-server-cert.pem
+  lobby-server-key.pem:
+    file: secrets/lobby-server-key.pem

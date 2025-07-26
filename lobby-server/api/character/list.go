@@ -2,6 +2,7 @@ package character
 
 import (
 	"context"
+	"github.com/geldata/gel-go/geltypes"
 	"net/http"
 	"spire/lobby/core"
 
@@ -13,31 +14,24 @@ func HandleList(c *gin.Context, x *core.Context) {
 		Characters []Character `json:"characters"`
 	}
 
-	accountId := c.MustGet("account_id").(int64)
+	accountId := c.MustGet("account_id").(geltypes.UUID)
 
-	rows, err := x.P.Query(context.Background(),
-		"SELECT id, name, race FROM character WHERE account_id=$1", accountId)
-	if err != nil {
+	query := `
+		SELECT Character { 
+			id,
+			name,
+			race
+		}
+		FILTER .account.id = <uuid>$account_id
+		ORDER BY .created DESC;`
+	args := map[string]interface{}{
+		"account_id": accountId,
+	}
+
+	var characters []Character
+	if err := x.D.QuerySingle(context.Background(), query, &characters, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	characters := make([]Character, 0)
-
-	for rows.Next() {
-		var characterId int64
-		var characterName string
-		var characterRace string
-		if err := rows.Scan(&characterId, &characterName, &characterRace); err != nil {
-			core.Check(err, c, http.StatusInternalServerError)
-			return
-		}
-		characters = append(characters, Character{
-			Id:   characterId,
-			Name: characterName,
-			Race: characterRace,
-		})
 	}
 
 	c.JSON(http.StatusOK, Response{Characters: characters})

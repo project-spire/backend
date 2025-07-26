@@ -1,17 +1,17 @@
 # Secrets
 
-### auth-key.txt
+### token.key
 
-### game-cert.pem
+### game-server-cert.pem
 
-### game-key.pem
+### game-server-key.pem
 
-### lobby-cert.pem
+### lobby-server-cert.pem
 
-### lobby-key.pem
+### lobby-server-key.pem
 
-### mongo-root-password.txt
+### db-password.key
 
-### mongo-password.txt
+### db-cert.pem
 
-### mongo-express-password.txt
+### db-key.pem

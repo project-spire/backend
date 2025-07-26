@@ -2,10 +2,11 @@ package character
 
 import (
 	"context"
+	"github.com/geldata/gel-go/geltypes"
 	"net/http"
-	"spire/lobby/core"
 
 	"github.com/gin-gonic/gin"
+	"spire/lobby/core"
 )
 
 func HandleCreate(c *gin.Context, x *core.Context) {
@@ -23,13 +24,28 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		return
 	}
 
-	accountId := c.MustGet("account_id").(int64)
-	characterId := x.GenerateID()
+	accountId := c.MustGet("account_id").(geltypes.UUID)
 
-	_, err := x.P.Exec(context.Background(),
-		"INSERT INTO character (id, account_id, name, race) VALUES ($1, $2, $3, $4)",
-		characterId, accountId, r.CharacterName, r.CharacterRace)
-	if err != nil {
+	query := `
+		SELECT (
+			INSERT Character { 
+				name := <str>$name,
+				race := <Race>$race,
+				account := (
+					SELECT Account
+					FILTER .id = <uuid>$account_id
+					LIMIT 1
+				)
+			}
+		) { id };`
+	args := map[string]interface{}{
+		"name":       r.CharacterName,
+		"race":       r.CharacterRace,
+		"account_id": accountId,
+	}
+
+	var characterId geltypes.UUID
+	if err := x.D.QuerySingle(context.Background(), query, &characterId, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
