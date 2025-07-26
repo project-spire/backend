@@ -39,23 +39,25 @@ services:
       interval: 1m
       start_period: 30s
 
-  database:
-    build: database
+  db:
+    build: db
     env_file:
       - .env
     environment:
-      - POSTGRES_USER=${SPIRE_DB_USER}
-      - POSTGRES_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
-      - POSTGRES_DB=${SPIRE_DB_NAME}
+      - GEL_SERVER_USER=${SPIRE_DB_USER}
+      - GEL_SERVER_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
+      - GEL_SERVER_TLS_CERT_MODE=generate_self_signed
+      - GEL_SERVER_ADMIN_UI=enabled
+      # - POSTGRES_DB=${SPIRE_DB_NAME}
     ports:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
     secrets:
       - db-password.txt
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/gel/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
+    # healthcheck:
+    #   test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
 
 volumes:
   db-data:

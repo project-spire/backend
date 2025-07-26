@@ -1,0 +1,14 @@
+module default {
+    scalar type Race extending enum<Human, Barbarian>;
+
+    type Character {
+        required account: Account;
+        required name: str {
+            constraint max_len_value(24);
+        }
+        required race: Race;
+        required created: datetime {
+            default := datetime_of_statement();
+        }
+    }
+}
