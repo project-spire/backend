@@ -22,7 +22,7 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 	}
 
 	type Response struct {
-		AccountId geltypes.UUID `json:"account_id"`
+		AccountId string `json:"account_id"`
 	}
 
 	var r Request
@@ -46,13 +46,16 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		) { id };`
 	args := map[string]interface{}{"dev_id": r.DevId}
 
-	var accountId geltypes.UUID
-	if err := x.D.QuerySingle(context.Background(), query, &accountId, args); err != nil {
+	var result struct {
+		Id geltypes.UUID `gel:"id"`
+	}
+
+	if err := x.D.QuerySingle(context.Background(), query, &result, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	c.JSON(http.StatusOK, Response{
-		AccountId: accountId,
+		AccountId: result.Id.String(),
 	})
 }

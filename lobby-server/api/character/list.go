@@ -2,14 +2,20 @@ package character
 
 import (
 	"context"
-	"github.com/geldata/gel-go/geltypes"
 	"net/http"
-	"spire/lobby/core"
 
+	"github.com/geldata/gel-go/geltypes"
 	"github.com/gin-gonic/gin"
+	"spire/lobby/core"
 )
 
 func HandleList(c *gin.Context, x *core.Context) {
+	type Character struct {
+		Id   string `json:"id" binding:"required"`
+		Name string `json:"name" binding:"required"`
+		Race string `json:"race" binding:"required"`
+	}
+
 	type Response struct {
 		Characters []Character `json:"characters"`
 	}
@@ -28,10 +34,23 @@ func HandleList(c *gin.Context, x *core.Context) {
 		"account_id": accountId,
 	}
 
-	var characters []Character
-	if err := x.D.QuerySingle(context.Background(), query, &characters, args); err != nil {
+	var rows []struct {
+		Id   geltypes.UUID `gel:"id"`
+		Name string        `gel:"name"`
+		Race string        `gel:"race"`
+	}
+	if err := x.D.Query(context.Background(), query, &rows, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
+	}
+
+	characters := make([]Character, 0)
+	for _, row := range rows {
+		characters = append(characters, Character{
+			Id:   row.Id.String(),
+			Name: row.Name,
+			Race: row.Race,
+		})
 	}
 
 	c.JSON(http.StatusOK, Response{Characters: characters})

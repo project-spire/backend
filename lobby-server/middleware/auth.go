@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/geldata/gel-go/geltypes"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
 	"spire/lobby/core"
-	"strings"
 )
 
 func Authenticate(x *core.Context) gin.HandlerFunc {
@@ -37,22 +39,22 @@ func Authenticate(x *core.Context) gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			accountId, okAid := claims["aid"].([]byte)
-			privilege, okPrv := claims["prv"].(string)
+			accountIdStr, okAid := claims["aid"].(string)
+			//privilege, okPrv := claims["prv"].(string)
 
-			if !okAid || !okPrv {
+			if !okAid {
 				c.AbortWithStatus(http.StatusUnauthorized)
 				return
 			}
 
-			//accountId, err := strconv.ParseInt(accountIdStr, 10, 64)
-			//if err != nil {
-			//	c.AbortWithStatus(http.StatusUnauthorized)
-			//	return
-			//}
+			accountId, err := geltypes.ParseUUID(accountIdStr)
+			if err != nil {
+				core.Check(err, c, http.StatusUnauthorized)
+				return
+			}
 
 			c.Set("account_id", accountId)
-			c.Set("privilege", privilege)
+			//c.Set("privilege", privilege)
 
 			c.Next()
 		} else {

@@ -2,11 +2,9 @@ package dev
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
-	"github.com/geldata/gel-go/gelerr"
 	"github.com/geldata/gel-go/geltypes"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -15,7 +13,7 @@ import (
 
 func HandleToken(c *gin.Context, x *core.Context) {
 	type Request struct {
-		AccountId geltypes.UUID `json:"account_id" binding:"required"`
+		AccountId string `json:"account_id" binding:"required"`
 	}
 
 	type Response struct {
@@ -26,27 +24,27 @@ func HandleToken(c *gin.Context, x *core.Context) {
 	if !core.Check(c.Bind(&r), c, http.StatusBadRequest) {
 		return
 	}
+	accountId, err := geltypes.ParseUUID(r.AccountId)
+	if !core.Check(err, c, http.StatusBadRequest) {
+		return
+	}
 
-	query := `
-		SELECT DevAccount { 
-			id
-		}
-		FILTER .id = <uuid>id`
-	args := map[string]interface{}{"id": r.AccountId}
+	query := `SELECT exists(SELECT DevAccount FILTER .id = <uuid>$id)`
+	args := map[string]interface{}{"id": accountId}
 
-	if err := x.D.QuerySingle(context.Background(), query, nil, args); err != nil {
-		var gelErr gelerr.Error
-		if errors.As(err, &gelErr) && !gelErr.Category(gelerr.NoDataError) {
-			core.Check(err, c, http.StatusUnauthorized)
-			return
-		}
-
+	var accountExists bool
+	if err := x.D.QuerySingle(context.Background(), query, &accountExists, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
+	if !accountExists {
+		core.Check(err, c, http.StatusUnauthorized)
+		return
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"aid": r.AccountId,
+		"aid": accountId.String(),
 		"exp": jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 	})
 	tokenString, err := token.SignedString([]byte(x.S.TokenKey))

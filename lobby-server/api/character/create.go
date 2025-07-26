@@ -15,6 +15,12 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		CharacterRace string `json:"character_race" binding:"required"`
 	}
 
+	type Character struct {
+		Id   string `json:"id" binding:"required"`
+		Name string `json:"name" binding:"required"`
+		Race string `json:"race" binding:"required"`
+	}
+
 	type Response struct {
 		Character Character `json:"character"`
 	}
@@ -44,14 +50,16 @@ func HandleCreate(c *gin.Context, x *core.Context) {
 		"account_id": accountId,
 	}
 
-	var characterId geltypes.UUID
-	if err := x.D.QuerySingle(context.Background(), query, &characterId, args); err != nil {
+	var result struct {
+		Id geltypes.UUID `gel:"id"`
+	}
+	if err := x.D.QuerySingle(context.Background(), query, &result, args); err != nil {
 		core.Check(err, c, http.StatusInternalServerError)
 		return
 	}
 
 	c.JSON(http.StatusOK, Response{Character: Character{
-		Id:   characterId,
+		Id:   result.Id.String(),
 		Name: r.CharacterName,
 		Race: r.CharacterRace,
 	}})
