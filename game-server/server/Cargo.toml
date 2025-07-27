@@ -11,6 +11,7 @@ game_protocol = { path = "../game-protocol/rs" }
 actix = "0.13"
 bevy_ecs = "0.16.1"
 bytes = { version = "1", default-features = false }
+calamine = "0.29"
 clap = { version = "4", features = ["derive"] }
 config = { version = "0.15", features = ["ron"] }
 gel-derive = "0.7"

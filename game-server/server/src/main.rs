@@ -1,4 +1,9 @@
 mod character;
+mod data {
+    pub use game_data::*;
+    
+    include!(concat!(env!("OUT_DIR"), "/gen/data.rs"));
+}
 mod db;
 mod game_handler;
 mod network;

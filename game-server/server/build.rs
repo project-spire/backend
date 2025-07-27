@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use game_data::generator::{*, table::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+    // println!("cargo:rerun-if-changed=build.rs");
+
+    let out_dir = PathBuf::from(env::var("OUT_DIR")?).join("gen");
+    fs::create_dir_all(&out_dir)?;
 
     // Copy Settings file
     // println!("cargo:rerun-if-changed=settings.ron");
@@ -52,13 +55,38 @@ fn generate_game_data_code(out_dir: &PathBuf) -> Result<(), Box<dyn std::error::
     }
 
     // Generate codes
+    let mut imports = Vec::new();
+    let mut exports = Vec::new();
     for entry in &table_entries {
         for table in &entry.schema.tables {
-            let path = out_dir.join(format!("{}.rs", table.name.to_snake_case()));
+            let mod_name = table.name.to_snake_case();
+            let path = out_dir.join(format!("{}.rs", &mod_name));
+            println!("{}", path.display());
             let code = generate_table_code(&table, &table_types)?;
             fs::write(path, code)?;
+            
+            imports.push(format!("pub mod {mod_name};"));
+            exports.push(format!(
+                "pub use {}::{{{}, {}}};",
+                mod_name,
+                table.name,
+                format!("{}Data", table.name),
+            ));
         }
     }
+    
+    // Generate data module
+    let imports_code = imports.join("\n");
+    let exports_code = exports.join("\n");
+    let code = format!(
+r#"// Generated file
+{imports_code}
+
+{exports_code}
+"#
+    );
+    let path = out_dir.join("data.rs");
+    fs::write(path, code)?;
 
     Ok(())
 }
