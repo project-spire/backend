@@ -1,3 +1,6 @@
 [submodule "game-server/game-protocol"]
 	path = game-server/game-protocol
 	url = git@github.com:project-spire/game-protocol.git
+[submodule "game-server/game-data"]
+	path = game-server/game-data
+	url = git@github.com:project-spire/game-data.git

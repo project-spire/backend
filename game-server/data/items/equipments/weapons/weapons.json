@@ -1,6 +1,0 @@
-{
-  "$schema": "collection.schema.json",
-  "documents": [
-    { "path": "wooden_sword.json" }
-  ]
-}

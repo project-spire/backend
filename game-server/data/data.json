@@ -1,6 +1,0 @@
-{
-  "$schema": "data.schema.json",
-  "data": [
-    { "path": "skills/skills.json", "kind": "collection" }
-  ]
-}

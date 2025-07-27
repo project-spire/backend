@@ -1,7 +1,0 @@
-{
-  "$schema": "collection.schema.json",
-  "documents": [
-    { "path": "fire_ball.json" },
-    { "path": "ice_bolt.json" }
-  ]
-}

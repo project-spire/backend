@@ -9,13 +9,13 @@ mod timestamp;
 
 use actix::prelude::*;
 use clap::Parser;
+use tracing::{info, error};
+use tracing_subscriber::fmt;
 use crate::db::DbContext;
 use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
 use crate::network::gateway::{Gateway, NewZone};
 use crate::world::zone::Zone;
-use tracing::{info, error};
-use tracing_subscriber::fmt;
 
 #[derive(Parser, Debug)]
 struct Options {
