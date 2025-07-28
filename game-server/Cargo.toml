@@ -2,7 +2,6 @@
 resolver = "3"
 members = [
     # "console",
-    "game-data/lib/rs",
     "game-protocol/rs",
     "server",
 ]
