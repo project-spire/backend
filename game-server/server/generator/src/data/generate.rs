@@ -4,18 +4,15 @@ use std::fs;
 use std::path::PathBuf;
 use heck::ToSnakeCase;
 use serde::Deserialize;
-use crate::data::{FieldKind, Table, TableKind};
+use crate::data::{Config, FieldKind, Table, TableKind};
 use crate::{HEADER_ROWS, TAB};
 
-struct TableEntry {
-    file_path: PathBuf,
-    schema: Schema,
-}
+
 
 #[derive(Deserialize)]
-struct DataEntry {
-    file: String,
-    schema: String,
+struct TableEntry {
+    file: PathBuf,
+    schema: PathBuf,
 }
 
 #[derive(Deserialize)]
@@ -23,62 +20,34 @@ struct Schema {
     tables: Vec<Table>
 }
 
-#[derive(Debug)]
-pub enum GenerateError {
-    IO(std::io::Error),
-    Json(serde_json::Error),
-    InvalidSchema(String),
-    DuplicatedTableName { table_name: String },
-    UnknownTableName { table_name: String },
-}
+pub fn generate_code(config: &Config) -> Result<(), GenerateError> {
+    println!("cargo:rerun-if-changed={}", config.data_dir.join("mod.json").display());
+    let entity_paths: Vec<PathBuf> = serde_json::from_str(
+        &fs::read_to_string(&config.data_dir.join("mod.json"))?
+    )?;
 
-impl std::fmt::Display for GenerateError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GenerateError::IO(e) => {
-                write!(f, "{e}")
-            }
-            GenerateError::Json(e) => {
-                write!(f, "{e}")
-            },
-            GenerateError::InvalidSchema(s) => {
-                write!(f, "{s}")
-            },
-            GenerateError::DuplicatedTableName { table_name } => {
-                write!(f, "Duplicated table name {}", table_name)
-            },
-            GenerateError::UnknownTableName {table_name} => {
-                write!(f, "Unknown table name {}", table_name)
-            },
+    for entity_path in &entity_paths {
+        let file_name = entity_path.file_name().unwrap().to_str().unwrap();
+
+        if file_name.ends_with("mod.json") {
+            todo!("Recurse")
+        } else if file_name.ends_with("table.json") {
+            let table_entries: Vec<TableEntry> = serde_json::from_str(
+                &fs::read_to_string(entity_path)?
+            )?;
+
+        } else if file_name.ends_with("const.json") {
+            todo!()
+        } else {
+            return Err(GenerateError::InvalidFile(file_name.to_string()));
         }
     }
-}
-
-impl From<std::io::Error> for GenerateError {
-    fn from(value: std::io::Error) -> Self {
-        GenerateError::IO(value)
-    }
-}
-
-impl From<serde_json::Error> for GenerateError {
-    fn from(value: serde_json::Error) -> Self {
-        GenerateError::Json(value)
-    }
-}
-
-impl std::error::Error for GenerateError {}
-
-pub fn generate_code(data_dir: &PathBuf, out_dir: &PathBuf) -> Result<(), GenerateError> {
-    println!("cargo:rerun-if-changed={}", data_dir.join("data.json").display());
-    let data_entries: Vec<DataEntry> = serde_json::from_str(
-        &fs::read_to_string(&data_dir.join("data.json"))?
-    )?;
 
     // Collect table entries
     let mut table_entries = Vec::new();
-    for entry in data_entries {
-        let file_path = data_dir.join(entry.file);
-        let schema_path = data_dir.join(entry.schema);
+    for entry in mods {
+        let file_path = config.data_dir.join(entry.file);
+        let schema_path = config.data_dir.join(entry.schema);
 
         println!("cargo:rerun-if-changed={}", file_path.display());
         println!("cargo:rerun-if-changed={}", schema_path.display());
@@ -92,7 +61,7 @@ pub fn generate_code(data_dir: &PathBuf, out_dir: &PathBuf) -> Result<(), Genera
                 format!("Table of schema {} is empty", schema_path.display())));
         }
 
-        table_entries.push(TableEntry { file_path, schema });
+        table_entries.push(TableEntry { file: file_path, schema });
     }
 
     // Register types
@@ -108,7 +77,7 @@ pub fn generate_code(data_dir: &PathBuf, out_dir: &PathBuf) -> Result<(), Genera
     for entry in &table_entries {
         for table in &entry.schema.tables {
             let mod_name = table.name.to_snake_case();
-            let path = out_dir.join(format!("{}.rs", &mod_name));
+            let path = config.gen_dir.join(format!("{}.rs", &mod_name));
             println!("{}", path.display());
             let code = generate_table_code(&table, &table_types)?;
             fs::write(path, code)?;
@@ -124,7 +93,7 @@ pub fn generate_code(data_dir: &PathBuf, out_dir: &PathBuf) -> Result<(), Genera
     }
 
     // Generate module code
-    generate_module_code(&out_dir, &imports, &exports)?;
+    generate_module_code(&config.gen_dir, &imports, &exports)?;
 
     Ok(())
 }
@@ -145,7 +114,7 @@ fn register_table_types(
 }
 
 fn generate_module_code(
-    out_dir: &PathBuf,
+    gen_dir: &PathBuf,
     imports: &Vec<String>,
     exports: &Vec<String>,
 ) -> Result<(), GenerateError> {
@@ -160,7 +129,7 @@ fn generate_module_code(
 "#
     );
 
-    fs::write(out_dir.join("data.rs"), code)?;
+    fs::write(gen_dir.join("data.rs"), code)?;
 
     Ok(())
 }
@@ -286,3 +255,5 @@ fn generate_abstract_table_code(
 ) -> Result<String, GenerateError> {
     todo!()
 }
+
+

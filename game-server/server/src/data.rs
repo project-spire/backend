@@ -1,7 +1,7 @@
 use calamine::DataType;
 use std::ops::Deref;
 
-include!(concat!(env!("OUT_DIR"), "/gen/data.rs"));
+// include!(concat!(env!("OUT_DIR"), "/gen/data.rs"));
 
 pub type DataId = u32;
 
@@ -72,7 +72,7 @@ pub fn parse_id(value: &calamine::Data) -> Result<DataId, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not Id", value.to_string()))),
     };
 
-    if i < u32::MIN_VALUE || i > u32::MAX_VALUE {
+    if i < 0 || i > u32::MAX_VALUE {
         return Err(LoadError::Parse(format!("{} is out of Id range", value.to_string())));
     }
 
@@ -133,7 +133,7 @@ pub fn parse_u8(value: &calamine::Data) -> Result<u8, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u8", value.to_string()))),
     };
 
-    if i < u8::MIN_VALUE || i > u8::MAX_VALUE {
+    if i < 0 || i > u8::MAX_VALUE {
         return Err(LoadError::Parse(format!("{} is out of u8 range", value.to_string())));
     }
 
@@ -146,7 +146,7 @@ pub fn parse_u16(value: &calamine::Data) -> Result<u16, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u16", value.to_string()))),
     };
 
-    if i < u16::MIN_VALUE || i > u16::MAX_VALUE {
+    if i < 0 || i > u16::MAX_VALUE {
         return Err(LoadError::Parse(format!("{} is out of u16 range", value.to_string())));
     }
 
@@ -159,7 +159,7 @@ pub fn parse_u32(value: &calamine::Data) -> Result<u32, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u32", value.to_string()))),
     };
 
-    if i < u32::MIN_VALUE || i > u32::MAX_VALUE {
+    if i < 0 || i > u32::MAX_VALUE {
         return Err(LoadError::Parse(format!("{} is out of u32 range", value.to_string())));
     }
 
