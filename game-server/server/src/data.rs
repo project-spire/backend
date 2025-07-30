@@ -72,7 +72,7 @@ pub fn parse_id(value: &calamine::Data) -> Result<DataId, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not Id", value.to_string()))),
     };
 
-    if i < 0 || i > u32::MAX_VALUE {
+    if i < u32::MIN as i64 || i > u32::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of Id range", value.to_string())));
     }
 
@@ -85,7 +85,7 @@ pub fn parse_i8(value: &calamine::Data) -> Result<i8, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not i8", value.to_string()))),
     };
 
-    if i < i8::MIN_VALUE || i > i8::MAX_VALUE {
+    if i < i8::MIN as i64 || i > i8::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of i8 range", value.to_string())));
     }
 
@@ -98,7 +98,7 @@ pub fn parse_i16(value: &calamine::Data) -> Result<i16, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not i16", value.to_string()))),
     };
 
-    if i < i16::MIN_VALUE || i > i16::MAX_VALUE {
+    if i < i16::MIN as i64 || i > i16::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of i16 range", value.to_string())));
     }
 
@@ -111,7 +111,7 @@ pub fn parse_i32(value: &calamine::Data) -> Result<i32, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not i32", value.to_string()))),
     };
 
-    if i < i32::MIN_VALUE || i > i32::MAX_VALUE {
+    if i < i32::MIN as i64 || i > i32::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of i32 range", value.to_string())));
     }
 
@@ -133,7 +133,7 @@ pub fn parse_u8(value: &calamine::Data) -> Result<u8, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u8", value.to_string()))),
     };
 
-    if i < 0 || i > u8::MAX_VALUE {
+    if i < u8::MIN as i64 || i > u8::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of u8 range", value.to_string())));
     }
 
@@ -146,7 +146,7 @@ pub fn parse_u16(value: &calamine::Data) -> Result<u16, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u16", value.to_string()))),
     };
 
-    if i < 0 || i > u16::MAX_VALUE {
+    if i < u16::MIN as i64 || i > u16::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of u16 range", value.to_string())));
     }
 
@@ -159,7 +159,7 @@ pub fn parse_u32(value: &calamine::Data) -> Result<u32, LoadError> {
         None => return Err(LoadError::Parse(format!("{} is not u32", value.to_string()))),
     };
 
-    if i < 0 || i > u32::MAX_VALUE {
+    if i < u32::MIN as i64 || i > u32::MAX as i64 {
         return Err(LoadError::Parse(format!("{} is out of u32 range", value.to_string())));
     }
 
