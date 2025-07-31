@@ -9,8 +9,9 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Config {
-    pub gen_dir: PathBuf,
+    pub base_module_path: PathBuf,
     pub data_dir: PathBuf,
+    pub gen_dir: PathBuf,
     pub dry_run: bool,
 }
 
@@ -75,21 +76,38 @@ impl From<serde_json::Error> for GenerateError {
 impl std::error::Error for GenerateError {}
 
 #[derive(Debug)]
+pub struct ModuleDef {
+    pub name: String,
+    pub namespaces: Vec<String>,
+    pub entities: Vec<Entity>,
+}
+
+#[derive(Debug)]
 pub struct TableDef {
-    pub full_name: String,
+    pub namespaces: Vec<String>,
+    pub name: String,
     pub file_path: PathBuf,
     pub schema_path: PathBuf,
 }
 
 #[derive(Debug)]
 pub struct ConstDef {
-    pub full_name: String,
+    pub namespaces: Vec<String>,
+    pub name: String,
     pub file_path: PathBuf,
+}
+
+#[derive(Debug)]
+pub enum Entity {
+    Module(String),
+    Table(String),
+    Const(String),
 }
 
 #[derive(Debug)]
 pub struct Generator {
     config: Config,
+    modules: Vec<ModuleDef>,
     tables: HashMap<String, TableDef>,
     constants: HashMap<String, ConstDef>,
 }
@@ -98,6 +116,7 @@ impl Generator {
     pub fn new(config: Config) -> Self {
         Self {
             config,
+            modules: Vec::new(),
             tables: HashMap::new(),
             constants: HashMap::new(),
         }
@@ -109,7 +128,7 @@ impl Generator {
             .join(path)
     }
     
-    fn full_gen_path(&self, path: &str) -> PathBuf {
-        self.config.gen_dir.join(path)
+    fn full_gen_dir(&self, namespaces: &[String]) -> PathBuf {
+        self.config.gen_dir.join(namespaces.join("/"))
     }
 }

@@ -1,14 +1,22 @@
 use std::fs;
-use heck::ToSnakeCase;
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use serde::Deserialize;
-use crate::data::{ConstDef, GenerateError, Generator, TableDef};
+use crate::data::{ConstDef, Entity, GenerateError, Generator, ModuleDef, TableDef};
 use crate::{HEADER_ROWS, TAB};
+
+const GENERATED_FILE_WARNING_CODE: &str =
+r#"// This is a generated file. DO NOT MODIFY.
+"#;
 
 impl Generator {
     pub fn generate(&self) -> Result<(), GenerateError> {
         println!("Generating...");
 
         fs::create_dir_all(&self.config.gen_dir)?;
+
+        for module in &self.modules {
+            self.generate_module(module)?
+        }
 
         for table in self.tables.values() {
             self.generate_table(table)?
@@ -21,25 +29,84 @@ impl Generator {
         Ok(())
     }
 
+    fn generate_module(&self, module: &ModuleDef) -> Result<(), GenerateError> {
+        let module_dir = self.full_gen_dir(&module.namespaces);
+        fs::create_dir_all(&module_dir)?;
+
+        let module_base_dir = if module.namespaces.is_empty() {
+            self.full_gen_dir(&Vec::new())
+        } else {
+            self.full_gen_dir(&module.namespaces[..module.namespaces.len() - 1])
+        };
+
+        let code = module.generate()?;
+        fs::write(
+            module_base_dir.join(format!("{}.rs", module.name)),
+            code,
+        )?;
+
+        Ok(())
+    }
+
     fn generate_table(&self, table: &TableDef) -> Result<(), GenerateError> {
-        println!("Generating from {}", table.schema_path.display());
-        
         let schemas: Vec<TableSchema> = serde_json::from_str(
             &fs::read_to_string(&table.schema_path)?
         )?;
 
+        let table_dir = self.full_gen_dir(&table.namespaces);
+
         for schema in &schemas {
             let code = schema.generate()?;
-            fs::write(self.full_gen_path(&format!("{}", schema.name.to_snake_case())), code)?;
+            fs::write(
+                table_dir.join(format!("{}.rs", schema.name.to_snake_case())),
+                code,
+            )?;
         }
 
         Ok(())
     }
 
     fn generate_const(&self, constant: &ConstDef) -> Result<(), GenerateError> {
-        println!("Generating from {}", constant.file_path.display());
+        let const_dir = self.full_gen_dir(&constant.namespaces);
+
+        fs::write(
+            const_dir.join(format!("{}.rs", constant.name.to_snake_case())),
+            "",
+        )?;
 
         Ok(())
+    }
+}
+
+impl ModuleDef {
+    fn generate(&self) -> Result<String, GenerateError> {
+        let mut imports = Vec::new();
+        let mut exports = Vec::new();
+
+        for entity in &self.entities {
+            match entity {
+                Entity::Module(name) => {
+                    imports.push(format!("pub mod {};", name));
+                },
+                Entity::Table(name) => {
+                    imports.push(format!("pub mod {};", name));
+                    exports.push(format!("pub use {}::{};", name, name.to_upper_camel_case()));
+                },
+                Entity::Const(name) => {
+                    imports.push(format!("pub mod {};", name));
+                },
+            }
+        }
+
+        let imports_code = imports.join("\n");
+        let exports_code = exports.join("\n");
+
+        Ok(format!(
+            r#"{GENERATED_FILE_WARNING_CODE}
+{imports_code}
+
+{exports_code}
+"#))
     }
 }
 
@@ -66,22 +133,17 @@ impl TableSchema {
         let data_cell_name = format!("{}_DATA", table_name.to_snake_case().to_uppercase());
 
         // Check fields
-        let mut has_link = false;
         let mut lifetime_code = String::new();
         let mut lifetime_parameter_code = String::new();
 
-        let mut imports = Vec::new();
         let mut field_names = Vec::new();
         let mut field_parses = Vec::new();
         let mut field_definitions = Vec::new();
 
         for (index, field) in self.fields.iter().enumerate() {
-            if let FieldKind::Link { link_type } = &field.kind {
-                has_link = true;
+            if let FieldKind::Link { .. } = &field.kind {
                 lifetime_code = "<'a>".to_string();
                 lifetime_parameter_code = "<'_>".to_string();
-
-                imports.push(format!("use crate::data::{};", link_type));
             }
 
             field_names.push(field.name.clone());
@@ -94,7 +156,6 @@ impl TableSchema {
         }
 
         // Generate codes
-        let imports_code = imports.join("\n");
         let field_definitions_code = field_definitions.join("\n");
         let field_parses_code = field_parses.join("\n");
         let field_passes_code = field_names
@@ -106,11 +167,10 @@ impl TableSchema {
             .join("\n");
 
         Ok(format!(
-            r#"// Generated file
+r#"{GENERATED_FILE_WARNING_CODE}
 use calamine::{{open_workbook, Reader}};
 use tracing::info;
 use crate::data::*;
-{imports_code}
 
 static {data_cell_name}: tokio::sync::OnceCell<{data_name}> = tokio::sync::OnceCell::const_new();
 
@@ -203,7 +263,7 @@ impl FieldKind {
             },
             FieldKind::Enum { enum_type: t } => t.clone(),
             FieldKind::Link { link_type: t } => {
-                format!("Link<'a, {}>", t)
+                format!("Link<'a, crate::data::{}>", t)
             },
         }
     }
@@ -228,7 +288,7 @@ impl FieldKind {
                 ScalarType::Duration => "parse_duration",
             }),
             FieldKind::Enum { enum_type: t } => format!("{t}::parse"),
-            FieldKind::Link { link_type: t } => format!("crate::data::parse_link::<{t}>"),
+            FieldKind::Link { link_type: t } => format!("crate::data::parse_link::<crate::data::{t}>"),
         }
     }
 }
