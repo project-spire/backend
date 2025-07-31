@@ -168,13 +168,13 @@ impl TableSchema {
 
         Ok(format!(
 r#"{GENERATED_FILE_WARNING_CODE}
-use calamine::{{open_workbook, Reader}};
+use calamine::Reader;
 use tracing::info;
 use crate::data::*;
 
 static {data_cell_name}: tokio::sync::OnceCell<{data_name}> = tokio::sync::OnceCell::const_new();
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug)]
 pub struct {table_name}{lifetime_code} {{
 {field_definitions_code}
 }}
@@ -194,6 +194,15 @@ impl{lifetime_code} {table_name}{lifetime_parameter_code} {{
 
         info!("Loaded {{}} rows", range.rows().len() - {HEADER_ROWS});
         Ok(())
+    }}
+}}
+
+impl{lifetime_code} crate::data::Linkable for {table_name}{lifetime_parameter_code} {{
+    fn get(id: DataId) -> Option<&'static Self> {{
+        {data_cell_name}
+            .get()
+            .expect("{data_cell_name} is not initialized yet")
+            .get(id)
     }}
 }}
 

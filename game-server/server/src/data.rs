@@ -25,6 +25,10 @@ impl<'a, T> Deref for Link<'a, T> {
     }
 }
 
+pub trait Linkable: Sized {
+    fn get(id: DataId) -> Option<&'static Self>;
+}
+
 #[derive(Debug)]
 pub enum LoadError {
     Workbook(calamine::OdsError),
@@ -202,6 +206,12 @@ pub fn parse_str(value: &calamine::Data) -> Result<String, LoadError> {
     Ok(s.to_owned())
 }
 
-pub fn parse_link<T>(value: &calamine::Data) -> Result<Link<T>, LoadError> {
-    //todo: Check if dependency loaded
+pub fn parse_link<'a, T: Linkable + 'static>(value: &calamine::Data) -> Result<Link<'a, T>, LoadError> {
+    let id = parse_id(value)?;
+    let target = T::get(id).ok_or_else(|| LoadError::MissingLink {
+        type_name: std::any::type_name::<T>(),
+        id,
+    })?;
+
+    Ok(Link { id, target })
 }

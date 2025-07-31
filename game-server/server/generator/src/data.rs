@@ -2,7 +2,6 @@ mod collect;
 mod generate;
 mod validate;
 
-use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Formatter;
 use std::path::PathBuf;
