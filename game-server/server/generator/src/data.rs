@@ -33,6 +33,7 @@ pub enum GenerateError {
     InvalidSchema(String),
     NamespaceCollision { name: String },
     UnknownTableName { table_name: String },
+    DependencyCycle,
 }
 
 impl std::fmt::Display for GenerateError {
@@ -56,6 +57,9 @@ impl std::fmt::Display for GenerateError {
             GenerateError::UnknownTableName {table_name} => {
                 write!(f, "Unknown table name: {}", table_name)
             },
+            GenerateError::DependencyCycle => {
+                write!(f, "Cycle detected in table table dependency!")
+            }
         }
     }
 }

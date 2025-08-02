@@ -1,3 +1,4 @@
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use serde::Deserialize;
 use crate::data::{ConstDef, Entity, EnumDef, GenerateError, Generator, ModuleDef, TableDef};
@@ -5,6 +6,8 @@ use crate::{HEADER_ROWS, TAB};
 
 const CRATE_PREFIX: &str = "crate::data";
 const GENERATED_FILE_WARNING_CODE: &str = r#"// This is a generated file. DO NOT MODIFY."#;
+
+type DependencyGraph = HashMap<String, Vec<String>>;
 
 fn to_type_name(name: &str) -> String {
     use heck::ToUpperCamelCase;
@@ -36,14 +39,15 @@ impl Generator {
 
         fs::create_dir_all(&self.config.gen_dir)?;
 
-        for module in &self.modules {
-            println!("Generating module: {:?}", module);
-            self.generate_module(module)?
-        }
-
+        let mut dependencies = HashMap::new();
         for table in self.tables.values() {
             println!("Generating table: {:?}", table);
-            self.generate_table(table)?
+            self.generate_table(table, &mut dependencies)?
+        }
+
+        for module in &self.modules {
+            println!("Generating module: {:?}", module);
+            self.generate_module(module, &dependencies)?
         }
 
         for constant in self.constants.values() {
@@ -59,7 +63,11 @@ impl Generator {
         Ok(())
     }
 
-    fn generate_module(&self, module: &ModuleDef) -> Result<(), GenerateError> {
+    fn generate_module(
+        &self,
+        module: &ModuleDef,
+        dependencies: &DependencyGraph
+    ) -> Result<(), GenerateError> {
         let module_dir = self.full_gen_dir(&module.namespaces);
         fs::create_dir_all(&module_dir)?;
 
@@ -69,7 +77,7 @@ impl Generator {
             self.full_gen_dir(&module.namespaces[..module.namespaces.len() - 1])
         };
 
-        let code = module.generate()?;
+        let code = module.generate(dependencies)?;
         fs::write(
             module_base_dir.join(format!("{}.rs", module.name)),
             code,
@@ -78,7 +86,11 @@ impl Generator {
         Ok(())
     }
 
-    fn generate_table(&self, table: &TableDef) -> Result<(), GenerateError> {
+    fn generate_table(
+        &self,
+        table: &TableDef,
+        dependencies: &mut DependencyGraph,
+    ) -> Result<(), GenerateError> {
         let schema: TableSchema = serde_json::from_str(
             &fs::read_to_string(&table.schema_path)?
         )?;
@@ -89,6 +101,17 @@ impl Generator {
             table_dir.join(format!("{}.rs", to_entity_name(&schema.name))),
             code,
         )?;
+
+        // Add dependencies
+        dependencies.insert(table.get_name_with_namespace(), Vec::new());
+        for field in &schema.fields {
+            let link_type = match &field.kind {
+                FieldKind::Link { link_type } => link_type,
+                _ => continue,
+            };
+
+            dependencies.get_mut(&schema.name).unwrap().push(link_type.clone());
+        }
 
         Ok(())
     }
@@ -122,7 +145,11 @@ impl Generator {
 }
 
 impl ModuleDef {
-    fn generate(&self) -> Result<String, GenerateError> {
+    fn generate(
+        &self,
+        dependencies: &DependencyGraph,
+    ) -> Result<String, GenerateError> {
+        let is_base_module = self.name == "data" && self.namespaces.is_empty();
         let mut imports = Vec::new();
         let mut exports = Vec::new();
 
@@ -132,15 +159,13 @@ impl ModuleDef {
                     imports.push(format!("pub mod {};", name));
                 },
                 Entity::Table(name) => {
-                    let type_name = to_type_name(&name);
-                    let data_cell_name = to_data_cell_name(&name);
-
                     imports.push(format!("pub mod {};", name));
                     exports.push(format!(
-                        "pub use {}::{{{}, {}}};",
+                        "pub use {}::{{{type_name}, {data_type_name}, {data_cell_name}}};",
                         name,
-                        type_name,
-                        data_cell_name,
+                        type_name = to_type_name(&name),
+                        data_type_name = to_data_type_name(&name),
+                        data_cell_name = to_data_cell_name(&name),
                     ));
                 },
                 Entity::Const(name) => {
@@ -157,13 +182,137 @@ impl ModuleDef {
 
         let imports_code = imports.join("\n");
         let exports_code = exports.join("\n");
+        let base_module_code = if is_base_module {
+            self.generate_base(dependencies)?
+        } else {
+            "".to_string()
+        };
 
         Ok(format!(
             r#"{GENERATED_FILE_WARNING_CODE}
 {imports_code}
 
 {exports_code}
+
+{base_module_code}
 "#))
+    }
+
+    fn generate_base(
+        &self,
+        dependencies: &DependencyGraph,
+    ) -> Result<String, GenerateError> {
+        // Topological sort (Khan's algorithm)
+        let mut in_degrees: HashMap<String, usize> = dependencies
+            .iter()
+            .map(|(node, _)| (node.clone(), 0))
+            .collect();
+
+        for deps in dependencies.values() {
+            for dep in deps {
+                if let Some(degree) = in_degrees.get_mut(dep) {
+                    *degree += 1;
+                }
+            }
+        }
+
+        let mut queue: VecDeque<String> = in_degrees
+            .iter()
+            .filter(|&(_, &degree)| degree == 0)
+            .map(|(node, _)| node.clone())
+            .collect();
+        let mut levels: Vec<Vec<String>> = Vec::new();
+        let mut sorted_count = 0;
+
+        while !queue.is_empty() {
+            let level_size = queue.len();
+            let mut current_level = Vec::with_capacity(level_size);
+
+            for _ in 0..level_size {
+                let u = queue.pop_front().unwrap();
+                if let Some(nodes) = dependencies.get(&u) {
+                    for v in nodes {
+                        if let Some(degree) = in_degrees.get_mut(v) {
+                            *degree -= 1;
+                            if *degree == 0 {
+                                queue.push_back(v.clone());
+                            }
+                        }
+                    }
+                }
+                current_level.push(u.clone());
+                sorted_count += 1;
+            }
+            levels.push(current_level);
+        }
+
+        // Check cycle
+        if sorted_count != dependencies.len() {
+            return Err(GenerateError::DependencyCycle)
+        }
+
+        let mut level_handles = Vec::new();
+        for (i, level) in levels.iter().enumerate() {
+            if level.is_empty() {
+                continue;
+            }
+
+            let mut handles = Vec::new();
+            for node in level {
+                let (namespace, name) = {
+                    let components = node.split("::").collect::<Vec<&str>>();
+                    let namespace = components[..components.len() - 1].join("::");
+                    let name = components[components.len() - 1];
+
+                    (namespace, name)
+                };
+                let data_type_name = to_data_type_name(&name);
+
+                handles.push(format!(
+                    r#"{TAB}{TAB}handles.push(tokio::spawn(async {{
+            let mut workbook: calamine::Ods<_> = calamine::open_workbook(data_dir.join())?;
+            let range = reader.worksheet_range("todo")?;
+            {CRATE_PREFIX}::{namespace}::{data_type_name}::load(range.rows().skip({HEADER_ROWS}))
+        }}));"#,
+                ));
+            }
+
+            let handles_code = handles.join("\n");
+            let code = format!(r#"    let level{i}_handles = {{
+        let mut handles = Vec::new();
+{handles_code}
+        handles
+    }};
+
+    for handle in level{i}_handles {{
+        match handle.await {{
+            Ok(result) => {{ result?; }},
+            _  => panic!("Data loading task has failed!"),
+        }}
+    }}"#
+            );
+            level_handles.push(code);
+        }
+
+        let level_handles_code = level_handles.join("\n");
+
+        Ok(format!(r#"pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+{level_handles_code}
+
+    Ok(())
+}}
+"#
+        ))
+    }
+}
+
+impl TableDef {
+    fn get_name_with_namespace(&self) -> String {
+        format!(
+            "{}::{}",
+            self.namespaces.join("::"),
+            self.name,
+        )
     }
 }
 
@@ -206,7 +355,7 @@ impl TableSchema {
             field_names.push(field.name.clone());
             field_definitions.push(format!("{TAB}pub {}: {},", field.name, field.kind.to_rust_type()));
             field_parses.push(format!(
-                "{TAB}{TAB}{TAB}let {field_name} = {parse_function}(&row[{index}])?;",
+                "{TAB}{TAB}let {field_name} = {parse_function}(&row[{index}])?;",
                 field_name = field.name,
                 parse_function = field.kind.to_parse_code(),
             ));
@@ -218,16 +367,15 @@ impl TableSchema {
         let field_passes_code = field_names
             .iter()
             .map(|name| {
-                format!("{TAB}{TAB}{TAB}{TAB}{name},")
+                format!("{TAB}{TAB}{TAB}{name},")
             })
             .collect::<Vec<_>>()
             .join("\n");
 
         Ok(format!(
             r#"{GENERATED_FILE_WARNING_CODE}
-use calamine::Reader;
 use tracing::info;
-use {CRATE_PREFIX}::*;
+use {CRATE_PREFIX}::DataId;
 
 pub static {data_cell_name}: tokio::sync::OnceCell<{data_type_name}> = tokio::sync::OnceCell::const_new();
 
@@ -236,46 +384,54 @@ pub struct {table_type_name}{lifetime_code} {{
 {field_definitions_code}
 }}
 
-impl{lifetime_code} {table_type_name}{lifetime_parameter_code} {{
-    pub fn load(
-        reader: &mut calamine::Ods<std::io::BufReader<std::fs::File>>,
-    ) -> Result<(), {CRATE_PREFIX}::LoadError> {{
-        let range = reader.worksheet_range("{sheet_name}")?;
-        for row in range.rows().skip({HEADER_ROWS}) {{
+impl {table_type_name}{lifetime_code} {{
+    fn parse(row: &[calamine::Data]) -> Result<(DataId, Self), {CRATE_PREFIX}::LoadError> {{
 {field_parses_code}
 
-            let object = {table_type_name} {{
+        Ok((id, Self {{
 {field_passes_code}
-            }};
-        }}
-
-        info!("Loaded {{}} rows", range.rows().len() - {HEADER_ROWS});
-        Ok(())
+        }}))
     }}
 }}
 
 impl{lifetime_code} crate::data::Linkable for {table_type_name}{lifetime_parameter_code} {{
     fn get(id: DataId) -> Option<&'static Self> {{
-        {data_cell_name}
-            .get()
-            .expect("{data_cell_name} is not initialized yet")
-            .get(id)
+        {data_type_name}::get(id)
     }}
 }}
 
 pub struct {data_type_name}{lifetime_code} {{
-    pub data: std::collections::HashMap<DataId, {table_type_name}{lifetime_code}>,
+    data: std::collections::HashMap<DataId, {table_type_name}{lifetime_code}>,
 }}
 
 impl{lifetime_code} {data_type_name}{lifetime_parameter_code} {{
-    pub fn new() -> Self {{
-        Self {{
-            data: std::collections::HashMap::new()
-        }}
+    pub fn get(id: DataId) -> Option<&'static {table_type_name}> {{
+        {data_cell_name}
+            .get()
+            .expect("{data_cell_name} is not initialized yet")
+            .data
+            .get(&id)
     }}
 
-    pub fn get(&self, id: DataId) -> Option<&{table_type_name}> {{
-        self.data.get(&id)
+    pub fn load(rows: &[&[calamine::Data]]) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+        let mut objects = std::collections::HashMap::new();
+        for row in rows {{
+            let (id, object) = {table_type_name}::parse(row)?;
+
+            if objects.contains_key(&id) {{
+                return Err({CRATE_PREFIX}::LoadError::DuplicatedId {{
+                    type_name: "{table_type_name}",
+                    id,
+                }});
+            }}
+
+            objects.insert(id, object);
+        }}
+
+        {data_cell_name}.set(Self {{ data: objects }});
+
+        info!("Loaded {{}} rows", rows.len() - {HEADER_ROWS});
+        Ok(())
     }}
 }}
 "#

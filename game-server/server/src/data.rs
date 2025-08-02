@@ -35,6 +35,7 @@ pub enum LoadError {
     Sheet(calamine::Error),
     Parse(String),
     MissingLink { type_name: &'static str, id: DataId },
+    DuplicatedId { type_name: &'static str, id: DataId },
 }
 
 impl std::fmt::Display for LoadError {
@@ -51,6 +52,9 @@ impl std::fmt::Display for LoadError {
             },
             LoadError::MissingLink { type_name, id } => {
                 write!(f, "Missing link to {type_name} of id {id}")
+            },
+            LoadError::DuplicatedId { type_name, id } => {
+                write!(f, "Duplicated id {id} in {type_name}")
             },
         }
     }
@@ -206,7 +210,7 @@ pub fn parse_string(value: &calamine::Data) -> Result<String, LoadError> {
     Ok(s.to_owned())
 }
 
-pub fn parse_link<'a, T: Linkable + 'static>(value: &calamine::Data) -> Result<Link<'a, T>, LoadError> {
+pub fn parse_link<'a, T: 'static + Linkable>(value: &calamine::Data) -> Result<Link<'a, T>, LoadError> {
     let id = parse_id(value)?;
     let target = T::get(id).ok_or_else(|| LoadError::MissingLink {
         type_name: std::any::type_name::<T>(),
