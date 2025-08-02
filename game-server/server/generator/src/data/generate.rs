@@ -258,6 +258,8 @@ impl ModuleDef {
             }
 
             let mut handles = Vec::new();
+            let handles_name = format!("level{i}_handles");
+
             for node in level {
                 let (namespace, name) = {
                     let components = node.split("::").collect::<Vec<&str>>();
@@ -269,34 +271,57 @@ impl ModuleDef {
                 let data_type_name = to_data_type_name(&name);
 
                 handles.push(format!(
-                    r#"{TAB}{TAB}handles.push(tokio::spawn(async {{
-            let mut workbook: calamine::Ods<_> = calamine::open_workbook(data_dir.join())?;
-            let range = reader.worksheet_range("todo")?;
-            {CRATE_PREFIX}::{namespace}::{data_type_name}::load(range.rows().skip({HEADER_ROWS}))
-        }}));"#,
+                    "{TAB}add::<{namespace}::{data_type_name}>(&data_dir, todo!(), todo!(), &mut {handles_name});"
                 ));
             }
 
             let handles_code = handles.join("\n");
-            let code = format!(r#"    let level{i}_handles = {{
-        let mut handles = Vec::new();
+            let code = format!(r#"    let mut {handles_name} = Vec::new();
 {handles_code}
-        handles
-    }};
 
-    for handle in level{i}_handles {{
-        match handle.await {{
-            Ok(result) => {{ result?; }},
-            _  => panic!("Data loading task has failed!"),
-        }}
-    }}"#
+    join({handles_name}).await?;"#
             );
             level_handles.push(code);
         }
 
         let level_handles_code = level_handles.join("\n");
 
-        Ok(format!(r#"pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+        Ok(format!(r#"use calamine::Reader;
+
+pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+    type HandleType = tokio::task::JoinHandle<Result<(), {CRATE_PREFIX}::LoadError>>;
+
+    fn add<T: {CRATE_PREFIX}::Loadable>(
+        data_dir: &std::path::PathBuf,
+        file_path: &str,
+        sheet: &str,
+        handles: &mut Vec<HandleType>,
+    ) {{
+        let file_path = data_dir.join(file_path);
+        let sheet = sheet.to_owned();
+
+        handles.push(tokio::task::spawn(async move {{
+            let mut workbook: calamine::Ods<_> = calamine::open_workbook(file_path)?;
+            let sheet = workbook
+                .with_header_row(calamine::HeaderRow::Row({HEADER_ROWS}))
+                .worksheet_range(&sheet)?;
+            T::load(&sheet.rows().collect::<Vec<_>>())?;
+
+            Ok(())
+        }}));
+    }}
+
+    async fn join(handles: Vec<HandleType>) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+        for handle in handles {{
+            match handle.await {{
+                Ok(result) => result?,
+                _  => panic!("Data loading task has failed!"),
+            }}
+        }}
+
+        Ok(())
+    }}
+
 {level_handles_code}
 
     Ok(())
@@ -412,8 +437,10 @@ impl{lifetime_code} {data_type_name}{lifetime_parameter_code} {{
             .data
             .get(&id)
     }}
+}}
 
-    pub fn load(rows: &[&[calamine::Data]]) -> Result<(), {CRATE_PREFIX}::LoadError> {{
+impl{lifetime_code} {CRATE_PREFIX}::Loadable for {data_type_name}{lifetime_parameter_code} {{
+    fn load(rows: &[&[calamine::Data]]) -> Result<(), {CRATE_PREFIX}::LoadError> {{
         let mut objects = std::collections::HashMap::new();
         for row in rows {{
             let (id, object) = {table_type_name}::parse(row)?;

@@ -29,6 +29,10 @@ pub trait Linkable: Sized {
     fn get(id: DataId) -> Option<&'static Self>;
 }
 
+pub trait Loadable: Sized {
+    fn load(rows: &[&[calamine::Data]]) -> Result<(), LoadError>;
+}
+
 #[derive(Debug)]
 pub enum LoadError {
     Workbook(calamine::OdsError),
