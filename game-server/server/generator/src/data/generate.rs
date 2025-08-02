@@ -420,7 +420,7 @@ impl{lifetime_code} {data_type_name}{lifetime_parameter_code} {{
 
             if objects.contains_key(&id) {{
                 return Err({CRATE_PREFIX}::LoadError::DuplicatedId {{
-                    type_name: "{table_type_name}",
+                    type_name: std::any::type_name::<{table_type_name}>(),
                     id,
                 }});
             }}
@@ -428,7 +428,11 @@ impl{lifetime_code} {data_type_name}{lifetime_parameter_code} {{
             objects.insert(id, object);
         }}
 
-        {data_cell_name}.set(Self {{ data: objects }});
+        if !{data_cell_name}.set(Self {{ data: objects }}).is_ok() {{
+            return Err({CRATE_PREFIX}::LoadError::AlreadyLoaded {{
+                type_name: std::any::type_name::<{table_type_name}>(),
+            }});
+        }}
 
         info!("Loaded {{}} rows", rows.len() - {HEADER_ROWS});
         Ok(())

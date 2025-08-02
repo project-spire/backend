@@ -35,6 +35,7 @@ pub enum LoadError {
     Sheet(calamine::Error),
     Parse(String),
     MissingLink { type_name: &'static str, id: DataId },
+    AlreadyLoaded { type_name: &'static str },
     DuplicatedId { type_name: &'static str, id: DataId },
 }
 
@@ -53,6 +54,9 @@ impl std::fmt::Display for LoadError {
             LoadError::MissingLink { type_name, id } => {
                 write!(f, "Missing link to {type_name} of id {id}")
             },
+            LoadError::AlreadyLoaded { type_name } => {
+                write!(f, "{type_name} is already loaded")
+            }
             LoadError::DuplicatedId { type_name, id } => {
                 write!(f, "Duplicated id {id} in {type_name}")
             },
