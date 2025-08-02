@@ -97,10 +97,18 @@ pub struct ConstDef {
 }
 
 #[derive(Debug)]
+pub struct EnumDef {
+    pub namespaces: Vec<String>,
+    pub name: String,
+    pub file_path: PathBuf,
+}
+
+#[derive(Debug)]
 pub enum Entity {
     Module(String),
     Table(String),
     Const(String),
+    Enum(String),
 }
 
 #[derive(Debug)]
@@ -109,6 +117,7 @@ pub struct Generator {
     modules: Vec<ModuleDef>,
     tables: HashMap<String, TableDef>,
     constants: HashMap<String, ConstDef>,
+    enums: HashMap<String, EnumDef>,
 }
 
 impl Generator {
@@ -118,6 +127,7 @@ impl Generator {
             modules: Vec::new(),
             tables: HashMap::new(),
             constants: HashMap::new(),
+            enums: HashMap::new(),
         }
     }
 

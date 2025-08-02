@@ -197,7 +197,7 @@ pub fn parse_f64(value: &calamine::Data) -> Result<f64, LoadError> {
     Ok(f)
 }
 
-pub fn parse_str(value: &calamine::Data) -> Result<String, LoadError> {
+pub fn parse_string(value: &calamine::Data) -> Result<String, LoadError> {
     let s = match value.get_string() {
         Some(s) => s,
         None => return Err(LoadError::Parse(format!("{} is not String", value.to_string()))),

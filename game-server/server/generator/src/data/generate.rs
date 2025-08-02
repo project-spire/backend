@@ -1,12 +1,34 @@
 use std::fs;
-use heck::{ToSnakeCase, ToUpperCamelCase};
 use serde::Deserialize;
-use crate::data::{ConstDef, Entity, GenerateError, Generator, ModuleDef, TableDef};
+use crate::data::{ConstDef, Entity, EnumDef, GenerateError, Generator, ModuleDef, TableDef};
 use crate::{HEADER_ROWS, TAB};
 
-const GENERATED_FILE_WARNING_CODE: &str =
-r#"// This is a generated file. DO NOT MODIFY.
-"#;
+const CRATE_PREFIX: &str = "crate::data";
+const GENERATED_FILE_WARNING_CODE: &str = r#"// This is a generated file. DO NOT MODIFY."#;
+
+fn to_type_name(name: &str) -> String {
+    use heck::ToUpperCamelCase;
+
+    name.to_upper_camel_case()
+}
+
+fn to_entity_name(name: &str) -> String {
+    use heck::ToSnakeCase;
+
+    name.to_snake_case()
+}
+
+fn to_data_type_name(name: &str) -> String {
+    use heck::ToUpperCamelCase;
+
+    format!("{}Data", name.to_upper_camel_case())
+}
+
+fn to_data_cell_name(name: &str) -> String {
+    use heck::ToSnakeCase;
+
+    format!("{}_DATA", name.to_snake_case().to_uppercase())
+}
 
 impl Generator {
     pub fn generate(&self) -> Result<(), GenerateError> {
@@ -15,15 +37,23 @@ impl Generator {
         fs::create_dir_all(&self.config.gen_dir)?;
 
         for module in &self.modules {
+            println!("Generating module: {:?}", module);
             self.generate_module(module)?
         }
 
         for table in self.tables.values() {
+            println!("Generating table: {:?}", table);
             self.generate_table(table)?
         }
 
         for constant in self.constants.values() {
+            println!("Generating const: {:?}", constant);
             self.generate_const(constant)?
+        }
+
+        for enumeration in self.enums.values() {
+            println!("Generating enum: {:?}", enumeration);
+            self.generate_enum(enumeration)?
         }
 
         Ok(())
@@ -49,29 +79,42 @@ impl Generator {
     }
 
     fn generate_table(&self, table: &TableDef) -> Result<(), GenerateError> {
-        let schemas: Vec<TableSchema> = serde_json::from_str(
+        let schema: TableSchema = serde_json::from_str(
             &fs::read_to_string(&table.schema_path)?
         )?;
-
         let table_dir = self.full_gen_dir(&table.namespaces);
+        let code = schema.generate()?;
 
-        for schema in &schemas {
-            let code = schema.generate()?;
-            fs::write(
-                table_dir.join(format!("{}.rs", schema.name.to_snake_case())),
-                code,
-            )?;
-        }
+        fs::write(
+            table_dir.join(format!("{}.rs", to_entity_name(&schema.name))),
+            code,
+        )?;
 
         Ok(())
     }
 
     fn generate_const(&self, constant: &ConstDef) -> Result<(), GenerateError> {
         let const_dir = self.full_gen_dir(&constant.namespaces);
+        let code = "";
 
         fs::write(
-            const_dir.join(format!("{}.rs", constant.name.to_snake_case())),
-            "",
+            const_dir.join(format!("{}.rs", to_entity_name(&constant.name))),
+            code,
+        )?;
+
+        Ok(())
+    }
+
+    fn generate_enum(&self, enumeration: &EnumDef) -> Result<(), GenerateError> {
+        let schema: EnumSchema = serde_json::from_str(
+            &fs::read_to_string(&enumeration.file_path)?
+        )?;
+        let enum_dir = self.full_gen_dir(&enumeration.namespaces);
+        let code = schema.generate()?;
+
+        fs::write(
+            enum_dir.join(format!("{}.rs", to_entity_name(&enumeration.name))),
+            code,
         )?;
 
         Ok(())
@@ -89,11 +132,25 @@ impl ModuleDef {
                     imports.push(format!("pub mod {};", name));
                 },
                 Entity::Table(name) => {
+                    let type_name = to_type_name(&name);
+                    let data_cell_name = to_data_cell_name(&name);
+
                     imports.push(format!("pub mod {};", name));
-                    exports.push(format!("pub use {}::{};", name, name.to_upper_camel_case()));
+                    exports.push(format!(
+                        "pub use {}::{{{}, {}}};",
+                        name,
+                        type_name,
+                        data_cell_name,
+                    ));
                 },
                 Entity::Const(name) => {
                     imports.push(format!("pub mod {};", name));
+                },
+                Entity::Enum(name) => {
+                    let type_name = to_type_name(&name);
+
+                    imports.push(format!("pub mod {};", name));
+                    exports.push(format!("pub use {}::{};", name, type_name));
                 },
             }
         }
@@ -127,10 +184,10 @@ impl TableSchema {
     }
 
     fn generate_concrete(&self) -> Result<String, GenerateError> {
-        let table_name = &self.name;
+        let table_type_name = &self.name;
         let sheet_name = &self.sheet;
-        let data_name = format!("{}Data", table_name);
-        let data_cell_name = format!("{}_DATA", table_name.to_snake_case().to_uppercase());
+        let data_type_name = to_data_type_name(&table_type_name);
+        let data_cell_name = to_data_cell_name(&table_type_name);
 
         // Check fields
         let mut lifetime_code = String::new();
@@ -167,27 +224,27 @@ impl TableSchema {
             .join("\n");
 
         Ok(format!(
-r#"{GENERATED_FILE_WARNING_CODE}
+            r#"{GENERATED_FILE_WARNING_CODE}
 use calamine::Reader;
 use tracing::info;
-use crate::data::*;
+use {CRATE_PREFIX}::*;
 
-static {data_cell_name}: tokio::sync::OnceCell<{data_name}> = tokio::sync::OnceCell::const_new();
+pub static {data_cell_name}: tokio::sync::OnceCell<{data_type_name}> = tokio::sync::OnceCell::const_new();
 
 #[derive(Debug)]
-pub struct {table_name}{lifetime_code} {{
+pub struct {table_type_name}{lifetime_code} {{
 {field_definitions_code}
 }}
 
-impl{lifetime_code} {table_name}{lifetime_parameter_code} {{
+impl{lifetime_code} {table_type_name}{lifetime_parameter_code} {{
     pub fn load(
         reader: &mut calamine::Ods<std::io::BufReader<std::fs::File>>,
-    ) -> Result<(), crate::data::LoadError> {{
+    ) -> Result<(), {CRATE_PREFIX}::LoadError> {{
         let range = reader.worksheet_range("{sheet_name}")?;
         for row in range.rows().skip({HEADER_ROWS}) {{
 {field_parses_code}
 
-            let object = {table_name} {{
+            let object = {table_type_name} {{
 {field_passes_code}
             }};
         }}
@@ -197,7 +254,7 @@ impl{lifetime_code} {table_name}{lifetime_parameter_code} {{
     }}
 }}
 
-impl{lifetime_code} crate::data::Linkable for {table_name}{lifetime_parameter_code} {{
+impl{lifetime_code} crate::data::Linkable for {table_type_name}{lifetime_parameter_code} {{
     fn get(id: DataId) -> Option<&'static Self> {{
         {data_cell_name}
             .get()
@@ -206,18 +263,18 @@ impl{lifetime_code} crate::data::Linkable for {table_name}{lifetime_parameter_co
     }}
 }}
 
-pub struct {data_name}{lifetime_code} {{
-    pub data: std::collections::HashMap<DataId, {table_name}{lifetime_code}>,
+pub struct {data_type_name}{lifetime_code} {{
+    pub data: std::collections::HashMap<DataId, {table_type_name}{lifetime_code}>,
 }}
 
-impl{lifetime_code} {data_name}{lifetime_parameter_code} {{
+impl{lifetime_code} {data_type_name}{lifetime_parameter_code} {{
     pub fn new() -> Self {{
         Self {{
             data: std::collections::HashMap::new()
         }}
     }}
 
-    pub fn get(&self, id: DataId) -> Option<&{table_name}> {{
+    pub fn get(&self, id: DataId) -> Option<&{table_type_name}> {{
         self.data.get(&id)
     }}
 }}
@@ -239,7 +296,8 @@ struct Field {
     #[serde(flatten)] pub kind: FieldKind,
     #[serde(default)] pub desc: Option<String>,
     #[serde(default)] pub optional: Option<bool>,
-    pub cardinality: Option<Cardinality>,
+    #[serde(default)] pub cardinality: Option<Cardinality>,
+    #[serde(default)] pub constraints: Option<Vec<Constraint>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -270,16 +328,18 @@ impl FieldKind {
                 ScalarType::Datetime => "chrono::DateTime".to_string(),
                 ScalarType::Duration => "chrono::Duration".to_string(),
             },
-            FieldKind::Enum { enum_type: t } => t.clone(),
+            FieldKind::Enum { enum_type: t } => {
+                format!("{CRATE_PREFIX}::{t}")
+            },
             FieldKind::Link { link_type: t } => {
-                format!("Link<'a, crate::data::{}>", t)
+                format!("Link<'a, {CRATE_PREFIX}::{t}>")
             },
         }
     }
 
     fn to_parse_code(&self) -> String {
         match self {
-            FieldKind::Scalar { scalar_type: t } => format!("crate::data::{}", match t {
+            FieldKind::Scalar { scalar_type: t } => format!("{CRATE_PREFIX}::{}", match t {
                 ScalarType::Id => "parse_id",
                 ScalarType::Bool => "parse_bool",
                 ScalarType::Int8 => "parse_i8",
@@ -296,9 +356,23 @@ impl FieldKind {
                 ScalarType::Datetime => "parse_datetime",
                 ScalarType::Duration => "parse_duration",
             }),
-            FieldKind::Enum { enum_type: t } => format!("{t}::parse"),
-            FieldKind::Link { link_type: t } => format!("crate::data::parse_link::<crate::data::{t}>"),
+            FieldKind::Enum { enum_type: t } => format!("{CRATE_PREFIX}::{t}::parse"),
+            FieldKind::Link { link_type: t } => format!("{CRATE_PREFIX}::parse_link::<{CRATE_PREFIX}::{t}>"),
         }
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum Target {
+    Client,
+    Server,
+    All,
+}
+
+impl Target {
+    fn is_target(&self) -> bool {
+        self == &Target::Server || self == &Target::All
     }
 }
 
@@ -319,4 +393,115 @@ enum ScalarType {
 enum Cardinality {
     Single,
     Multi
+}
+
+#[derive(Debug, Deserialize)]
+enum Constraint {
+    #[serde(rename = "exclusive")] Exclusive
+}
+
+#[derive(Debug, Deserialize)]
+struct EnumSchema {
+    name: String,
+    base: EnumBase,
+    enums: Vec<String>,
+    target: Target,
+    attributes: Vec<EnumAttribute>,
+}
+
+impl EnumSchema {
+    pub fn generate(&self) -> Result<String, GenerateError> {
+        let enum_type_name = &self.name;
+        let base_type_name = self.base.to_rust_type();
+        let mut enums = Vec::new();
+        let mut enum_parses = Vec::new();
+        let mut enum_intos = Vec::new();
+        let mut enum_froms = Vec::new();
+        let mut attributes = Vec::new();
+
+        let mut index: u32 = 0;
+        for e in &self.enums {
+            enums.push(format!("{TAB}{e},"));
+            enum_parses.push(format!("{TAB}{TAB}{TAB}\"{e}\" => Self::{e},"));
+            enum_intos.push(format!("{TAB}{TAB}{TAB}Self::{e} => {index},"));
+            enum_froms.push(format!("{TAB}{TAB}{TAB}{index} => Self::{e},"));
+
+            index += 1;
+        }
+
+        for attribute in &self.attributes {
+            if !attribute.target.is_target() {
+                continue;
+            }
+
+            attributes.push(attribute.attribute.clone());
+        }
+
+        let enums_code = enums.join("\n");
+        let attributes_code = attributes.join("\n");
+        let enum_parses_code = enum_parses.join("\n");
+        let enum_intos_code = enum_intos.join("\n");
+        let enum_froms_code = enum_froms.join("\n");
+
+        Ok(format!(
+            r#"{GENERATED_FILE_WARNING_CODE}
+{attributes_code}
+pub enum {enum_type_name} {{
+{enums_code}
+}}
+
+impl {enum_type_name} {{
+    pub fn parse(value: &calamine::Data) -> Result<Self, {CRATE_PREFIX}::LoadError> {{
+        let enum_string = {CRATE_PREFIX}::parse_string(value)?;
+
+        Ok(match enum_string.as_str() {{
+{enum_parses_code}
+            _ => return Err({CRATE_PREFIX}::LoadError::Parse(format!(
+                "Invalid value \"{{enum_string}}\" for {enum_type_name}"
+            ))),
+        }})
+    }}
+
+    pub fn try_from(value: &{base_type_name}) -> Option<Self> {{
+        Some(match value {{
+{enum_froms_code}
+            _ => return None,
+        }})
+    }}
+}}
+
+impl Into<{base_type_name}> for {enum_type_name} {{
+    fn into(self) -> {base_type_name} {{
+        match self {{
+{enum_intos_code}
+        }}
+    }}
+}}
+"#
+        ))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum EnumBase {
+    Uint8,
+    Uint16,
+    Uint32,
+}
+
+impl EnumBase {
+    fn to_rust_type(&self) -> String {
+        match self {
+            EnumBase::Uint8 => "u8",
+            EnumBase::Uint16 => "u16",
+            EnumBase::Uint32 => "u32",
+        }.to_string()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct EnumAttribute {
+    target: Target,
+    attribute: String,
 }

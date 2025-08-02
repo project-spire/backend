@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
 use serde::Deserialize;
-use crate::data::{Generator, GenerateError, TableDef, ConstDef, ModuleDef, Entity};
+use crate::data::{Generator, GenerateError, TableDef, ConstDef, ModuleDef, Entity, EnumDef};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -16,6 +16,9 @@ enum EntityEntry {
     },
     ConstEntry {
         #[serde(rename = "const")] file_path: String
+    },
+    EnumEntry {
+        #[serde(rename = "enum")] file_path: String
     },
 }
 
@@ -91,6 +94,26 @@ impl Generator {
                     self.constants.insert(const_full_name, const_def);
                     
                     entities.push(Entity::Const(const_name));
+                },
+                EntityEntry::EnumEntry { file_path } => {
+                    let enum_name = get_entity_name(file_path, "enum")?;
+                    let enum_full_name = build_full_name(&namespaces, &enum_name);
+                    if self.is_namespace_collision(&enum_full_name) {
+                        return Err(GenerateError::NamespaceCollision { name: enum_full_name });
+                    }
+
+                    let enum_full_path = self.full_data_path(namespaces, file_path);
+                    println!("cargo:rerun-if-changed={}", enum_full_path.display());
+
+                    let enum_def = EnumDef {
+                        namespaces: namespaces.clone().into(),
+                        name: enum_name.clone(),
+                        file_path: enum_full_path,
+                    };
+
+                    self.enums.insert(enum_full_name, enum_def);
+
+                    entities.push(Entity::Enum(enum_name));
                 }
             }
         }
