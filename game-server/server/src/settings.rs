@@ -2,7 +2,12 @@ use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::sync::OnceLock;
+use config::ConfigError;
+use tracing::error;
+
+static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
@@ -11,16 +16,26 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new() -> Result<Self, config::ConfigError> {
+    pub fn init() -> Result<(), ConfigError> {
         let settings = config::Config::builder()
             .add_source(config::File::with_name("settings.ron").required(true))
-            .build()?;
+            .build()?
+            .try_deserialize()?;
 
-        settings.try_deserialize()
+        if SETTINGS.set(settings).is_err() {
+            error!("Settings already initialized");
+            exit(1);
+        }
+
+        Ok(())
+    }
+
+    pub fn get() -> &'static Self {
+        SETTINGS
+            .get()
+            .expect("Settings are not initialized yet!")
     }
 }
-
-pub static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
 pub struct NetworkSettings {

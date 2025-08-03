@@ -16,7 +16,7 @@ use crate::db::DbContext;
 use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
 use crate::network::gateway::{Gateway, NewZone};
-use crate::settings::SETTINGS;
+use crate::settings::Settings;
 use crate::world::zone::Zone;
 
 #[derive(Parser, Debug)]
@@ -30,15 +30,10 @@ async fn main() {
     fmt::init();
 
     let options = Options::parse();
-
-    let settings = match settings::Settings::new() {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Error loading configuration: {}", e);
-            return;
-        }
-    };
-    SETTINGS.set(settings).unwrap();
+    if let Err(e) = Settings::init() {
+        error!("Failed to initialize settings: {e}");
+        return;
+    }
 
     let net_settings = match settings::NetworkSettings::new() {
         Ok(c) => c,
@@ -56,7 +51,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = data::load_all(&SETTINGS.get().unwrap().data_dir).await {
+    if let Err(e) = data::load_all(&Settings::get().data_dir).await {
         error!("Error loading data: {}", e);
         return;
     }
