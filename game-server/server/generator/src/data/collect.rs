@@ -162,10 +162,10 @@ impl Generator {
                 let schema: TableSchema = serde_json::from_str(
                     &fs::read_to_string(&schema_full_path)?
                 )?;
-
+                
                 self.tables.push(TableEntry {
                     name,
-                    table_path: self.full_data_path(&namespaces, table_filename),
+                    table_path: PathBuf::from(namespaces.join("/")).join(table_filename),
                     schema,
                 });
                 module_entry.entries.push(EntityEntry::TableIndex(

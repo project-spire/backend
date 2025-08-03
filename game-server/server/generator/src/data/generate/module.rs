@@ -102,11 +102,11 @@ r#"{GENERATED_FILE_WARNING}
                 let name = &table.name;
 
                 handles.push(format!(
-                    "{TAB}add::<{CRATE_PREFIX}::{}::{}>(&data_dir, {}, {}, &mut {});",
+                    "{TAB}add::<{CRATE_PREFIX}::{}::{}>(&data_dir, \"{}\", \"{}\", &mut {});",
                     name.namespaces.join("::"),
                     name.as_data_type(),
-                    "todo!()",
-                    "todo!()",
+                    table.table_path.display(),
+                    table.schema.sheet,
                     handles_name,
                 ));
             }
