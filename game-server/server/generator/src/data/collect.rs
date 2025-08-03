@@ -1,155 +1,298 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::path::PathBuf;
 use serde::Deserialize;
-use crate::data::{Generator, GenerateError, TableDef, ConstDef, ModuleDef, Entity, EnumDef};
+use crate::data::*;
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-enum EntityEntry {
-    ModuleEntry {
-        #[serde(rename = "mod")] file_path: String
+enum EntityDeclaration {
+    Module {
+        #[serde(rename = "mod")] schema_filename: String
     },
-    TableEntry {
-        #[serde(rename = "table")] file_path: String,
-        #[serde(rename = "schema")] schema_path: String
+    Table {
+        #[serde(rename = "table")] table_filename: String,
+        #[serde(rename = "schema")] schema_filename: String
     },
-    ConstEntry {
-        #[serde(rename = "const")] file_path: String
+    Enumeration {
+        #[serde(rename = "enum")] schema_filename: String
     },
-    EnumEntry {
-        #[serde(rename = "enum")] file_path: String
+    Constant {
+        #[serde(rename = "const")] schema_filename: String
     },
+}
+
+impl EntityDeclaration {
+    fn validate(&self) -> Result<(), GenerateError> {
+        fn check_schema_filename<'a>(
+            filename: &'a str,
+            expected_entity: &str
+        ) -> Result<&'a str, GenerateError> {
+            let components = filename.split('.').collect::<Vec<_>>();
+            if components.len() != 3
+                || components[1] != expected_entity
+                || components[2] != "json" {
+                return Err(GenerateError::InvalidFileName(filename.to_owned()));
+            }
+            Ok(components[0])
+        }
+
+        fn check_table_filename(filename: &str) -> Result<&str, GenerateError> {
+            let components = filename.split('.').collect::<Vec<_>>();
+            if components.len() != 2
+                || components[1] != "ods" {
+                return Err(GenerateError::InvalidFileName(filename.to_owned()));
+            }
+            Ok(components[0])
+        }
+
+        match self {
+            EntityDeclaration::Module { schema_filename } => {
+                check_schema_filename(schema_filename, "mod")?;
+            },
+            EntityDeclaration::Table { table_filename, schema_filename } => {
+                let name1 = check_table_filename(table_filename)?;
+                let name2 = check_schema_filename(schema_filename, "table")?;
+                if name1 != name2 {
+                    return Err(GenerateError::InvalidFileName(format!(
+                        "{table_filename}, {schema_filename}"
+                    )));
+                }
+            },
+            EntityDeclaration::Enumeration { schema_filename } => {
+                check_schema_filename(schema_filename, "enum")?;
+            },
+            EntityDeclaration::Constant { schema_filename } => {
+                check_schema_filename(schema_filename, "const")?;
+            },
+        }
+        Ok(())
+    }
+
+    fn get_name(&self, namespaces: &[String]) -> Name {
+        fn extract_name(filename: &str) -> String {
+            let components = filename.split('.').collect::<Vec<_>>();
+            components[0].to_owned()
+        }
+
+        let name = match self {
+            EntityDeclaration::Module { schema_filename } => {
+                extract_name(schema_filename)
+            },
+            EntityDeclaration::Table { table_filename: _, schema_filename } => {
+                extract_name(schema_filename)
+            },
+            EntityDeclaration::Enumeration { schema_filename } => {
+                extract_name(schema_filename)
+            },
+            EntityDeclaration::Constant { schema_filename } => {
+                extract_name(schema_filename)
+            },
+        };
+        Name::new(&name, &namespaces)
+    }
 }
 
 impl Generator {
     pub fn collect(&mut self) -> Result<(), GenerateError> {
         println!("Collecting...");
 
-        let mut namespaces = VecDeque::new();
-        self.do_collect(self.config.base_module_path.clone(), &mut namespaces)?;
+        let mut collect_tasks = vec![(
+            ModuleEntry::new(Name::new(
+                "data",
+                &Vec::new(),
+            )),
+            self.config.base_module_path.clone(),
+            Vec::new(),
+        )];
+
+        while let Some((mut module_entry, module_path, namespaces)) = collect_tasks.pop() {
+            println!("cargo:rerun-if-changed={}", module_path.display());
+
+            let declarations: Vec<EntityDeclaration> = serde_json::from_str(
+                &fs::read_to_string(&module_path)?
+            )?;
+            for declaration in &declarations {
+                self.do_collect(&mut collect_tasks, &mut module_entry, &namespaces, declaration)?;
+            }
+
+            self.modules.push(module_entry);
+        }
+
+        self.base_module_index = Some(0);
+
+        self.build_dependency_levels()?;
 
         Ok(())
     }
 
     fn do_collect(
         &mut self,
-        module_path: PathBuf,
-        namespaces: &mut VecDeque<String>,
+        collect_tasks: &mut Vec<(ModuleEntry, PathBuf, Vec<String>)>,
+        module_entry: &mut ModuleEntry,
+        namespaces: &Vec<String>,
+        declaration: &EntityDeclaration,
     ) -> Result<(), GenerateError> {
-        println!("cargo:rerun-if-changed={}", module_path.display());
+        declaration.validate()?;
+        let name = declaration.get_name(&namespaces);
 
-        let entries: Vec<EntityEntry> = serde_json::from_str(
-            &fs::read_to_string(&module_path)?
-        )?;
-        let mut entities = Vec::new();
+        match declaration {
+            EntityDeclaration::Module { schema_filename } => {
+                let child_module_path = self.full_data_path(&namespaces, schema_filename);
+                let child_module_entry = ModuleEntry {
+                    name: name.clone(),
+                    entries: Vec::new(),
+                };
 
-        for entry in &entries {
-            match entry {
-                EntityEntry::ModuleEntry { file_path } => {
-                    let namespace =  get_entity_name(file_path, "mod")?;
-                    let next_module_path = self.full_data_path(namespaces, file_path);
-                    
-                    entities.push(Entity::Module(namespace.clone()));
+                let mut namespaces = namespaces.clone();
+                namespaces.push(name.as_entity());
+                collect_tasks.push((child_module_entry, child_module_path, namespaces));
 
-                    namespaces.push_back(namespace);
-                    self.do_collect(next_module_path, namespaces)?;
-                    namespaces.pop_back();
-                }
-                EntityEntry::TableEntry { file_path, schema_path } => {
-                    let table_name = get_entity_name(schema_path, "table")?;
-                    let table_full_name = build_full_name(&namespaces, &table_name);
-                    if self.is_namespace_collision(&table_full_name) {
-                        return Err(GenerateError::NamespaceCollision { name: table_full_name });
-                    }
+                module_entry.entries.push(EntityEntry::ModuleIndex(
+                    self.modules.len() + 1
+                ))
+            },
+            EntityDeclaration::Table { table_filename, schema_filename } => {
+                let type_name = name.as_type(true);
+                self.register_type(type_name.clone())?;
 
-                    let schema_full_path = self.full_data_path(namespaces, schema_path);
-                    println!("cargo:rerun-if-changed={}", schema_full_path.display());
+                let schema_full_path = self.full_data_path(&namespaces, schema_filename);
+                println!("cargo:rerun-if-changed={}", schema_full_path.display());
 
-                    let table_def = TableDef {
-                        namespaces: namespaces.clone().into(),
-                        name: table_name.clone(),
-                        file_path: self.full_data_path(namespaces, file_path),
-                        schema_path: schema_full_path,
-                    };
-                    self.tables.insert(table_full_name, table_def);
-                    
-                    entities.push(Entity::Table(table_name));
-                }
-                EntityEntry::ConstEntry { file_path } => {
-                    let const_name = get_entity_name(file_path, "const")?;
-                    let const_full_name = build_full_name(&namespaces, &const_name);
-                    if self.is_namespace_collision(&const_full_name) {
-                        return Err(GenerateError::NamespaceCollision { name: const_full_name });
-                    }
+                let schema: TableSchema = serde_json::from_str(
+                    &fs::read_to_string(&schema_full_path)?
+                )?;
 
-                    let const_full_path = self.full_data_path(namespaces, file_path);
-                    println!("cargo:rerun-if-changed={}", const_full_path.display());
+                self.tables.push(TableEntry {
+                    name,
+                    table_path: self.full_data_path(&namespaces, table_filename),
+                    schema,
+                });
+                module_entry.entries.push(EntityEntry::TableIndex(
+                    self.tables.len() - 1
+                ));
 
-                    let const_def = ConstDef {
-                        namespaces: namespaces.clone().into(),
-                        name: const_name.clone(),
-                        file_path: const_full_path,
-                    };
-                    self.constants.insert(const_full_name, const_def);
-                    
-                    entities.push(Entity::Const(const_name));
-                },
-                EntityEntry::EnumEntry { file_path } => {
-                    let enum_name = get_entity_name(file_path, "enum")?;
-                    let enum_full_name = build_full_name(&namespaces, &enum_name);
-                    if self.is_namespace_collision(&enum_full_name) {
-                        return Err(GenerateError::NamespaceCollision { name: enum_full_name });
-                    }
+                self.table_indices.insert(type_name, self.tables.len() - 1);
+            },
+            EntityDeclaration::Enumeration { schema_filename } => {
+                self.register_type(name.as_type(true))?;
 
-                    let enum_full_path = self.full_data_path(namespaces, file_path);
-                    println!("cargo:rerun-if-changed={}", enum_full_path.display());
+                let schema_full_path = self.full_data_path(&namespaces, schema_filename);
+                println!("cargo:rerun-if-changed={}", schema_full_path.display());
 
-                    let enum_def = EnumDef {
-                        namespaces: namespaces.clone().into(),
-                        name: enum_name.clone(),
-                        file_path: enum_full_path,
-                    };
+                let schema: EnumerationSchema = serde_json::from_str(
+                    &fs::read_to_string(&schema_full_path)?
+                )?;
 
-                    self.enums.insert(enum_full_name, enum_def);
+                self.enumerations.push(EnumerationEntry {
+                    name,
+                    schema,
+                });
+                module_entry.entries.push(EntityEntry::EnumerationIndex(
+                    self.enumerations.len() - 1
+                ));
+            },
+            EntityDeclaration::Constant { schema_filename } => {
+                self.register_type(name.as_type(true))?;
 
-                    entities.push(Entity::Enum(enum_name));
-                }
-            }
+                let schema_full_path = self.full_data_path(&namespaces, schema_filename);
+                println!("cargo:rerun-if-changed={}", schema_full_path.display());
+
+                let schema: ConstantSchema = serde_json::from_str(
+                    &fs::read_to_string(&schema_full_path)?
+                )?;
+
+                self.constants.push(ConstantEntry {
+                    name,
+                    schema,
+                });
+                module_entry.entries.push(EntityEntry::ConstantIndex(
+                    self.constants.len() - 1
+                ));
+            },
         }
-
-        self.modules.push(ModuleDef {
-            name: get_entity_name(module_path.to_str().unwrap(), "mod")?,
-            namespaces: namespaces.clone().into(),
-            entities,
-        });
 
         Ok(())
     }
 
-    fn is_namespace_collision(&self, name: &str) -> bool {
-        self.tables.contains_key(name) || self.constants.contains_key(name)
-    }
-}
+    fn register_type(&mut self, typename: String) -> Result<(), GenerateError> {
+        if self.type_names.contains(&typename) {
+            return Err(GenerateError::NamespaceCollision(typename));
+        }
 
-fn build_full_name(namespaces: &VecDeque<String>, name: &str) -> String {
-    if namespaces.is_empty() {
-        return name.to_owned();
-    }
-    format!("{}.{}",
-        namespaces.iter().cloned().collect::<Vec<_>>().join("."),
-        name
-    )
-}
-
-fn get_entity_name(file_path: &str, expected_type: &str) -> Result<String, GenerateError> {
-    let file_path = PathBuf::from(file_path);
-    let file_name = file_path.file_name().unwrap().to_str().unwrap();
-
-    let components = file_name.split('.').collect::<Vec<&str>>();
-    if components.len() != 3 || components[1] != expected_type || components[2] != "json" {
-        return Err(GenerateError::InvalidFile(format!("Invalid entity file {}", file_path.display())));
+        self.type_names.insert(typename);
+        Ok(())
     }
 
-    Ok(components[0].to_owned())
+    fn build_dependency_levels(&mut self) -> Result<(), GenerateError> {
+        // 1. Build graph
+        let mut graph: HashMap<usize, Vec<usize>> = HashMap::new();
+        for (index, table) in self.tables.iter().enumerate() {
+            graph.insert(index, Vec::new());
+
+            for field in &table.schema.fields {
+                let link_type = match &field.kind {
+                    FieldKind::Link { link_type } => link_type,
+                    _ => continue,
+                };
+
+                let target_index = match self.table_indices.get(link_type) {
+                    Some(index) => *index,
+                    None => {
+                        return Err(GenerateError::UnknownType(link_type.clone()));
+                    },
+                };
+
+                graph.get_mut(&index).unwrap().push(target_index);
+            }
+        }
+
+        // 2. Build in-degrees
+        let mut in_degrees: HashMap<usize, usize> = graph
+            .iter()
+            .map(|(node, _)| (*node, 0))
+            .collect();
+
+        for nodes in graph.values() {
+            for node in nodes {
+                *in_degrees.get_mut(node).unwrap() += 1;
+            }
+        }
+
+        // 3. Sort topologically (Khan's Algorithm)
+        let mut queue: VecDeque<usize> = in_degrees
+            .iter()
+            .filter(|&(_, &degree)| degree == 0)
+            .map(|(node, _)| *node)
+            .collect();
+        let mut sorted_count = 0;
+
+        while !queue.is_empty() {
+            let level_size = queue.len();
+            let mut current_level = Vec::with_capacity(level_size);
+
+            for _ in 0..level_size {
+                let u = queue.pop_front().unwrap();
+                for v in graph.get(&u).unwrap() {
+                    let degree = in_degrees.get_mut(v).unwrap();
+                    *degree -= 1;
+
+                    if *degree == 0 {
+                        queue.push_back(*v);
+                    }
+                }
+
+                current_level.push(u);
+                sorted_count += 1;
+            }
+            self.dependency_levels.push(current_level);
+        }
+
+        // Cycle detected
+        if sorted_count != graph.len() {
+            return Err(GenerateError::CircularDependency)
+        }
+
+        Ok(())
+    }
 }
