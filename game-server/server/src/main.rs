@@ -16,6 +16,7 @@ use crate::db::DbContext;
 use crate::network::authenticator::Authenticator;
 use crate::network::game_listener::GameListener;
 use crate::network::gateway::{Gateway, NewZone};
+use crate::settings::SETTINGS;
 use crate::world::zone::Zone;
 
 #[derive(Parser, Debug)]
@@ -37,7 +38,7 @@ async fn main() {
             return;
         }
     };
-    settings::SETTINGS.set(settings).unwrap();
+    SETTINGS.set(settings).unwrap();
 
     let net_settings = match settings::NetworkSettings::new() {
         Ok(c) => c,
@@ -54,6 +55,11 @@ async fn main() {
             return;
         }
     };
+
+    if let Err(e) = data::load_all(&SETTINGS.get().unwrap().data_dir).await {
+        error!("Error loading data: {}", e);
+        return;
+    }
 
     let default_zone = Zone::new(0).start();
     let gateway = Gateway::new(db_ctx.clone()).start();

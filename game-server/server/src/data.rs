@@ -1,7 +1,7 @@
 use calamine::DataType;
 use std::ops::Deref;
 
-include!(concat!(env!("OUT_DIR"), "/gen/data.rs"));
+include!(concat!(env!("OUT_DIR"), "/gen/data.gen.rs"));
 
 pub type DataId = u32;
 
@@ -83,7 +83,7 @@ impl From<calamine::Error> for LoadError {
 }
 
 pub fn parse_id(value: &calamine::Data) -> Result<DataId, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not Id", value.to_string()))),
     };
@@ -96,7 +96,7 @@ pub fn parse_id(value: &calamine::Data) -> Result<DataId, LoadError> {
 }
 
 pub fn parse_i8(value: &calamine::Data) -> Result<i8, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not i8", value.to_string()))),
     };
@@ -109,7 +109,7 @@ pub fn parse_i8(value: &calamine::Data) -> Result<i8, LoadError> {
 }
 
 pub fn parse_i16(value: &calamine::Data) -> Result<i16, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not i16", value.to_string()))),
     };
@@ -122,7 +122,7 @@ pub fn parse_i16(value: &calamine::Data) -> Result<i16, LoadError> {
 }
 
 pub fn parse_i32(value: &calamine::Data) -> Result<i32, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not i32", value.to_string()))),
     };
@@ -135,7 +135,7 @@ pub fn parse_i32(value: &calamine::Data) -> Result<i32, LoadError> {
 }
 
 pub fn parse_i64(value: &calamine::Data) -> Result<i64, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not i64", value.to_string()))),
     };
@@ -144,7 +144,7 @@ pub fn parse_i64(value: &calamine::Data) -> Result<i64, LoadError> {
 }
 
 pub fn parse_u8(value: &calamine::Data) -> Result<u8, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not u8", value.to_string()))),
     };
@@ -157,7 +157,7 @@ pub fn parse_u8(value: &calamine::Data) -> Result<u8, LoadError> {
 }
 
 pub fn parse_u16(value: &calamine::Data) -> Result<u16, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not u16", value.to_string()))),
     };
@@ -170,7 +170,7 @@ pub fn parse_u16(value: &calamine::Data) -> Result<u16, LoadError> {
 }
 
 pub fn parse_u32(value: &calamine::Data) -> Result<u32, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not u32", value.to_string()))),
     };
@@ -183,7 +183,7 @@ pub fn parse_u32(value: &calamine::Data) -> Result<u32, LoadError> {
 }
 
 pub fn parse_u64(value: &calamine::Data) -> Result<u64, LoadError> {
-    let i = match value.get_int() {
+    let i = match value.as_i64() {
         Some(i) => i,
         None => return Err(LoadError::Parse(format!("{} is not u64", value.to_string()))),
     };

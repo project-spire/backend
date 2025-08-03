@@ -11,8 +11,9 @@ impl Generator {
         fs::create_dir_all(&module_dir)?;
 
         let mut code = self.generate_module_code(module)?;
+        let is_base_module = module.name.as_entity() == "data" && module.name.namespaces.is_empty();
 
-        if module.name.as_entity() == "data" && module.name.namespaces.is_empty() {
+        if is_base_module {
             // Append base module code
             let base_code: String = self.generate_base_module_code(module)?;
             code.push_str(&base_code);
@@ -25,10 +26,12 @@ impl Generator {
             fs::create_dir_all(&children_dir)?;
         }
 
-        fs::write(
-            module_dir.join(format!("{}.rs", module.name.as_entity())),
-            code,
-        )?;
+        let module_path = if is_base_module {
+            module_dir.join(format!("{}.gen.rs", module.name.as_entity()))
+        } else {
+            module_dir.join(format!("{}.rs", module.name.as_entity()))
+        };
+        fs::write(module_path, code)?;
 
         Ok(())
     }

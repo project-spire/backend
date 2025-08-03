@@ -1,12 +1,13 @@
 use serde::Deserialize;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub cheat_enabled: bool,
+    pub data_dir: PathBuf,
 }
 
 impl Settings {

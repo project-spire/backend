@@ -126,7 +126,7 @@ impl{lifetime_code} {CRATE_PREFIX}::Loadable for {data_type_name}{lifetime_param
             }});
         }}
 
-        info!("Loaded {{}} rows", rows.len() - {HEADER_ROWS});
+        info!("Loaded {{}} rows", rows.len());
         Ok(())
     }}
 }}

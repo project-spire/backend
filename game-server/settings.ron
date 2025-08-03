@@ -1,3 +1,4 @@
 Config(
+    data_dir: "/workspace/game-data/data",
     cheat_enabled: true,
 )
