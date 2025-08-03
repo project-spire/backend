@@ -14,7 +14,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = data::Config {
         base_module_path: PathBuf::from("../game-data/data.mod.json"),
         data_dir: PathBuf::from("../game-data/data"),
-        gen_dir: out_dir.join("gen"),
+        // gen_dir: out_dir.join("gen"),
+        gen_dir: PathBuf::from("./src/data"),
         dry_run: false,
     };
     config.generate()?;

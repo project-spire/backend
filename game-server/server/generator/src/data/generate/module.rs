@@ -10,13 +10,12 @@ impl Generator {
         let module_dir = self.full_gen_dir(&module.name.namespaces);
         fs::create_dir_all(&module_dir)?;
 
-        let mut code = self.generate_module_code(module)?;
         let is_base_module = module.name.as_entity() == "data" && module.name.namespaces.is_empty();
 
-        if is_base_module {
-            // Append base module code
-            let base_code: String = self.generate_base_module_code(module)?;
-            code.push_str(&base_code);
+        let (code, module_path) = if is_base_module {
+            let code = self.generate_base_module_code(module)?;
+            let module_path = module_dir.join("load.rs");
+            (code, module_path)
         } else {
             // Create children directory
             let mut namespaces = module.name.namespaces.clone();
@@ -24,13 +23,12 @@ impl Generator {
 
             let children_dir = self.full_gen_dir(&namespaces);
             fs::create_dir_all(&children_dir)?;
-        }
 
-        let module_path = if is_base_module {
-            module_dir.join(format!("{}.gen.rs", module.name.as_entity()))
-        } else {
-            module_dir.join(format!("{}.rs", module.name.as_entity()))
+            let code = self.generate_module_code(module)?;
+            let module_path = module_dir.join(format!("{}.rs", module.name.as_entity()));
+            (code, module_path)
         };
+
         fs::write(module_path, code)?;
 
         Ok(())
@@ -125,7 +123,7 @@ r#"    let mut {handles_name} = Vec::new();
         }
 
         Ok(format!(
-r#"
+r#"{GENERATED_FILE_WARNING}
 use calamine::Reader;
 
 pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), {CRATE_PREFIX}::LoadError> {{

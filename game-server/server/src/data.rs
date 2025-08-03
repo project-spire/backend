@@ -1,7 +1,8 @@
+pub mod character;
+pub mod load;
+
 use calamine::DataType;
 use std::ops::Deref;
-
-include!(concat!(env!("OUT_DIR"), "/gen/data.gen.rs"));
 
 pub type DataId = u32;
 

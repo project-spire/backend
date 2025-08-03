@@ -11,13 +11,8 @@ use bevy_ecs::prelude::*;
 use gel_derive::Queryable;
 use serde::Deserialize;
 use uuid::Uuid;
+use crate::data::character::Race;
 use crate::db::{DbClient, DbError};
-
-#[derive(Debug, Queryable)]
-pub enum Race {
-    Human,
-    Barbarian,
-}
 
 #[derive(Debug, Component, Queryable)]
 pub struct Character {

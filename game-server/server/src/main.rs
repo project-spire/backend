@@ -51,7 +51,7 @@ async fn main() {
         }
     };
 
-    if let Err(e) = data::load_all(&Settings::get().data_dir).await {
+    if let Err(e) = data::load::load_all(&Settings::get().data_dir).await {
         error!("Error loading data: {}", e);
         return;
     }

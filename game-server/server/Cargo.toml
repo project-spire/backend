@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-macros = { path = "macros" }
+#macros = { path = "macros" }
 game_protocol = { path = "../game-protocol/rs" }
 generator = { path = "generator" }
 
