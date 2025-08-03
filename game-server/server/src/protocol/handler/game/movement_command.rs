@@ -1,7 +1,7 @@
-use game_protocol::game::*;
 use tracing::error;
 use crate::character::movement::Movement;
 use crate::network::session::SessionContext;
+use crate::protocol::game::*;
 use crate::timestamp::Timestamp;
 use crate::world::zone::Zone;
 

@@ -1,6 +1,6 @@
 use std::{env, fs};
 use std::path::PathBuf;
-use generator::data;
+use generator::{data, protocol};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("cargo:rerun-if-changed=build.rs");
@@ -16,6 +16,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         data_dir: PathBuf::from("../game-data/data"),
         // gen_dir: out_dir.join("gen"),
         gen_dir: PathBuf::from("./src/data"),
+        dry_run: false,
+    };
+    config.generate()?;
+    
+    // Generate protocol codes
+    let config = protocol::Config {
+        schema_dir: PathBuf::from("../game-protocol/schema"),
+        
+        category_path: PathBuf::from("../game-protocol/category.json"),
+        category_gen_path: PathBuf::from("./src/protocol/category.rs"),
+        
         dry_run: false,
     };
     config.generate()?;

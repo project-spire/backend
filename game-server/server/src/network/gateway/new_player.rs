@@ -1,9 +1,9 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use game_protocol::auth::login;
 use tokio::net::TcpStream;
 use tracing::{error, info};
 use crate::network::session::Entry;
 use crate::player::PlayerData;
+use crate::protocol::auth::login;
 use crate::world::zone;
 use super::Gateway;
 

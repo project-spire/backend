@@ -1,8 +1,8 @@
 use bevy_ecs::prelude::*;
-use game_protocol::{*, game::*};
 use nalgebra::{UnitVector2, Vector2, Vector3};
 use tracing::error;
 use crate::network::session::{SessionContext};
+use crate::protocol::{*, game::*};
 use crate::timestamp::Timestamp;
 use crate::world::transform::Transform;
 
@@ -164,7 +164,7 @@ pub fn sync(
         syncs.push(sync);
     });
 
-    let buf = match game::encode(&GameServerProtocol {
+    let buf = match encode_game(&GameServerProtocol {
         protocol: Some(game_server_protocol::Protocol::MovementSyncs(MovementSyncProtocol { syncs }))
     }) {
         Ok(buf) => buf,

@@ -2,8 +2,6 @@ use std::error::Error;
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::Bytes;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
-use game_protocol::*;
-use game_protocol::auth::*;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -13,6 +11,7 @@ use tracing::{info, error};
 use crate::network::gateway::{Gateway, NewPlayer};
 use crate::network::session::Entry;
 use crate::player::account::*;
+use crate::protocol::{*, auth::*};
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -95,7 +94,7 @@ impl Authenticator {
         let account_id = uuid::Uuid::parse_str(&claims.aid)?;
         let character_id = match login.character_id {
             Some(id) => uuid::Uuid::from(id),
-            None => return Err(Box::new(ProtocolError::InvalidData)),
+            None => return Err(Box::new(crate::protocol::Error::InvalidData)),
         };
         let login_kind = login::Kind::try_from(login.kind)?;
 
@@ -104,20 +103,16 @@ impl Authenticator {
 }
 
 async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn Error>> {
-    let mut header_buf = [0u8; PROTOCOL_HEADER_SIZE];
+    let mut header_buf = [0u8; HEADER_SIZE];
     timeout(READ_TIMEOUT, socket.read_exact(&mut header_buf)).await??;
 
-    let (category, length) = decode_header(&header_buf)?;
-    if length == 0 {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData, "Invalid body length")));
-    }
-    if category != ProtocolCategory::Auth {
+    let header = Header::decode(&header_buf)?;
+    if header.category != Category::Auth {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::InvalidData, "Invalid protocol category")));
     }
 
-    let mut body_buf = vec![0u8; length];
+    let mut body_buf = vec![0u8; header.length];
     timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf)).await??;
     let body_buf = Bytes::from(body_buf);
 

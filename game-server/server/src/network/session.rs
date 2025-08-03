@@ -2,16 +2,16 @@ use std::fmt::{Display, Formatter};
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use game_protocol::{decode_header, ProtocolCategory, PROTOCOL_HEADER_SIZE};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tracing::error;
 use uuid::Uuid;
+use crate::protocol::{*, category::Category};
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
-pub type IngressProtocol = (SessionContext, ProtocolCategory, Bytes);
+pub type IngressProtocol = (SessionContext, Category, Bytes);
 pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
@@ -193,24 +193,26 @@ impl Actor for Session {
 
 async fn recv(
     reader: &mut ReadHalf<TcpStream>,
-) -> Result<(ProtocolCategory, Bytes), std::io::Error> {
-    let mut header_buf = [0u8; PROTOCOL_HEADER_SIZE];
+) -> Result<(Category, Bytes), std::io::Error> {
+    let mut header_buf = [0u8; HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
-    let (category, length) = match decode_header(&header_buf) {
-        Ok((c, l)) => (c, l),
-        Err(_) => return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData, "Invalid header")),
-    };
+    let header = Header::decode(&header_buf)?;
 
-    if length == 0 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData, "Invalid body length"));
-    }
+    // let (category, length) = match decode_header(&header_buf) {
+    //     Ok((c, l)) => (c, l),
+    //     Err(_) => return Err(std::io::Error::new(
+    //         std::io::ErrorKind::InvalidData, "Invalid header")),
+    // };
 
-    let mut body_buf = vec![0u8; length];
+    // if length == 0 {
+    //     return Err(std::io::Error::new(
+    //         std::io::ErrorKind::InvalidData, "Invalid body length"));
+    // }
+
+    let mut body_buf = vec![0u8; header.length];
     reader.read_exact(&mut body_buf).await?;
 
-    Ok((category, Bytes::from(body_buf)))
+    Ok((header.category, Bytes::from(body_buf)))
 }
 
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {

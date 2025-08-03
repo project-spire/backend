@@ -1,9 +1,9 @@
 mod character;
 mod data;
 mod db;
-mod game_handler;
 mod network;
 mod player;
+mod protocol;
 mod settings;
 mod world;
 mod timestamp;
