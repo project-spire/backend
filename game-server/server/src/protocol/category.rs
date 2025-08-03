@@ -1,6 +1,5 @@
-use crate::protocol::Error;
-
-#[derive(Debug, PartialEq)]
+//Generated code
+#[derive(Debug, Clone, Copy, Hash, PartialEq)]
 pub enum Category {
     Auth = 1,
     Net = 2,
@@ -8,12 +7,12 @@ pub enum Category {
 }
 
 impl Category {
-    pub fn decode(value: u8) -> Result<Self, Error> {
+    pub fn decode(value: u8) -> Result<Self, crate::protocol::Error> {
         Ok(match value {
-            1 => Category::Auth,
-            2 => Category::Net,
-            3 => Category::Game,
-            _ => return Err(Error::InvalidCategory(value)),
+            1 => Self::Auth,
+            2 => Self::Net,
+            3 => Self::Game,
+            _ => return Err(crate::protocol::Error::InvalidCategory(value)),
         })
     }
 }

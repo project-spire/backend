@@ -1,7 +1,7 @@
+mod category;
+
 use glob::glob;
 use std::path::PathBuf;
-
-mod category;
 
 #[derive(Debug)]
 pub struct Config {
@@ -15,15 +15,18 @@ pub struct Config {
 
 impl Config {
     pub fn generate(self) -> Result<(), Box<dyn std::error::Error>> {
+        // Generate schema codes
         let schemas: Vec<PathBuf> = glob(&format!("{}/**/*.proto", self.schema_dir.display()))?
             .filter_map(Result::ok)
             .collect();
-
         for schema in &schemas {
             println!("cargo:rerun-if-changed={}", schema.display());
         }
 
         prost_build::compile_protos(&schemas, &[self.schema_dir.to_str().unwrap()])?;
+
+        // Generate category code
+        self.generate_category()?;
 
         Ok(())
     }
