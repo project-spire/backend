@@ -2,7 +2,8 @@ use bevy_ecs::prelude::*;
 use nalgebra::{UnitVector2, Vector2, Vector3};
 use tracing::error;
 use crate::network::session::{SessionContext};
-use crate::protocol::{*, game::*};
+use crate::protocol;
+use crate::protocol::play::{movement_command, MovementSync, MovementState, movement_state::Motion};
 use crate::timestamp::Timestamp;
 use crate::world::transform::Transform;
 
@@ -14,9 +15,9 @@ pub enum MovementCommand {
     Jump,
 }
 
-impl From<movement_command_protocol::Command> for MovementCommand {
-    fn from(value: movement_command_protocol::Command) -> Self {
-        use movement_command_protocol::Command;
+impl From<movement_command::Command> for MovementCommand {
+    fn from(value: movement_command::Command) -> Self {
+        use movement_command::Command;
 
         match value {
             Command::Halt(_) => MovementCommand::Halt,
@@ -27,45 +28,9 @@ impl From<movement_command_protocol::Command> for MovementCommand {
     }
 }
 
-// impl From<HaltMovementCommand> for MovementCommand {
-//     fn from(_: HaltMovementCommand) -> Self {
-//         MovementCommand::Halt
-//     }
-// }
-//
-// impl From<WalkMovementCommand> for MovementCommand {
-//     fn from(value: WalkMovementCommand) -> Self {
-//         MovementCommand::Walk {
-//             direction: value.direction.into(),
-//         }
-//     }
-// }
-//
-// impl From<RunMovementCommand> for MovementCommand {
-//     fn from(value: RunMovementCommand) -> Self {
-//         MovementCommand::Run {
-//             direction: value.direction.into(),
-//         }
-//     }
-// }
-//
-// impl From<RollMovementCommand> for MovementCommand {
-//     fn from(value: RollMovementCommand) -> Self {
-//         MovementCommand::Roll {
-//             direction: value.direction.into(),
-//         }
-//     }
-// }
-//
-// impl From<JumpMovementCommand> for MovementCommand {
-//     fn from(_: JumpMovementCommand) -> Self {
-//         MovementCommand::Jump
-//     }
-// }
-
 #[derive(Component, Default)]
 pub struct Movement {
-    state: MovementState,
+    motion: Motion,
     direction: Option<UnitVector2<f32>>,
     commands: Vec<(Timestamp, MovementCommand)>,
 }
@@ -99,26 +64,26 @@ fn handle_command(
 
     match command {
         Halt => {
-            movement.state = MovementState::Idle;
+            movement.motion = Motion::Idle;
             movement.direction = None;
         },
         Walk { direction } => {
-            movement.state = MovementState::Walking;
+            movement.motion = Motion::Walking;
             movement.direction = Some(direction);
             transform.direction = direction;
         }
         Run { direction } => {
-            movement.state = MovementState::Running;
+            movement.motion = Motion::Running;
             movement.direction = Some(direction);
             transform.direction = direction;
         }
         Roll { direction } => {
-            movement.state = MovementState::Rolling;
+            movement.motion = Motion::Rolling;
             movement.direction = Some(direction);
             transform.direction = direction;
         }
         Jump => {
-            movement.state = MovementState::Jumping;
+            movement.motion = Motion::Jumping;
             movement.direction = None;
         }
     }
@@ -128,7 +93,7 @@ fn handle_movement(
     movement: &Movement,
     transform: &mut Transform,
 ) {
-    if movement.state == MovementState::Idle {
+    if movement.motion == Motion::Idle {
         return;
     }
 
@@ -146,27 +111,22 @@ pub fn sync(
     mut query: Query<(Entity, &mut Movement, &Transform), Changed<Movement>>,
     mut sessions: Query<(&SessionContext)>,
 ) {
-    //TODO: initialize Vec with query size
-    let mut syncs = Vec::new();
-
+    let mut states = Vec::new();
     query.iter_mut().for_each(|(entity, movement, transform)| {
-        let direction: PVector2 = match movement.direction {
-            Some(d) => d.into(),
-            None => PVector2 { x: 0.0, y: 0.0 },
-        };
-
-        let sync = MovementSync {
+        let state = MovementState {
             entity: entity.to_bits(),
-            state: movement.state as i32,
+            motion: movement.motion.into(),
             position: Some(transform.position.into()),
-            direction: Some(direction),
+            direction: movement.direction.into(),
         };
-        syncs.push(sync);
+        states.push(state);
     });
 
-    let buf = match encode_game(&GameServerProtocol {
-        protocol: Some(game_server_protocol::Protocol::MovementSyncs(MovementSyncProtocol { syncs }))
-    }) {
+    let protocol = MovementSync {
+        timestamp: Timestamp::now().into(),
+        states,
+    };
+    let buf = match protocol::encode(&protocol) {
         Ok(buf) => buf,
         Err(e) => {
             error!("Failed to encode: {}", e);

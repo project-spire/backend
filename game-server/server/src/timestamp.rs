@@ -15,3 +15,9 @@ impl Timestamp {
         Timestamp { millis: now.as_millis() as i64 }
     }
 }
+
+impl Into<i64> for Timestamp {
+    fn into(self) -> i64 {
+        self.millis
+    }
+}

@@ -7,6 +7,10 @@ use crate::network::session::IngressProtocol;
 use crate::protocol::{*, net::NetClientProtocol, game::GameClientProtocol};
 use crate::world::zone::Zone;
 
+pub trait Handler {
+    fn handle(&mut self, protocol: IngressProtocol);
+}
+
 pub fn handle(zone: &mut Zone, ctx: &mut <Zone as Actor>::Context, proto: IngressProtocol) {
     let (session_ctx, category, data) = proto;
 

@@ -23,9 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Generate protocol codes
     let config = protocol::Config {
         schema_dir: PathBuf::from("../game-protocol/schema"),
-        
-        category_path: PathBuf::from("../game-protocol/category.json"),
-        category_gen_path: PathBuf::from("./src/protocol/category.rs"),
+        gen_dir: out_dir.clone(),
         
         dry_run: false,
     };

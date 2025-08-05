@@ -7,11 +7,11 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tracing::error;
 use uuid::Uuid;
-use crate::protocol::{*, category::Category};
+use crate::protocol::*;
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
-pub type IngressProtocol = (SessionContext, Category, Bytes);
+pub type IngressProtocol = (SessionContext, Box<dyn Protocol>);
 pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
