@@ -11,7 +11,7 @@ use crate::protocol::*;
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
 
-pub type IngressProtocol = (SessionContext, Box<dyn Protocol>);
+pub type IngressProtocol = (SessionContext, Protocol);
 pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
@@ -101,15 +101,15 @@ impl Session {
         ctx.spawn(
             async move {
                 loop {
-                    let (id, data) = recv(&mut reader).await?;
+                    let protocol = recv(&mut reader).await?;
 
                     if let Ok(tx) = transfer_rx.try_recv() {
                         ingress_proto_tx = tx;
                     }
-                    _ = ingress_proto_tx.send((session_ctx.clone(), category, data)).await;
+                    _ = ingress_proto_tx.send((session_ctx.clone(), protocol)).await;
                 }
 
-                Ok::<(), std::io::Error>(())
+                Ok::<(), Box<dyn std::error::Error>>(())
             }
             .into_actor(self)
             .then(|res, _, ctx| {
@@ -193,7 +193,7 @@ impl Actor for Session {
 
 async fn recv(
     reader: &mut ReadHalf<TcpStream>,
-) -> Result<(ProtocolId, Bytes), Box<dyn std::error::Error>> {
+) -> Result<Protocol, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
@@ -201,7 +201,8 @@ async fn recv(
     let mut body_buf = vec![0u8; header.length];
     reader.read_exact(&mut body_buf).await?;
 
-    Ok((header.id, Bytes::from(body_buf)))
+    let protocol = Protocol::decode(header.id, body_buf.into())?;
+    Ok(protocol)
 }
 
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {

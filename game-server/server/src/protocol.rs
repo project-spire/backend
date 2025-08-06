@@ -57,7 +57,7 @@ pub trait HasProtocolId {
     fn protocol_id(&self) -> u16;
 }
 
-pub fn encode(protocol: &impl prost::Message + HasProtocolId) -> Result<Bytes, Error>
+pub fn encode(protocol: &(impl prost::Message + HasProtocolId)) -> Result<Bytes, Error>
 {
     let length = protocol.encoded_len();
     if length > u16::MAX as usize {
@@ -76,15 +76,12 @@ pub fn encode(protocol: &impl prost::Message + HasProtocolId) -> Result<Bytes, E
     Ok(buf.freeze())
 }
 
-pub fn decode(id: u16, data: Bytes) -> Result<Protocol, Error> {
-    Protocol::decode(id, data)
-}
-
 #[derive(Debug)]
 pub enum Error {
     ProtocolLength(usize),
     ProtocolId(u16),
     NotEnoughBuffer(usize, usize),
+    InvalidData,
     Encode(prost::EncodeError),
     Decode(prost::DecodeError),
 }

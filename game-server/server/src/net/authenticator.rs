@@ -1,8 +1,6 @@
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
-use bytes::Bytes;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -10,7 +8,6 @@ use tokio::time::timeout;
 use tracing::{info, error};
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
-use crate::player::account::*;
 use crate::protocol::{*, auth::*};
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
@@ -50,7 +47,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
             let mut socket = msg.socket;
             let login = receive_login(&mut socket).await?;
 
-            Ok::<(TcpStream, Login), Box<dyn Error>>((socket, login))
+            Ok::<(TcpStream, Login), Box<dyn std::error::Error>>((socket, login))
         }
         .into_actor(self)
         .then(|res, act, ctx| {
@@ -79,7 +76,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
 }
 
 impl Authenticator {
-    fn validate_login(&self, login: Login) -> Result<(Entry, login::Kind), Box<dyn Error>> {
+    fn validate_login(&self, login: Login) -> Result<(Entry, login::Kind), Box<dyn std::error::Error>> {
         #[derive(Debug, Serialize, Deserialize)]
         struct Claims {
             aid: String, // account_id
@@ -94,7 +91,7 @@ impl Authenticator {
         let account_id = uuid::Uuid::parse_str(&claims.aid)?;
         let character_id = match login.character_id {
             Some(id) => uuid::Uuid::from(id),
-            None => return Err(Box::new(crate::protocol::Error::InvalidData)),
+            None => return Err(Box::new(Error::InvalidData)),
         };
         let login_kind = login::Kind::try_from(login.kind)?;
 
@@ -102,7 +99,7 @@ impl Authenticator {
     }
 }
 
-async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn Error>> {
+async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
     timeout(READ_TIMEOUT, socket.read_exact(&mut header_buf)).await??;
 
@@ -110,8 +107,10 @@ async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn Error>> 
 
     let mut body_buf = vec![0u8; header.length];
     timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf)).await??;
-    let body_buf = Bytes::from(body_buf);
 
-    let protocol = decode(header.id, body_buf)?;
-    // How to check if the concrete type of protocol is Login?
+    let protocol = Protocol::decode(header.id, body_buf.into())?;
+    match protocol {
+        Protocol::Login(login) => Ok(login),
+        _ => Err("Protocol other than Login is received".into())
+    }
 }
