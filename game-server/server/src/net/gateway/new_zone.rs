@@ -1,6 +1,6 @@
 use actix::{Addr, Handler};
 use tracing::info;
-use crate::network::gateway::Gateway;
+use crate::net::gateway::Gateway;
 use super::Zone;
 
 #[derive(actix::Message)]

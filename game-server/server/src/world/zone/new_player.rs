@@ -1,7 +1,7 @@
 use actix::{Actor, Handler};
 use tokio::net::TcpStream;
 use tracing::info;
-use crate::network::session::{Entry, Session, SessionContext};
+use crate::net::session::{Entry, Session, SessionContext};
 use crate::player::PlayerData;
 use super::Zone;
 

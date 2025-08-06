@@ -10,7 +10,7 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use uuid::Uuid;
-use crate::network::session::IngressProtocol;
+use crate::net::session::IngressProtocol;
 
 const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);

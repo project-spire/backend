@@ -101,7 +101,7 @@ impl Session {
         ctx.spawn(
             async move {
                 loop {
-                    let (category, data) = recv(&mut reader).await?;
+                    let (id, data) = recv(&mut reader).await?;
 
                     if let Ok(tx) = transfer_rx.try_recv() {
                         ingress_proto_tx = tx;
@@ -193,26 +193,15 @@ impl Actor for Session {
 
 async fn recv(
     reader: &mut ReadHalf<TcpStream>,
-) -> Result<(Category, Bytes), std::io::Error> {
+) -> Result<(ProtocolId, Bytes), Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
     reader.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
 
-    // let (category, length) = match decode_header(&header_buf) {
-    //     Ok((c, l)) => (c, l),
-    //     Err(_) => return Err(std::io::Error::new(
-    //         std::io::ErrorKind::InvalidData, "Invalid header")),
-    // };
-
-    // if length == 0 {
-    //     return Err(std::io::Error::new(
-    //         std::io::ErrorKind::InvalidData, "Invalid body length"));
-    // }
-
     let mut body_buf = vec![0u8; header.length];
     reader.read_exact(&mut body_buf).await?;
 
-    Ok((header.category, Bytes::from(body_buf)))
+    Ok((header.id, Bytes::from(body_buf)))
 }
 
 async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {

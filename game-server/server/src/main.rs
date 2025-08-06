@@ -1,7 +1,7 @@
 mod character;
 mod data;
 mod db;
-mod network;
+mod net;
 mod player;
 mod protocol;
 mod settings;
@@ -13,9 +13,9 @@ use clap::Parser;
 use tracing::{info, error};
 use tracing_subscriber::fmt;
 use crate::db::DbContext;
-use crate::network::authenticator::Authenticator;
-use crate::network::game_listener::GameListener;
-use crate::network::gateway::{Gateway, NewZone};
+use crate::net::authenticator::Authenticator;
+use crate::net::game_listener::GameListener;
+use crate::net::gateway::{Gateway, NewZone};
 use crate::settings::Settings;
 use crate::world::zone::Zone;
 
@@ -38,7 +38,7 @@ async fn main() {
     let net_settings = match settings::NetworkSettings::new() {
         Ok(c) => c,
         Err(e) => {
-            error!("Error loading network configuration: {}", e);
+            error!("Error loading net configuration: {}", e);
             return;
         }
     };

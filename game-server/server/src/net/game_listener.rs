@@ -1,5 +1,5 @@
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, StreamHandler, WrapFuture};
-use crate::network::authenticator::{Authenticator, NewUnauthorizedSession};
+use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_stream::wrappers::TcpListenerStream;

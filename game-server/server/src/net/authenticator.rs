@@ -1,15 +1,15 @@
-use std::error::Error;
 use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bytes::Bytes;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tracing::{info, error};
-use crate::network::gateway::{Gateway, NewPlayer};
-use crate::network::session::Entry;
+use crate::net::gateway::{Gateway, NewPlayer};
+use crate::net::session::Entry;
 use crate::player::account::*;
 use crate::protocol::{*, auth::*};
 
@@ -107,20 +107,11 @@ async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn Error>> 
     timeout(READ_TIMEOUT, socket.read_exact(&mut header_buf)).await??;
 
     let header = Header::decode(&header_buf)?;
-    if header.category != Category::Auth {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData, "Invalid protocol category")));
-    }
 
     let mut body_buf = vec![0u8; header.length];
     timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf)).await??;
     let body_buf = Bytes::from(body_buf);
 
-    let login = match AuthClientProtocol::decode(body_buf)?.protocol {
-        Some(auth_client_protocol::Protocol::Login(l)) => l,
-        _ => return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData, "Protocol is not Login"))),
-    };
-
-    Ok(login)
+    let protocol = decode(header.id, body_buf)?;
+    // How to check if the concrete type of protocol is Login?
 }

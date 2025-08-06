@@ -22,20 +22,16 @@ use std::fmt::{Display, Formatter};
 
 pub const HEADER_SIZE: usize = 4;
 
-pub trait Protocol : Sized + prost::Message {
-    fn protocol() -> u16;
-}
-
 pub struct Header {
     pub length: usize,
-    pub protocol: u16,
+    pub id: u16,
 }
 
 impl Header {
     pub fn encode(
         buf: &mut BytesMut,
         length: usize,
-        protocol: u16,
+        id: u16,
     ) -> Result<(), Error> {
         if buf.remaining_mut() < HEADER_SIZE {
             return Err(Error::NotEnoughBuffer(buf.remaining_mut(), HEADER_SIZE));
@@ -43,8 +39,8 @@ impl Header {
 
         buf.put_u8((length >> 8) as u8);
         buf.put_u8(length as u8);
-        buf.put_u8((protocol >> 8) as u8);
-        buf.put_u8(protocol as u8);
+        buf.put_u8((id >> 8) as u8);
+        buf.put_u8(id as u8);
 
         Ok(())
     }
@@ -53,12 +49,15 @@ impl Header {
         let length =  ((buf[0] as usize) << 8) | (buf[1] as usize);
         let protocol =  ((buf[2] as u16) << 8) | (buf[3] as u16);
 
-        Ok(Self { length, protocol })
+        Ok(Self { length, id: protocol })
     }
 }
 
-pub fn encode<P>(protocol: &P) -> Result<Bytes, Error>
-where P: Protocol + prost::Message,
+pub trait HasProtocolId {
+    fn protocol_id(&self) -> u16;
+}
+
+pub fn encode(protocol: &impl prost::Message + HasProtocolId) -> Result<Bytes, Error>
 {
     let length = protocol.encoded_len();
     if length > u16::MAX as usize {
@@ -70,26 +69,34 @@ where P: Protocol + prost::Message,
     Header::encode(
         &mut buf,
         length,
-        P::protocol(),
+        protocol.protocol_id(),
     )?;
     protocol.encode(&mut buf)?;
 
     Ok(buf.freeze())
 }
 
+pub fn decode(id: u16, data: Bytes) -> Result<Protocol, Error> {
+    Protocol::decode(id, data)
+}
+
 #[derive(Debug)]
 pub enum Error {
     ProtocolLength(usize),
+    ProtocolId(u16),
     NotEnoughBuffer(usize, usize),
     Encode(prost::EncodeError),
+    Decode(prost::DecodeError),
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ProtocolLength(len) => write!(f, "Protocol length of {} is too long", len),
+            Self::ProtocolId(id) => write!(f, "Invalid protocol id: {}", id),
             Self::NotEnoughBuffer(prepared, required) => write!(f, "Not enough buffer size {prepared} for {required}"),
             Self::Encode(e) => write!(f, "{e}"),
+            Self::Decode(e) => write!(f, "{e}"),
         }
     }
 }
@@ -99,5 +106,11 @@ impl std::error::Error for Error {}
 impl From<prost::EncodeError> for Error {
     fn from(value: prost::EncodeError) -> Self {
         Self::Encode(value)
+    }
+}
+
+impl From<prost::DecodeError> for Error {
+    fn from(value: prost::DecodeError) -> Self {
+        Self::Decode(value)
     }
 }

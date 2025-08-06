@@ -1,12 +1,12 @@
 use tracing::error;
 use crate::character::movement::Movement;
-use crate::network::session::SessionContext;
-use crate::protocol::game::*;
+use crate::net::session::SessionContext;
+use crate::protocol::play::*;
 use crate::timestamp::Timestamp;
 use crate::world::zone::Zone;
 
-pub fn handle(zone: &mut Zone, session_ctx: SessionContext, proto: MovementCommandProtocol) {
-    if proto.command.is_none() {
+pub fn handle(zone: &mut Zone, session_ctx: SessionContext, protocol: MovementCommand) {
+    if protocol.command.is_none() {
         error!("Empty command");
         return;
     }
@@ -34,5 +34,7 @@ pub fn handle(zone: &mut Zone, session_ctx: SessionContext, proto: MovementComma
         }
     };
 
-    movement.add_command(Timestamp::from_millis(proto.timestamp), proto.command.unwrap().into());
+    movement.add_command(
+        Timestamp::from_millis(protocol.timestamp), protocol.command.unwrap().into()
+    );
 }
