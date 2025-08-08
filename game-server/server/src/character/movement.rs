@@ -15,16 +15,36 @@ pub enum MovementCommand {
     Jump,
 }
 
-impl From<movement_command::Command> for MovementCommand {
-    fn from(value: movement_command::Command) -> Self {
+impl TryFrom<movement_command::Command> for MovementCommand {
+    type Error = ();
+
+    fn try_from(value: movement_command::Command) -> Result<Self, Self::Error> {
         use movement_command::Command;
 
-        match value {
+        Ok(match value {
             Command::Halt(_) => MovementCommand::Halt,
-            Command::Walk(walk) => MovementCommand::Walk { direction: walk.direction.unwrap().into() },
-            Command::Run(run) => MovementCommand::Run { direction: run.direction.unwrap().into() },
-            Command::Roll(roll) => MovementCommand::Roll { direction: roll.direction.unwrap().into() },
-        }
+            Command::Walk(walk) => {
+                if walk.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Walk { direction: walk.direction.unwrap().try_into()? }
+            },
+            Command::Run(run) => {
+                if run.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Run { direction: run.direction.unwrap().try_into()? }
+            },
+            Command::Roll(roll) => {
+                if roll.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Roll { direction: roll.direction.unwrap().try_into()? }
+            },
+        })
     }
 }
 
@@ -117,7 +137,10 @@ pub fn sync(
             entity: entity.to_bits(),
             motion: movement.motion.into(),
             position: Some(transform.position.into()),
-            direction: movement.direction.into(),
+            direction: match movement.direction {
+                Some(direction) => Some(direction.into()),
+                None => None,
+            },
         };
         states.push(state);
     });
