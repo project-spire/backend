@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use nalgebra::{UnitVector2, Vector2, Vector3};
+use nalgebra::{UnitVector2, Vector3};
 use tracing::error;
 use crate::net::session::{SessionContext};
 use crate::protocol;

@@ -91,7 +91,7 @@ impl Authenticator {
         let account_id = uuid::Uuid::parse_str(&claims.aid)?;
         let character_id = match login.character_id {
             Some(id) => uuid::Uuid::from(id),
-            None => return Err(Box::new(Error::InvalidData)),
+            None => return Err("Invalid character id".into()),
         };
         let login_kind = login::Kind::try_from(login.kind)?;
 

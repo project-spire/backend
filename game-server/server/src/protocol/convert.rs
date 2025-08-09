@@ -42,6 +42,18 @@ impl From<Point3<f32>> for crate::protocol::Vector3 {
     }
 }
 
+impl From<crate::protocol::Vector3> for Vector3<f32> {
+    fn from(value: crate::protocol::Vector3) -> Self {
+        Vector3::new(value.x, value.y, value.z)
+    }
+}
+
+impl From<Vector3<f32>> for crate::protocol::Vector3 {
+    fn from(value: Vector3<f32>) -> Self {
+        crate::protocol::Vector3 { x: value.x, y: value.y, z: value.z }
+    }
+}
+
 impl From<crate::protocol::Uuid> for uuid::Uuid {
     fn from(value: crate::protocol::Uuid) -> Self {
         uuid::Uuid::from_u64_pair(value.high, value.low)

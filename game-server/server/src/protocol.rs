@@ -81,7 +81,6 @@ pub enum Error {
     ProtocolLength(usize),
     ProtocolId(u16),
     NotEnoughBuffer(usize, usize),
-    InvalidData,
     Encode(prost::EncodeError),
     Decode(prost::DecodeError),
 }
