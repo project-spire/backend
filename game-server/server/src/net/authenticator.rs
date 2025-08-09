@@ -2,7 +2,7 @@ use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFut
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 use tracing::{info, error};

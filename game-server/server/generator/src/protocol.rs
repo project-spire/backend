@@ -93,7 +93,7 @@ impl Config {
             ));
 
             id_impls.push(format!(
-r#"impl crate::protocol::HasProtocolId for {protocol_full_name} {{
+r#"impl crate::protocol::Protocolic for {protocol_full_name} {{
     fn protocol_id(&self) -> u16 {{ {number} }}
 }}
 "#
@@ -103,6 +103,7 @@ r#"impl crate::protocol::HasProtocolId for {protocol_full_name} {{
         let code = format!(
 r#"// Generated file
 
+#[derive(Debug)]
 pub enum Protocol {{
 {enums_code}
 }}

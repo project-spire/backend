@@ -53,11 +53,11 @@ impl Header {
     }
 }
 
-pub trait HasProtocolId {
+pub trait Protocolic: Sized {
     fn protocol_id(&self) -> u16;
 }
 
-pub fn encode(protocol: &(impl prost::Message + HasProtocolId)) -> Result<Bytes, Error>
+pub fn encode(protocol: &(impl prost::Message + Protocolic)) -> Result<Bytes, Error>
 {
     let length = protocol.encoded_len();
     if length > u16::MAX as usize {
@@ -83,6 +83,7 @@ pub enum Error {
     NotEnoughBuffer(usize, usize),
     Encode(prost::EncodeError),
     Decode(prost::DecodeError),
+    UnhandledProtocol(u16),
 }
 
 impl Display for Error {
@@ -93,6 +94,7 @@ impl Display for Error {
             Self::NotEnoughBuffer(prepared, required) => write!(f, "Not enough buffer size {prepared} for {required}"),
             Self::Encode(e) => write!(f, "{e}"),
             Self::Decode(e) => write!(f, "{e}"),
+            Error::UnhandledProtocol(id) => write!(f, "Unhandled protocol id: {id}"),
         }
     }
 }

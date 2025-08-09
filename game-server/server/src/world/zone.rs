@@ -1,10 +1,10 @@
 mod new_player;
 
-use std::collections::HashMap;
 pub use new_player::NewPlayer;
 
 use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
 use bevy_ecs::prelude::*;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::Duration;
@@ -69,8 +69,6 @@ impl Zone {
             }),
         );
     }
-
-    fn handle_protocol(&mut self, ctx: &mut <Self as Actor>::Context, proto: IngressProtocol) {}
 
     fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
         let mut schedule = Schedule::default();
