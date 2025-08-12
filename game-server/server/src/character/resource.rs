@@ -1,19 +1,15 @@
+use std::collections::HashMap;
 use bevy_ecs::prelude::*;
 
-#[derive(Component)]
-pub struct Health {
-    value: u32,
-    max_value: u32,
+#[derive(Debug, Default)]
+pub struct ResourceBlock {
+    health: u64,
+    mana: Option<u64>,
+    rage: Option<u64>,
 }
 
 #[derive(Component)]
-pub struct Mana {
-    value: u32,
-    max_value: u32,
-}
-
-#[derive(Component)]
-pub struct Rage {
-    value: u32,
-    max_value: u32,
+pub struct Resource {
+    current: ResourceBlock,
+    max: ResourceBlock,
 }
