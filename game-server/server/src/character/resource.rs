@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use bevy_ecs::prelude::*;
+use crate::calc::RangedValue;
 
 #[derive(Debug, Default)]
 pub struct ResourceBlock {
@@ -9,7 +9,6 @@ pub struct ResourceBlock {
 }
 
 #[derive(Component)]
-pub struct Resource {
-    current: ResourceBlock,
-    max: ResourceBlock,
+pub struct Health {
+    pub value: RangedValue<i64>,
 }

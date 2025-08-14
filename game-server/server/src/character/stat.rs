@@ -1,23 +1,5 @@
 use bevy_ecs::prelude::*;
-use rand::Rng;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Chance(pub u16);
-
-impl Chance {
-    pub fn hit(&self) -> bool {
-        rand::rng().random_range(0..=10000) >= self.0
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Multiplier(pub u32);
-
-impl Multiplier {
-    pub fn calc(&self, value: i64) -> i64 {
-        (value * (self.0 + 10000) as i64) / 10000
-    }
-}
+use crate::calc::Chance;
 
 #[derive(Debug)]
 pub enum CoreStatType {
@@ -51,10 +33,10 @@ pub struct CombatStatBlock {
     pub attack_speed: u16,
     pub cast_speed: u16,
     pub critical_chance: Chance,
-    pub critical_damage_multiplier: Multiplier,
+    pub critical_damage_multiplier: f32,
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct Stat {
     level: u16,
     exp: u64,

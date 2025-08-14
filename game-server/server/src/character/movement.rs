@@ -7,6 +7,14 @@ use crate::protocol::play::{movement_command, MovementSync, MovementState, movem
 use crate::timestamp::Timestamp;
 use crate::world::transform::Transform;
 
+#[derive(Component, Default)]
+pub struct Movement {
+    motion: Motion,
+    direction: Option<UnitVector2<f32>>,
+    commands: Vec<(Timestamp, MovementCommand)>,
+    stat: MovementStat,
+}
+
 pub enum MovementCommand {
     Halt,
     Walk { direction: UnitVector2<f32> },
@@ -15,44 +23,9 @@ pub enum MovementCommand {
     Jump,
 }
 
-impl TryFrom<movement_command::Command> for MovementCommand {
-    type Error = ();
+#[derive(Default)]
+pub struct MovementStat {
 
-    fn try_from(value: movement_command::Command) -> Result<Self, Self::Error> {
-        use movement_command::Command;
-
-        Ok(match value {
-            Command::Halt(_) => MovementCommand::Halt,
-            Command::Walk(walk) => {
-                if walk.direction.is_none() {
-                    return Err(());
-                }
-
-                MovementCommand::Walk { direction: walk.direction.unwrap().try_into()? }
-            },
-            Command::Run(run) => {
-                if run.direction.is_none() {
-                    return Err(());
-                }
-
-                MovementCommand::Run { direction: run.direction.unwrap().try_into()? }
-            },
-            Command::Roll(roll) => {
-                if roll.direction.is_none() {
-                    return Err(());
-                }
-
-                MovementCommand::Roll { direction: roll.direction.unwrap().try_into()? }
-            },
-        })
-    }
-}
-
-#[derive(Component, Default)]
-pub struct Movement {
-    motion: Motion,
-    direction: Option<UnitVector2<f32>>,
-    commands: Vec<(Timestamp, MovementCommand)>,
 }
 
 impl Movement {
@@ -160,4 +133,37 @@ pub fn sync(
     sessions.iter().for_each(|session| {
         session.do_send(buf.clone());
     });
+}
+
+impl TryFrom<movement_command::Command> for MovementCommand {
+    type Error = ();
+
+    fn try_from(value: movement_command::Command) -> Result<Self, Self::Error> {
+        use movement_command::Command;
+
+        Ok(match value {
+            Command::Halt(_) => MovementCommand::Halt,
+            Command::Walk(walk) => {
+                if walk.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Walk { direction: walk.direction.unwrap().try_into()? }
+            },
+            Command::Run(run) => {
+                if run.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Run { direction: run.direction.unwrap().try_into()? }
+            },
+            Command::Roll(roll) => {
+                if roll.direction.is_none() {
+                    return Err(());
+                }
+
+                MovementCommand::Roll { direction: roll.direction.unwrap().try_into()? }
+            },
+        })
+    }
 }

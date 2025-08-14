@@ -1,3 +1,4 @@
+mod calc;
 mod character;
 mod data;
 mod db;
