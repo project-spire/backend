@@ -2,14 +2,13 @@
 // pub mod cognition;
 // pub mod combat;
 pub mod movement;
-// pub mod resource;
-// pub mod stat;
+pub mod resource;
+pub mod stat;
 // pub mod status_effect;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
 use gel_derive::Queryable;
-use serde::Deserialize;
 use uuid::Uuid;
 use crate::data::character::Race;
 use crate::db::{DbClient, DbError};

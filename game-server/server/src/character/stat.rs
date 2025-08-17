@@ -1,55 +1,50 @@
 use bevy_ecs::prelude::*;
-use tokio_postgres::{Client, error::Error};
+use crate::calc::Chance;
 
-#[derive(Component)]
-pub struct CharacterStat {
-    // Level
+#[derive(Debug)]
+pub enum CoreStatType {
+    Strength,
+    Dexterity,
+    Constitution,
+    Intelligence,
+    Faith,
+}
+
+#[derive(Debug, Default)]
+pub struct CoreStatBlock {
+    pub strength: u16,
+    pub dexterity: u16,
+    pub constitution: u16,
+    pub intelligence: u16,
+    pub faith: Option<u16>,
+    pub spirit: Option<u16>,
+}
+
+#[derive(Debug)]
+pub enum CombatStatType {
+    AttackSpeed,
+    CastSpeed,
+    CriticalChance,
+    CriticalDamageMultiplier,
+}
+
+#[derive(Debug, Default)]
+pub struct CombatStatBlock {
+    pub attack_speed: u16,
+    pub cast_speed: u16,
+    pub critical_chance: Chance,
+    pub critical_damage_multiplier: f32,
+}
+
+#[derive(Component, Default)]
+pub struct Stat {
     level: u16,
-    exp: u32,
+    exp: u64,
+    karma: i64,
 
-    // Core
-    strength: u16,
-    dexterity: u16,
-    constitution: u16,
-    intelligence: u16,
+    core_base: CoreStatBlock,
+    core_final: CoreStatBlock,
 
-    // Optional
-    faith: Option<u16>,
-}
-
-impl CharacterStat {
-    pub async fn load(character_id: u64, client: &Client) -> Result<CharacterStat, Error> {
-        let row = client.query_one(
-            "SELECT level, exp, strength, dexterity, constitution, intelligence, faith \
-            FROM character_stats WHERE character_id=$1",
-            &[&(character_id as i64)],
-        ).await?;
-
-        Ok(CharacterStat {
-            level: row.get::<_, i16>(0) as u16,
-            exp: row.get::<_, i32>(1) as u32,
-            strength: row.get::<_, i16>(2) as u16,
-            dexterity: row.get::<_, i16>(3) as u16,
-            constitution: row.get::<_, i16>(4) as u16,
-            intelligence: row.get::<_, i16>(5) as u16,
-            faith: row.get::<_, Option<i16>>(6).map(|v| v as u16)
-        })
-    }
-}
-
-#[derive(Component)]
-pub struct MobilityStat {
-    pub speed: f32,
-    base_speed: f32,
-}
-
-#[derive(Component)]
-pub struct CombatStat {
-    pub attack: u32,
-    base_attack: u32,
-}
-
-#[derive(Component)]
-pub struct CraftingStat {
-
+    combat_base: CombatStatBlock,
+    combat_final: CombatStatBlock,
 }
