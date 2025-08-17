@@ -1,11 +1,10 @@
+use glob::glob;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use glob::glob;
 use std::path::PathBuf;
 
 const TAB: &str = "    ";
-const PROTOCOL_ID_FILE_NAME: &str = "protocol_id.proto";
-const PROTOCOL_ID_ENUM_NAME: &str = "ProtocolId";
 
 #[derive(Debug)]
 pub struct Config {
@@ -33,54 +32,35 @@ impl Config {
     }
 
     fn generate_impl_code(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let schemas: Vec<PathBuf> = glob(&self.schema_dir.join("**/*.proto").to_str().unwrap())?
+        let category_files: Vec<PathBuf> = glob(self.schema_dir.join("*.json").to_str().unwrap())?
             .filter_map(Result::ok)
             .collect();
 
-        let file_descriptor_set = &protox::compile(
-            &schemas,
-            [&self.schema_dir]
-        )?;
+        let mut categories = Vec::new();
+        let mut protocols = Vec::new();
 
-        let mut packages = HashMap::new();
-        for file_descriptor in &file_descriptor_set.file {
-            for message_descriptor in &file_descriptor.message_type {
-                packages.insert(
-                    message_descriptor.name().to_owned(),
-                    file_descriptor.package().replace(".", "::").replace("spire", "crate"),
-                );
-            }
+        for category_file in &category_files {
+            let category: Category = serde_json::from_str(
+                &fs::read_to_string(&category_file)?
+            )?;
+            categories.push(category);
         }
 
-        let file_descriptor = match file_descriptor_set.file.iter().find(|f| {
-            PathBuf::from(f.name()).file_name().unwrap() == PROTOCOL_ID_FILE_NAME
-        }) {
-            Some(fd) => fd,
-            None => return Err(format!("{PROTOCOL_ID_FILE_NAME} file not found!").into()),
-        };
-
-        let enum_descriptor = match file_descriptor.enum_type.iter().find(
-            |e| e.name() == PROTOCOL_ID_ENUM_NAME
-        ) {
-            Some(e) => e,
-            None => return Err(format!("{PROTOCOL_ID_ENUM_NAME} enum type not found").into()),
-        };
-
-        let mut protocols = Vec::new();
-        for enum_value in &enum_descriptor.value {
-            let protocol_name = enum_value.name().to_owned();
-            let number = enum_value.number() as u16;
-
-            protocols.push((protocol_name, number));
+        for category in &categories {
+            let mut number = category.offset;
+            for protocol in &category.protocols {
+                protocols.push((&category.category, protocol, number));
+                number += 1;
+            }
         }
 
         let mut enums = Vec::new();
         let mut decode_matches = Vec::new();
         let mut id_impls = Vec::new();
 
-        for (protocol_name, number) in &protocols {
-            let protocol_full_name = format!("{}::{}",
-                packages.get(protocol_name).unwrap(),
+        for (category, protocol_name, number) in protocols {
+            let protocol_full_name = format!("crate::protocol::{}::{}",
+                category,
                 protocol_name,
             );
 
@@ -127,4 +107,11 @@ impl Protocol {{
 
         Ok(())
     }
+}
+
+#[derive(Deserialize)]
+struct Category {
+    category: String,
+    offset: u16,
+    protocols: Vec<String>,
 }
