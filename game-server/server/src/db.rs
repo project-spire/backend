@@ -1,7 +1,7 @@
 use gel_tokio::{Builder, Client, TlsSecurity};
 use gel_tokio::dsn::HostType;
 use std::str::FromStr;
-use crate::settings::NetworkSettings;
+use crate::config::Config;
 
 pub type DbClient = Client;
 pub type DbError = gel_errors::Error;
@@ -12,7 +12,9 @@ pub struct DbContext {
 }
 
 impl DbContext {
-    pub async fn new(settings: &NetworkSettings) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let settings = Config::get();
+
         let config = Builder::new()
             .host(HostType::from_str(&settings.db_host)?)
             .port(settings.db_port)

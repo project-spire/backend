@@ -1,5 +1,5 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use tokio::net::TcpStream;
+use quinn::{Connection, SendStream, RecvStream};
 use tracing::{error, info};
 use crate::net::session::Entry;
 use crate::player::PlayerData;
@@ -10,7 +10,8 @@ use super::Gateway;
 #[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewPlayer {
-    pub socket: TcpStream,
+    pub connection: Connection,
+    pub streams: (SendStream, RecvStream),
     pub login_kind: login::Kind,
     pub entry: Entry,
 }
@@ -27,8 +28,12 @@ impl Handler<NewPlayer> for Gateway {
                 login::Kind::Transfer => todo!(),
             };
 
-            Ok::<(Entry, TcpStream, PlayerData), Box<dyn std::error::Error>>((
-                msg.entry, msg.socket, player_data))
+            Ok::<(Entry, Connection, (SendStream, RecvStream), PlayerData), Box<dyn std::error::Error>>((
+                msg.entry,
+                msg.connection,
+                msg.streams,
+                player_data
+            ))
         }
         .into_actor(self)
         .then(|res, act, _| {
@@ -37,12 +42,12 @@ impl Handler<NewPlayer> for Gateway {
                 return actix::fut::ready(());
             }
 
-            let (entry, socket, player_data) = res.unwrap();
+            let (entry, connection, streams, player_data) = res.unwrap();
             info!("Player loaded: {:?}, {:?}", player_data.account, player_data.character );
 
             //TODO: Find the player's last zone
             let default_zone = act.zones.get(&0).unwrap();
-            default_zone.do_send(zone::NewPlayer::new(entry, socket, player_data));
+            default_zone.do_send(zone::NewPlayer::new(entry, connection, streams, player_data));
 
             actix::fut::ready(())
         }));

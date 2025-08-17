@@ -2,14 +2,19 @@ use std::fmt::{Display, Formatter};
 use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
-use tokio::net::TcpStream;
+use quinn::{Connection, ConnectionError, RecvStream, SendStream};
 use tokio::sync::mpsc;
 use tracing::error;
 use uuid::Uuid;
 use crate::protocol::*;
 
-const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 16;
+const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 32;
+
+#[derive(Debug)]
+pub enum Tag {
+    Stream,
+    Datagram
+}
 
 pub type IngressProtocol = (SessionContext, Protocol);
 pub type EgressProtocol = Bytes;
@@ -24,17 +29,17 @@ pub struct Entry {
 pub struct SessionContext {
     pub entry: Entry,
     pub session: Addr<Session>,
-    pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
+    pub egress_tx: mpsc::Sender<EgressProtocol>,
     pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
 }
 
 impl SessionContext {
-    pub async fn send(&self, proto: EgressProtocol) {
-        _ = self.egress_proto_tx.send(proto).await;
+    pub async fn send(&self, protocol: EgressProtocol) {
+        _ = self.egress_tx.send(protocol).await;
     }
     
-    pub fn do_send(&self, proto: EgressProtocol) {
-        if let Err(e) = self.egress_proto_tx.try_send(proto) {
+    pub fn do_send(&self, protocol: EgressProtocol) {
+        if let Err(e) = self.egress_tx.try_send(protocol) {
             error!("Error sending egress protocol: {}", e);
         }
     }
@@ -53,12 +58,12 @@ impl Display for SessionContext {
 
 pub struct Session {
     entry: Entry,
-    socket: Option<TcpStream>,
+    connection: Connection,
 
-    pub egress_proto_tx: mpsc::Sender<EgressProtocol>,
-    egress_proto_rx: Option<mpsc::Receiver<EgressProtocol>>,
+    pub egress_tx: mpsc::Sender<EgressProtocol>,
+    egress_rx: Option<mpsc::Receiver<EgressProtocol>>,
 
-    ingress_proto_tx: Option<mpsc::Sender<IngressProtocol>>,
+    ingress_tx: Option<mpsc::Sender<IngressProtocol>>,
 
     pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
     transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
@@ -67,18 +72,18 @@ pub struct Session {
 impl Session {
     pub fn new(
         entry: Entry,
-        socket: TcpStream,
-        ingress_proto_tx: mpsc::Sender<IngressProtocol>,
+        connection: Connection,
+        ingress_tx: mpsc::Sender<IngressProtocol>,
     ) -> Self {
-        let (egress_proto_tx, egress_proto_rx) = mpsc::channel(EGRESS_PROTOCOL_BUFFER_SIZE);
+        let (egress_tx, egress_rx) = mpsc::channel(EGRESS_PROTOCOL_BUFFER_SIZE);
         let (transfer_tx, transfer_rx) = mpsc::channel(2);
 
         Session {
             entry,
-            socket: Some(socket),
-            egress_proto_tx,
-            egress_proto_rx: Some(egress_proto_rx),
-            ingress_proto_tx: Some(ingress_proto_tx),
+            connection,
+            egress_tx,
+            egress_rx: Some(egress_rx),
+            ingress_tx: Some(ingress_tx),
             transfer_tx,
             transfer_rx: Some(transfer_rx),
         }
@@ -86,63 +91,61 @@ impl Session {
 
     fn start_recv(
         &mut self,
-        mut reader: ReadHalf<TcpStream>,
-        mut ingress_proto_tx: mpsc::Sender<IngressProtocol>,
+        mut stream: RecvStream,
+        mut ingress_tx: mpsc::Sender<IngressProtocol>,
         mut transfer_rx: mpsc::Receiver<mpsc::Sender<IngressProtocol>>,
         ctx: &mut <Session as Actor>::Context,
     ) {
         let session_ctx = SessionContext {
             entry: self.entry.clone(),
             session: ctx.address(),
-            egress_proto_tx: self.egress_proto_tx.clone(),
+            egress_tx: self.egress_tx.clone(),
             transfer_tx: self.transfer_tx.clone(),
         };
 
-        ctx.spawn(
-            async move {
-                loop {
-                    let protocol = recv(&mut reader).await?;
+        ctx.spawn(async move {
+            loop {
+                let protocol = recv_from_stream(&mut stream).await?;
 
-                    if let Ok(tx) = transfer_rx.try_recv() {
-                        ingress_proto_tx = tx;
-                    }
-                    _ = ingress_proto_tx.send((session_ctx.clone(), protocol)).await;
+                if let Ok(tx) = transfer_rx.try_recv() {
+                    ingress_tx = tx;
                 }
-
-                Ok::<(), Box<dyn std::error::Error>>(())
+                _ = ingress_tx.send((session_ctx.clone(), protocol)).await;
             }
-            .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error receiving: {}", e);
-                    }
-                }
 
-                ctx.stop();
-                actix::fut::ready(())
-            }),
-        );
+            Ok::<(), Box<dyn std::error::Error>>(())
+        }
+        .into_actor(self)
+        .then(|res, _, ctx| {
+            match res {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("Error receiving: {}", e);
+                }
+            }
+
+            ctx.stop();
+            actix::fut::ready(())
+        }));
     }
 
     fn start_send(
         &mut self,
-        mut writer: WriteHalf<TcpStream>,
-        mut egress_proto_rx: mpsc::Receiver<EgressProtocol>,
+        mut stream: SendStream,
+        mut egress_rx: mpsc::Receiver<EgressProtocol>,
         ctx: &mut <Session as Actor>::Context,
     ) {
         ctx.spawn(
             async move {
-                let mut protos = Vec::with_capacity(EGRESS_PROTOCOL_BUFFER_SIZE);
+                let mut protocols = Vec::with_capacity(EGRESS_PROTOCOL_BUFFER_SIZE);
 
                 loop {
-                    egress_proto_rx
-                        .recv_many(&mut protos, EGRESS_PROTOCOL_BUFFER_SIZE)
+                    egress_rx
+                        .recv_many(&mut protocols, EGRESS_PROTOCOL_BUFFER_SIZE)
                         .await;
 
-                    for proto in protos.drain(..) {
-                        send(&mut writer, proto).await?;
+                    for proto in protocols.drain(..) {
+                        send_to_stream(&mut stream, proto).await?;
                     }
                 }
 
@@ -168,16 +171,15 @@ impl Actor for Session {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let socket = self.socket.take().expect("Socket must be set before start");
-        let (reader, writer) = tokio::io::split(socket);
+        let connection = self.connection.clone();
 
         let egress_proto_rx = self
-            .egress_proto_rx
+            .egress_rx
             .take()
             .expect("Egress protocol channel must be set before start");
 
         let ingress_proto_tx = self
-            .ingress_proto_tx
+            .ingress_tx
             .take()
             .expect("Ingress protocol channel must be set before start");
 
@@ -186,26 +188,47 @@ impl Actor for Session {
             .take()
             .expect("Transfer channel must be set before start");
 
-        self.start_recv(reader, ingress_proto_tx, transfer_rx, ctx);
-        self.start_send(writer, egress_proto_rx, ctx);
+        ctx.spawn(async move {
+            let (send_stream, recv_stream) = connection.open_bi().await?;
+            Ok::<(SendStream, RecvStream), ConnectionError>((
+                send_stream,
+                recv_stream,
+            ))
+        }
+        .into_actor(self)
+        .then(|res, actor, ctx| {
+            match res {
+                Ok((send_stream, recv_stream)) => {
+                    actor.start_send(send_stream, egress_proto_rx, ctx);
+                    actor.start_recv(recv_stream, ingress_proto_tx, transfer_rx, ctx);
+                },
+                Err(e) => {
+                    error!("Failed to open bidirectional stream: {}", e);
+                    ctx.stop();
+                },
+            }
+
+            actix::fut::ready(())
+        }));
+
     }
 }
 
-async fn recv(
-    reader: &mut ReadHalf<TcpStream>,
+async fn recv_from_stream(
+    stream: &mut RecvStream,
 ) -> Result<Protocol, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
-    reader.read_exact(&mut header_buf).await?;
+    stream.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
 
     let mut body_buf = vec![0u8; header.length];
-    reader.read_exact(&mut body_buf).await?;
+    stream.read_exact(&mut body_buf).await?;
 
     let protocol = Protocol::decode(header.id, body_buf.into())?;
     Ok(protocol)
 }
 
-async fn send(writer: &mut WriteHalf<TcpStream>, buffer: Bytes) -> Result<(), std::io::Error> {
-    writer.write_all(&buffer[..]).await?;
+async fn send_to_stream(stream: &mut SendStream, buffer: Bytes) -> Result<(), std::io::Error> {
+    stream.write_all(&buffer[..]).await?;
     Ok(())
 }

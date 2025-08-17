@@ -5,10 +5,10 @@ use generator::{data, protocol};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("cargo:rerun-if-changed=build.rs");
 
-    // Copy Settings file
+    // Copy Environment file
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
-    println!("cargo:rerun-if-changed=settings.ron");
-    fs::copy("../settings.ron", out_dir.join("../settings.ron"))?;
+    println!("cargo:rerun-if-changed=environment.ron");
+    fs::copy("../environment.ron", out_dir.join("../environment.ron"))?;
 
     // Generate data codes
     let config = data::Config {

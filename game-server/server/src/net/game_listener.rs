@@ -1,9 +1,10 @@
-use actix::{Actor, ActorContext, ActorFutureExt, Addr, AsyncContext, Context, StreamHandler, WrapFuture};
-use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
+use actix::prelude::*;
 use std::net::SocketAddr;
-use tokio::net::{TcpListener, TcpStream};
-use tokio_stream::wrappers::TcpListenerStream;
+use std::sync::Arc;
+use quinn::{Endpoint, ServerConfig};
 use tracing::{info, error};
+use crate::config::Config;
+use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 
 pub struct GameListener {
     port: u16,
@@ -11,11 +12,22 @@ pub struct GameListener {
 }
 
 impl GameListener {
-    pub fn new(port: u16, authenticator: Addr<Authenticator>) -> Self {
+    pub fn new(authenticator: Addr<Authenticator>) -> Self {
         GameListener {
-            port,
+            port: Config::get().port,
             authenticator,
         }
+    }
+
+    fn load_server_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
+        let cert_chain = Config::get_tls_cert_chain()?;
+        let private_key = Config::get_tls_key()?;
+        let mut server_config = ServerConfig::with_single_cert(cert_chain, private_key)?;
+
+        let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
+        transport_config.max_idle_timeout(Some(std::time::Duration::from_secs(30).try_into()?));
+
+        Ok(server_config)
     }
 }
 
@@ -24,47 +36,30 @@ impl Actor for GameListener {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         let listen_addr = SocketAddr::from(([0, 0, 0, 0], self.port));
+        let server_config = Self::load_server_config().unwrap();
+        let endpoint = Endpoint::server(server_config, listen_addr).unwrap();
+
+        let authenticator = self.authenticator.clone();
+
+        info!("Listening on {}", endpoint.local_addr().unwrap());
 
         ctx.spawn(async move {
-            let listener = TcpListener::bind(listen_addr).await?;
-            Ok::<TcpListener, std::io::Error>(listener)
-        }
-        .into_actor(self)
-        .then(|res, _, ctx| {
-            match res {
-                Ok(listener) => {
-                    info!("Listening on {}", listener.local_addr().unwrap());
-                    _ = ctx.add_stream(TcpListenerStream::new(listener))
-                },
-                Err(e) => {
-                    error!("Error binding: {}", e);
-                    ctx.stop();
-                }
-            }
+            while let Some(incoming) = endpoint.accept().await {
+                let connection = match incoming.await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("Failed to accept: {}", e);
+                        continue;
+                    }
+                };
 
-            actix::fut::ready(())
-        }));
+                info!("Accepted from {}", connection.remote_address());
+                authenticator.do_send(NewUnauthorizedSession { connection });
+            }
+        }.into_actor(self));
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {
         info!("Game Listener stopped");
-    }
-}
-
-impl StreamHandler<std::io::Result<TcpStream>> for GameListener {
-    fn handle(
-        &mut self,
-        item: std::io::Result<TcpStream>,
-        _: &mut Self::Context,
-    ) {
-        match item {
-            Ok(socket) => {
-                info!("Accepted from {}", socket.peer_addr().unwrap());
-                self.authenticator.do_send(NewUnauthorizedSession { socket });
-            },
-            Err(e) => {
-                error!("Failed to accept: {}", e);
-            }
-        }
     }
 }

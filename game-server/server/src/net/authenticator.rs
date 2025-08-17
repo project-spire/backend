@@ -1,11 +1,11 @@
-use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
+use actix::prelude::*;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
-use tokio::net::TcpStream;
+use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
 use tracing::{info, error};
+use crate::config::Config;
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
 use crate::protocol::{*, auth::*};
@@ -20,8 +20,8 @@ pub struct Authenticator {
 }
 
 impl Authenticator {
-    pub fn new(decoding_key: Vec<u8>, gateway: Addr<Gateway>) -> Self {
-        let decoding_key = DecodingKey::from_secret(&decoding_key);
+    pub fn new(gateway: Addr<Gateway>) -> Self {
+        let decoding_key = DecodingKey::from_secret(&Config::get().token_key);
         let validation = Validation::new(Algorithm::HS256);
 
         Authenticator { decoding_key, validation, gateway }
@@ -35,7 +35,7 @@ impl Actor for Authenticator {
 #[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewUnauthorizedSession {
-    pub socket: TcpStream,
+    pub connection: Connection,
 }
 
 impl Handler<NewUnauthorizedSession> for Authenticator {
@@ -44,14 +44,20 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
     fn handle(&mut self, msg: NewUnauthorizedSession, ctx: &mut Self::Context) -> Self::Result {
         // Read only one protocol with timeout
         ctx.spawn(async move {
-            let mut socket = msg.socket;
-            let login = receive_login(&mut socket).await?;
+            let mut connection = msg.connection;
+            let (send_stream, mut recv_stream) = connection.open_bi().await?;
 
-            Ok::<(TcpStream, Login), Box<dyn std::error::Error>>((socket, login))
+            let login = recv_login(&mut recv_stream).await?;
+
+            Ok::<(Connection, (SendStream, RecvStream), Login), Box<dyn std::error::Error>>((
+                connection,
+                (send_stream, recv_stream),
+                login
+            ))
         }
         .into_actor(self)
         .then(|res, act, ctx| {
-            let (socket, login) = match res {
+            let (connection, streams, login) = match res {
                 Ok(o) => o,
                 Err(e) => {
                     error!("Failed to receive login protocol: {}", e);
@@ -68,7 +74,12 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
             };
 
             info!("Authenticated: {:?}", entry);
-            act.gateway.do_send(NewPlayer { socket, login_kind, entry });
+            act.gateway.do_send(NewPlayer {
+                connection,
+                streams,
+                login_kind,
+                entry
+            });
 
             actix::fut::ready(())
         }));
@@ -99,14 +110,14 @@ impl Authenticator {
     }
 }
 
-async fn receive_login(socket: &mut TcpStream) -> Result<Login, Box<dyn std::error::Error>> {
+async fn recv_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
-    timeout(READ_TIMEOUT, socket.read_exact(&mut header_buf)).await??;
+    timeout(READ_TIMEOUT, stream.read_exact(&mut header_buf)).await??;
 
     let header = Header::decode(&header_buf)?;
 
     let mut body_buf = vec![0u8; header.length];
-    timeout(READ_TIMEOUT, socket.read_exact(&mut body_buf)).await??;
+    timeout(READ_TIMEOUT, stream.read_exact(&mut body_buf)).await??;
 
     let protocol = Protocol::decode(header.id, body_buf.into())?;
     match protocol {

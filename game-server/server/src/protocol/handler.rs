@@ -16,9 +16,20 @@ impl Zone {
         let (session_ctx, protocol) = ingress_protocol;
         
         match protocol {
+            // ---
+            // net
+            // ---
+            
+            // ----
+            // play
+            // ----
             Protocol::MovementCommand(movement_command) => {
                 self.handle_movement_command(&session_ctx, &movement_command)
             },
+            
+            // ---------
+            // unhandled
+            // ---------
             _ => {
                 error!("Unhandled protocol: {:?}", protocol);
             },
