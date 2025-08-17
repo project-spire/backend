@@ -2,7 +2,7 @@ mod new_player;
 
 pub use new_player::NewPlayer;
 
-use actix::{Actor, ActorFutureExt, AsyncContext, Context, WrapFuture};
+use actix::prelude::*;
 use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
@@ -48,17 +48,17 @@ impl Zone {
         // Start a protocol handling recursion
         ctx.spawn(
             async move {
-                let mut protos = Vec::with_capacity(INGRESS_PROTOCOL_BUFFER_SIZE);
+                let mut protocols = Vec::with_capacity(INGRESS_PROTOCOL_BUFFER_SIZE);
                 _ = ingress_proto_rx
-                    .recv_many(&mut protos, INGRESS_PROTOCOL_BUFFER_SIZE)
+                    .recv_many(&mut protocols, INGRESS_PROTOCOL_BUFFER_SIZE)
                     .await;
 
-                (ingress_proto_rx, protos)
+                (ingress_proto_rx, protocols)
             }
             .into_actor(self)
             .then(|res, act, ctx| {
-                let (ingress_proto_rx, mut protos) = res;
-                for proto in protos.drain(..) {
+                let (ingress_proto_rx, mut protocols) = res;
+                for proto in protocols.drain(..) {
                     act.handle_protocol(ctx, proto);
                 }
 

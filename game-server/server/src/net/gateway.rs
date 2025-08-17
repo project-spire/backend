@@ -4,9 +4,8 @@ mod new_zone;
 pub use new_player::NewPlayer;
 pub use new_zone::NewZone;
 
-use actix::{Actor, ActorFutureExt, Addr, AsyncContext, Context, Handler, WrapFuture};
+use actix::prelude::*;
 use std::collections::HashMap;
-use std::sync::Arc;
 use crate::db::DbContext;
 use crate::world::zone::Zone;
 
