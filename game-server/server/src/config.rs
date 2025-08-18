@@ -32,6 +32,8 @@ pub struct Config {
     pub tls_cert_file: PathBuf,
     #[serde(alias = "game_server_tls_key_file")]
     pub tls_key_file: PathBuf,
+    
+    pub application_protocol: String,
 }
 
 impl Config {

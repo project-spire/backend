@@ -2,6 +2,7 @@ use actix::prelude::*;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use quinn::{Endpoint, ServerConfig};
+use quinn::crypto::rustls::QuicServerConfig;
 use tracing::{info, error};
 use crate::config::Config;
 use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
@@ -22,7 +23,14 @@ impl GameListener {
     fn load_server_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
         let cert_chain = Config::get_tls_cert_chain()?;
         let private_key = Config::get_tls_key()?;
-        let mut server_config = ServerConfig::with_single_cert(cert_chain, private_key)?;
+
+        let mut tls_config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(cert_chain, private_key)?;
+        tls_config.alpn_protocols = vec![Config::get().application_protocol.as_bytes().to_vec()];
+
+        let mut server_config =
+            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
 
         let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
         transport_config.max_idle_timeout(Some(std::time::Duration::from_secs(30).try_into()?));
