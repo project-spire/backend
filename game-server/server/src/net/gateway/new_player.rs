@@ -11,7 +11,6 @@ use super::Gateway;
 #[rtype(result = "()")]
 pub struct NewPlayer {
     pub connection: Connection,
-    pub streams: (SendStream, RecvStream),
     pub login_kind: login::Kind,
     pub entry: Entry,
 }
@@ -28,10 +27,9 @@ impl Handler<NewPlayer> for Gateway {
                 login::Kind::Transfer => todo!(),
             };
 
-            Ok::<(Entry, Connection, (SendStream, RecvStream), PlayerData), Box<dyn std::error::Error>>((
+            Ok::<(Entry, Connection, PlayerData), Box<dyn std::error::Error>>((
                 msg.entry,
                 msg.connection,
-                msg.streams,
                 player_data
             ))
         }
@@ -42,12 +40,12 @@ impl Handler<NewPlayer> for Gateway {
                 return actix::fut::ready(());
             }
 
-            let (entry, connection, streams, player_data) = res.unwrap();
+            let (entry, connection, player_data) = res.unwrap();
             info!("Player loaded: {:?}, {:?}", player_data.account, player_data.character );
 
             //TODO: Find the player's last zone
             let default_zone = act.zones.get(&0).unwrap();
-            default_zone.do_send(zone::NewPlayer::new(entry, connection, streams, player_data));
+            default_zone.do_send(zone::NewPlayer::new(entry, connection, player_data));
 
             actix::fut::ready(())
         }));

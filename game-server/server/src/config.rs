@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use quinn::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 
+fn default_log_level() -> String {
+    "info".to_string()
+}
+
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
 #[derive(Debug, Deserialize)]
@@ -14,6 +18,16 @@ pub struct Config {
 
     #[serde(alias = "game_server_control_port")]
     pub control_port: u16,
+
+    #[serde(alias = "game_server_tls_cert_file")]
+    pub tls_cert_file: PathBuf,
+    #[serde(alias = "game_server_tls_key_file")]
+    pub tls_key_file: PathBuf,
+
+    #[serde(alias = "game_server_log_level", default = "default_log_level")]
+    pub log_level: String,
+    
+    pub application_protocol: String,
 
     pub db_host: String,
     pub db_port: u16,
@@ -27,13 +41,6 @@ pub struct Config {
     #[serde(skip_deserializing)]
     pub token_key: Vec<u8>,
     token_key_file: PathBuf,
-
-    #[serde(alias = "game_server_tls_cert_file")]
-    pub tls_cert_file: PathBuf,
-    #[serde(alias = "game_server_tls_key_file")]
-    pub tls_key_file: PathBuf,
-    
-    pub application_protocol: String,
 }
 
 impl Config {

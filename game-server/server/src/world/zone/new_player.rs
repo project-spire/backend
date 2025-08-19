@@ -17,7 +17,6 @@ impl NewPlayer {
     pub fn new(
         entry: Entry,
         connection: Connection,
-        streams: (SendStream, RecvStream),
         player_data: PlayerData
     ) -> Self {
         NewPlayer {
@@ -32,10 +31,10 @@ impl Handler<NewPlayer> for Zone {
     type Result = ();
 
     fn handle(&mut self, msg: NewPlayer, _: &mut Self::Context) -> Self::Result {
-        let (entry, socket, player_data) = (msg.entry, msg.connection, msg.player_data);
+        let (entry, connection, player_data) = (msg.entry, msg.connection, msg.player_data);
 
         // Create a session
-        let session = Session::new(entry.clone(), socket, self.ingress_proto_tx.clone());
+        let session = Session::new(entry.clone(), connection, self.ingress_proto_tx.clone());
         let egress_proto_tx = session.egress_tx.clone();
         let transfer_tx = session.transfer_tx.clone();
         let session_ctx = SessionContext {

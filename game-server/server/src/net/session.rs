@@ -189,7 +189,7 @@ impl Actor for Session {
             .expect("Transfer channel must be set before start");
 
         ctx.spawn(async move {
-            let (send_stream, recv_stream) = connection.open_bi().await?;
+            let (send_stream, recv_stream) = connection.accept_bi().await?;
             Ok::<(SendStream, RecvStream), ConnectionError>((
                 send_stream,
                 recv_stream,
