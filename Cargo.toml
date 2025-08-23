@@ -10,8 +10,9 @@ members = [
 gel-derive = "0.7"
 gel-errors = "0.5"
 gel-protocol = "0.9"
-gel-tokio = { version = "0.11" }
+gel-tokio = { version = "0.11", features = ["miette-errors"] }
 jsonwebtoken = "9"
+miette = { version = "7", features = ["fancy"] }
 prost = "0.14"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }

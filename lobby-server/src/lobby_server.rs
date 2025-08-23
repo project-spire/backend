@@ -4,8 +4,8 @@ use crate::db;
 
 #[derive(Clone)]
 pub struct LobbyServer {
-    db_client: db::Client,
-    encoding_key: EncodingKey,
+    pub db_client: db::Client,
+    pub encoding_key: EncodingKey,
 }
 
 impl LobbyServer {

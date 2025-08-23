@@ -16,6 +16,7 @@ gel-errors = { workspace = true }
 gel-protocol = { workspace = true }
 gel-tokio = { workspace = true }
 jsonwebtoken = { workspace = true }
+miette = { workspace = true }
 nalgebra = "0.34"
 prost = { workspace = true }
 quinn = "0.11"

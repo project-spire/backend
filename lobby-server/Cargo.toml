@@ -12,12 +12,14 @@ gel-errors = { workspace = true }
 gel-protocol = { workspace = true }
 gel-tokio = { workspace = true }
 jsonwebtoken = { workspace = true }
+miette = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 tonic = { version = "*", features = ["tls-ring"] }
 tonic-prost = "*"
 tokio = { workspace = true }
 tower = { version = "0.5", features = ["full"] }
+tracing = { workspace = true }
 uuid = { workspace = true }
 
 [build-dependencies]
