@@ -1,0 +1,23 @@
+[package]
+name = "lobby-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+config = "0.15"
+gel-derive = "0.7"
+gel-errors = "0.5"
+gel-protocol = "0.9"
+gel-tokio = "0.11"
+jsonwebtoken = "9"
+prost = "0.14"
+serde = { version = "1.0", features = ["derive"] }
+tonic = { version = "*", features = ["tls-ring"] }
+tonic-prost = "*"
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+
+[build-dependencies]
+glob = "0.3"
+tonic-prost-build = "*"

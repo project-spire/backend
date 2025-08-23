@@ -4,3 +4,6 @@ gen
 
 .idea
 .vscode
+
+/target
+Cargo.lock
