@@ -4,8 +4,7 @@ use tracing::error;
 use uuid::Uuid;
 use crate::data::character::Race;
 use crate::lobby_server::LobbyServer;
-use crate::protocol::accountant_server::Accountant;
-use crate::protocol::{AccountResponse, DevAccountRequest};
+use crate::protocol::{accountant_server::Accountant, AccountResponse, DevAccountRequest};
 
 // #[derive(Debug, Queryable)]
 // pub struct Character {

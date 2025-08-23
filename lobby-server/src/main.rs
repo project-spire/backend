@@ -6,11 +6,8 @@ mod data {
 }
 mod db;
 mod lobby_server;
+mod protocol;
 mod token;
-
-mod protocol {
-    tonic::include_proto!("spire.protocol.lobby");
-}
 
 use tonic::service::InterceptorLayer;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
