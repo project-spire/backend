@@ -1,7 +1,20 @@
 [workspace]
 resolver = "3"
 members = [
-    "data-generator",
+    "data/lib/rs",
     "game-server",
     "lobby-server",
 ]
+
+[workspace.dependencies]
+gel-derive = "0.7"
+gel-errors = "0.5"
+gel-protocol = "0.9"
+gel-tokio = { version = "0.11" }
+jsonwebtoken = "9"
+prost = "0.14"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1", features = ["v4"] }

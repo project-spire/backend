@@ -1,6 +1,8 @@
 mod calc;
 mod character;
-mod data;
+mod data {
+    pub use data::*;
+}
 mod db;
 mod net;
 mod player;

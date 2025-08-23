@@ -1,6 +1,9 @@
 mod accountant;
 mod authenticator;
 mod config;
+mod data {
+    pub use data::*;
+}
 mod db;
 mod lobby_server;
 mod token;

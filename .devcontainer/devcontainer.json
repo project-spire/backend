@@ -1,9 +1,0 @@
-{
-  "dockerComposeFile": [
-    "../compose.yaml",
-    "compose.extend.yaml"
-  ],
-  "service": "game-server",
-  "workspaceMount": "source=${localWorkspaceFolder}/game-server,target=/workspace,type=bind",
-  "workspaceFolder": "/workspace"
-}

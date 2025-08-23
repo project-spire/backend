@@ -2,8 +2,8 @@ bin
 out
 gen
 
+Cargo.lock
+target
+
 .idea
 .vscode
-
-/target
-Cargo.lock

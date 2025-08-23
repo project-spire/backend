@@ -1,26 +1,15 @@
 use std::{env, fs};
 use std::path::PathBuf;
-use game_protocol_generator::{data, protocol};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Copy Environment file
     let out_dir = PathBuf::from(env::var("OUT_DIR")?);
     println!("cargo:rerun-if-changed=environment.ron");
-    fs::copy("../environment.ron", out_dir.join("../environment.ron"))?;
-
-    // Generate data codes
-    let config = data::Config {
-        base_module_path: PathBuf::from("../game-data/data.mod.json"),
-        data_dir: PathBuf::from("../game-data/data"),
-        // gen_dir: out_dir.join("gen"),
-        gen_dir: PathBuf::from("./src/data"),
-        dry_run: false,
-    };
-    config.generate()?;
+    fs::copy("environment.ron", out_dir.join("environment.ron"))?;
     
     // Generate protocol codes
-    let config = protocol::Config {
-        schema_dir: PathBuf::from("../game-protocol/schema"),
+    let config = game_protocol_generator::Config {
+        schema_dir: PathBuf::from("game-protocol/schema"),
         gen_dir: out_dir.clone(),
         
         dry_run: false,
