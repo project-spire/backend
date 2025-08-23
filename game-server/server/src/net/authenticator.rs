@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
-use tracing::{info, error};
+use tracing::{error, info};
 use crate::config::Config;
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
@@ -44,20 +44,16 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
     fn handle(&mut self, msg: NewUnauthorizedSession, ctx: &mut Self::Context) -> Self::Result {
         // Read only one protocol with timeout
         ctx.spawn(async move {
-            let mut connection = msg.connection;
-            let (send_stream, mut recv_stream) = connection.open_bi().await?;
+            let connection = msg.connection;
+            let mut recv_stream = timeout(READ_TIMEOUT, connection.accept_uni()).await??;
 
             let login = recv_login(&mut recv_stream).await?;
 
-            Ok::<(Connection, (SendStream, RecvStream), Login), Box<dyn std::error::Error>>((
-                connection,
-                (send_stream, recv_stream),
-                login
-            ))
+            Ok::<(Connection, Login), Box<dyn std::error::Error>>((connection, login))
         }
         .into_actor(self)
         .then(|res, act, ctx| {
-            let (connection, streams, login) = match res {
+            let (connection, login) = match res {
                 Ok(o) => o,
                 Err(e) => {
                     error!("Failed to receive login protocol: {}", e);
@@ -76,7 +72,6 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
             info!("Authenticated: {:?}", entry);
             act.gateway.do_send(NewPlayer {
                 connection,
-                streams,
                 login_kind,
                 entry
             });

@@ -13,7 +13,6 @@ mod env;
 use actix::prelude::*;
 use clap::Parser;
 use tracing::{info, error};
-use tracing_subscriber::fmt;
 use crate::db::DbContext;
 use crate::env::Env;
 use crate::net::authenticator::Authenticator;
@@ -30,7 +29,7 @@ struct Options {
 
 #[actix::main]
 async fn main() {
-    fmt::init();
+    tracing_subscriber::fmt::init();
 
     let options = Options::parse();
     if let Err(e) = Config::init() {
