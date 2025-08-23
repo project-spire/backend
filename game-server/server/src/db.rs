@@ -13,13 +13,11 @@ pub struct DbContext {
 
 impl DbContext {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let settings = Config::get();
-
         let config = Builder::new()
-            .host(HostType::from_str(&settings.db_host)?)
-            .port(settings.db_port)
-            .user(&settings.db_user)
-            .password(&settings.db_password)
+            .host(HostType::from_str(&Config::get().db_host)?)
+            .port(Config::get().db_port)
+            .user(&Config::get().db_user)
+            .password(&Config::get().db_password)
             .tls_security(TlsSecurity::Insecure)
             .build()?;
 

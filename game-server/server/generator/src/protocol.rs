@@ -1,6 +1,5 @@
 use glob::glob;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
 
