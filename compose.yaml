@@ -1,6 +1,8 @@
 services:
   game-server:
-    build: game-server
+    build:
+      context: .
+      dockerfile: game-server/Dockerfile
     env_file:
       - .env
     ports:
@@ -18,11 +20,11 @@ services:
     #   start_period: 1m
   
   lobby-server:
-    build: lobby-server
+    build:
+      context: .
+      dockerfile: lobby-server/Dockerfile
     env_file:
       - .env
-    environment:
-      - NODE_ID=101
     ports:
       - ${SPIRE_LOBBY_SERVER_PORT}:${SPIRE_LOBBY_SERVER_PORT}
     secrets:

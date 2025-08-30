@@ -1,0 +1,14 @@
+.idea
+.vscode
+
+.git
+.gitignore
+
+Dockerfile
+.dockerignore
+
+*.md
+*.sh
+
+target
+Cargo.lock
