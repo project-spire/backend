@@ -50,7 +50,7 @@ services:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
     networks:
       - dev-network
-    hostname: lobby.spire.dev
+    hostname: db.spire.dev
     volumes:
       - db-data:/var/lib/gel/data
     secrets:
