@@ -1,23 +1,26 @@
 #!/bin/bash
 
-# Game Server Certfication
+# Game Server Certificate
 openssl req -x509 -newkey rsa:4096 -keyout game-server-key.pem -out game-server-cert.pem \
     -sha256 -days 3650 -nodes \
-    -subj "/CN=localhost" \
-    -addext "subjectAltName=DNS:localhost"
+    -subj "/CN=game.spire.dev" \
+    -addext "subjectAltName=DNS:game.spire.dev"
 
-# Lobby Server Certfication
+# Lobby Server Certificate
 openssl req -x509 -newkey rsa:4096 -keyout lobby-server-key.pem -out lobby-server-cert.pem \
     -sha256 -days 3650 -nodes \
-    -subj "/CN=localhost" \
-    -addext "subjectAltName=DNS:localhost"
+    -subj "/CN=lobby.spire.dev" \
+    -addext "subjectAltName=DNS:lobby.spire.dev"
 
-# DB Certfication
+# DB Certificate
 openssl req -x509 -newkey rsa:4096 -keyout db-key.pem -out db-cert.pem \
     -sha256 -days 3650 -nodes \
-    -subj "/CN=db" \
-    -addext "subjectAltName=DNS:localhost,DNS:db"
+    -subj "/CN=db.spire.dev" \
+    -addext "subjectAltName=DNS:db.spire.dev"
 chmod +r db-key.pem
 
-# 256 bit authentication token key
+# Token Key
 openssl rand -base64 32 | head -c -1 > token.key
+
+# DB Password
+echo "password" | head -c -1 > db-password.key

@@ -8,16 +8,14 @@ services:
     ports:
       - ${SPIRE_GAME_SERVER_PORT}:${SPIRE_GAME_SERVER_PORT}
       - ${SPIRE_GAME_SERVER_CONTROL_PORT}:${SPIRE_GAME_SERVER_CONTROL_PORT}
+    networks:
+      - dev-network
+    hostname: game.spire.dev
     secrets:
       - game-server-cert.pem
       - game-server-key.pem
       - db-password.key
       - token.key
-    restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD", "/app/build/release/ping", "localhost", "${SPIRE_GAME_LISTEN_PORT}"]
-    #   interval: 1m
-    #   start_period: 1m
   
   lobby-server:
     build:
@@ -27,19 +25,14 @@ services:
       - .env
     ports:
       - ${SPIRE_LOBBY_SERVER_PORT}:${SPIRE_LOBBY_SERVER_PORT}
+    networks:
+      - dev-network
+    hostname: lobby.spire.dev
     secrets:
       - lobby-server-cert.pem
       - lobby-server-key.pem
       - token.key
       - db-password.key
-    # depends_on:
-    #   db:
-    #     condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-kf", "https://localhost:${SPIRE_LOBBY_SERVER_PORT}/ping"]
-      interval: 1m
-      start_period: 30s
 
   db:
     build: db
@@ -55,18 +48,22 @@ services:
       - GEL_SERVER_ADMIN_UI=enabled
     ports:
       - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
+    networks:
+      - dev-network
+    hostname: lobby.spire.dev
     volumes:
       - db-data:/var/lib/gel/data
     secrets:
       - db-password.key
       - db-cert.pem
       - db-key.pem
-    restart: unless-stopped
-    # healthcheck:
-    #   test: ["CMD", "pg_isready", "-U", "${SPIRE_DB_USER}", "-d", "${SPIRE_DB_NAME}"]
 
 volumes:
   db-data:
+
+networks:
+  dev-network:
+    driver: bridge
 
 secrets:
   token.key:
