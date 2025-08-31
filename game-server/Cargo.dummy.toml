@@ -1,0 +1,3 @@
+[package]
+name = "game-server"
+edition = "2024"

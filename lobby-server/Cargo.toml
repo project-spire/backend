@@ -20,4 +20,5 @@ tonic = { workspace = true }
 tokio = { workspace = true }
 tower = { version = "0.5", features = ["full"] }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
