@@ -14,6 +14,7 @@ mod env;
 
 use actix::prelude::*;
 use clap::Parser;
+use mimalloc::MiMalloc;
 use tracing::{info, error};
 use crate::db::DbContext;
 use crate::env::Env;
@@ -22,6 +23,9 @@ use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
 use crate::config::Config;
 use crate::world::zone::Zone;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[derive(Parser, Debug)]
 struct Options {
