@@ -2,7 +2,7 @@ use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use tonic::{Request, Status};
 use tonic::service::Interceptor;
 use crate::config::Config;
-use crate::token::verify_token;
+use crate::auth::token::verify_token;
 
 #[derive(Clone)]
 pub struct Authenticator {

@@ -27,6 +27,9 @@ pub struct Config {
     pub tls_cert_file: PathBuf,
     #[serde(alias = "lobby_server_tls_key_file")]
     pub tls_key_file: PathBuf,
+
+    #[serde(alias = "lobby_server_dev_mode")]
+    pub dev_mode: bool,
 }
 
 impl Config {

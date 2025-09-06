@@ -1,5 +1,3 @@
-mod accountant;
-mod authenticator;
 mod config;
 mod data {
     pub use data::*;
@@ -7,16 +5,16 @@ mod data {
 mod db;
 mod lobby_server;
 mod protocol;
-mod token;
+mod auth;
 
 use tonic::service::InterceptorLayer;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tower::ServiceBuilder;
 use tracing::info;
-use crate::authenticator::Authenticator;
+use auth::authenticator::Authenticator;
 use crate::config::Config;
 use crate::lobby_server::LobbyServer;
-use crate::protocol::accountant_server::AccountantServer;
+use crate::protocol::dev_auth_server::DevAuthServer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,16 +27,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let lobby_server = LobbyServer::new(db_client);
     let authenticator = Authenticator::new();
 
-    let service = ServiceBuilder::new()
-        .layer(InterceptorLayer::new(authenticator))
-        .service(AccountantServer::new(lobby_server));
-    let addr = format!("[::1]:{}", Config::get().lobby_port).parse()?;
+    // let service = ServiceBuilder::new()
+    //     // .service(Add some authenticated service here)
+    //     .service(DevAuthServer::new(lobby_server))
+    //     .layer(InterceptorLayer::new(authenticator));
 
+    let addr = format!("[::1]:{}", Config::get().lobby_port).parse()?;
     info!("Serving on {}", addr);
     
     Server::builder()
         .tls_config(load_tls_config()?)?
-        .add_service(service)
+        .add_service(DevAuthServer::new(lobby_server))
         .serve(addr)
         .await?;
 
