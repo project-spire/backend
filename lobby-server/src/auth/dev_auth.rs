@@ -1,21 +1,9 @@
-use gel_derive::Queryable;
-use gel_errors::Error;
-use gel_tokio::QueryExecutor;
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
-use uuid::Uuid;
 use front_protocol::lobby::{DevTokenRequest, DevTokenResponse};
-use crate::config::Config;
-use crate::data::character::Race;
+use crate::config::config;
 use crate::lobby_server::LobbyServer;
 use crate::protocol::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
-
-// #[derive(Debug, Queryable)]
-// pub struct Character {
-//     pub id: Uuid,
-//     pub name: String,
-//     pub race: Race,
-// }
 
 #[tonic::async_trait]
 impl DevAuth for LobbyServer {
@@ -26,39 +14,32 @@ impl DevAuth for LobbyServer {
         check_dev_mode()?;
         let request = request.into_inner();
 
-        let account_id = match self.db_client.transaction(|mut tx| {
-            let dev_id = request.dev_id.clone();
-
-            async move {
-                let account_id = tx.query_single::<Uuid, _>(
-                    "SELECT DevAccount { id }
-                    FILTER .dev_id = <str>$0
-                    LIMIT 1;",
-                    &(&dev_id,)
-                ).await?;
-
-                if let Some(account_id) = account_id {
-                    return Ok(account_id);
-                }
-
-                let account_id = tx.query_single::<Uuid, _>(
-                    "INSERT DevAccount {
-                        dev_id := <str>$0
-                    };",
-                    &(&dev_id,)
-                ).await?;
-
-                Ok(account_id.unwrap())
-            }
-        }).await {
-            Ok(id) => id,
+        let tx = match self.db_pool.begin().await {
+            Ok(tx) => tx,
             Err(e) => {
-                error!("Failed to execute dev account query: {:?}", e);
-                return Err(Status::internal("DB error"));
+                error!("Failed to begin transaction: {}", e);
+                return Err(Status::internal("Database Error"));
             }
         };
 
-        let response = DevAccountResponse { account_id: Some(account_id.into()) };
+        let account_id = match sqlx::query("SELECT id FROM accounts WHERE platform=? and platform_id=?")
+            .bind()
+            .bind(request.dev_id)
+            .execute(&self.db_pool)
+            .await {
+            Ok(row) => {
+
+            }
+            Err(sqlx::Error::RowNotFound) => {
+                //TODO: Insert
+            }
+            Err(e) => {
+                error!("Failed to query account: {}", e);
+                return Err(Status::internal("Database Error"));
+            }
+        };
+
+        let response = DevAccountResponse { account_id };
 
         Ok(Response::new(response))
     }
@@ -75,7 +56,7 @@ impl DevAuth for LobbyServer {
 }
 
 fn check_dev_mode() -> Result<(), Status> {
-    if Config::get().dev_mode {
+    if config().dev_mode {
         return Ok(());
     }
 

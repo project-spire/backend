@@ -51,19 +51,15 @@ impl Config {
 
         let mut config: Config = config.try_deserialize()?;
 
-        config.db_password = read_from_file(&config.db_password_file)?;
-        config.token_key = read_from_file(&config.token_key_file)?.into_bytes();
+        config.db_password = util::io::read_file(&config.db_password_file)?;
+        config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
 
         CONFIG.set(config).expect("Config already initialized");
         Ok(())
     }
 
-    pub fn get() -> &'static Self {
-        CONFIG.get().expect("Config not initialized yet!")
-    }
-
     pub fn get_tls_cert_chain() -> Result<Vec<CertificateDer<'static>>, std::io::Error> {
-        let cert_bytes = std::fs::read(&Config::get().tls_cert_file)?;
+        let cert_bytes = std::fs::read(&config().tls_cert_file)?;
         let cert_chain = rustls_pemfile::certs(&mut cert_bytes.as_slice())
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -71,7 +67,7 @@ impl Config {
     }
 
     pub fn get_tls_key() -> Result<PrivateKeyDer<'static>, std::io::Error> {
-        let key_bytes = std::fs::read(&&Config::get().tls_key_file)?;
+        let key_bytes = std::fs::read(&config().tls_key_file)?;
         let key = rustls_pemfile::private_key(&mut key_bytes.as_slice())?
             .ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "TLS private key file"))?;
 
@@ -79,10 +75,6 @@ impl Config {
     }
 }
 
-fn read_from_file(path: &Path) -> Result<String, std::io::Error> {
-    let mut f = File::open(path)?;
-    let mut buf = String::new();
-    f.read_to_string(&mut buf)?;
-
-    Ok(buf.trim().to_string())
+pub fn config() -> &'static Config {
+    CONFIG.get().expect("Config not initialized yet!")
 }

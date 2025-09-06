@@ -1,30 +1,29 @@
 use actix::prelude::*;
-use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+use jsonwebtoken::DecodingKey;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
 use tracing::{error, info};
-use crate::config::Config;
+use crate::config::config;
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
 use crate::protocol::{*, auth::*};
+use crate::util::token;
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct Authenticator {
     decoding_key: DecodingKey,
-    validation: Validation,
 
     gateway: Addr<Gateway>,
 }
 
 impl Authenticator {
     pub fn new(gateway: Addr<Gateway>) -> Self {
-        let decoding_key = DecodingKey::from_secret(&Config::get().token_key);
-        let validation = Validation::new(Algorithm::HS256);
+        let decoding_key = DecodingKey::from_secret(&config().token_key);
 
-        Authenticator { decoding_key, validation, gateway }
+        Authenticator { decoding_key, gateway }
     }
 }
 
@@ -83,25 +82,15 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
 
 impl Authenticator {
     fn validate_login(&self, login: Login) -> Result<(Entry, login::Kind), Box<dyn std::error::Error>> {
-        #[derive(Debug, Serialize, Deserialize)]
-        struct Claims {
-            aid: String, // account_id
-        }
+        let claims = token::verify(&login.token, &self.decoding_key)?;
+        let entry = Entry {
+            account_id: claims.account_id,
+            character_id: login.character_id,
 
-        let claims = jsonwebtoken::decode::<Claims>(
-            &login.token,
-            &self.decoding_key,
-            &self.validation,
-        )?.claims;
-
-        let account_id = uuid::Uuid::parse_str(&claims.aid)?;
-        let character_id = match login.character_id {
-            Some(id) => uuid::Uuid::from(id),
-            None => return Err("Invalid character id".into()),
         };
         let login_kind = login::Kind::try_from(login.kind)?;
 
-        Ok((Entry { account_id, character_id }, login_kind))
+        Ok((entry, login_kind))
     }
 }
 

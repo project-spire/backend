@@ -1,8 +1,8 @@
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use tonic::{Request, Status};
 use tonic::service::Interceptor;
-use crate::config::Config;
-use crate::auth::token::verify_token;
+use crate::config::config;
+use crate::util::token;
 
 #[derive(Clone)]
 pub struct Authenticator {
@@ -11,7 +11,7 @@ pub struct Authenticator {
 
 impl Authenticator {
     pub fn new() -> Self {
-        let decoding_key = DecodingKey::from_secret(&Config::get().token_key);
+        let decoding_key = DecodingKey::from_secret(&config().token_key);
 
         Self { decoding_key }
     }
@@ -30,9 +30,8 @@ impl Interceptor for Authenticator {
             return Err(Status::unauthenticated("Missing authorization token"));
         };
 
-        let claims = match verify_token(
+        let claims = match token::verify(
             token,
-            &Validation::new(Algorithm::HS256),
             &self.decoding_key
         ) {
             Ok(claims) => claims,

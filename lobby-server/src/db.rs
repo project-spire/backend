@@ -1,21 +1,21 @@
-use gel_tokio::{dsn::HostType, Builder, TlsSecurity};
-use std::str::FromStr;
-use crate::config::Config;
+use sqlx::postgres::{PgPool, PgPoolOptions};
+use crate::config::config;
 
-pub type Client = gel_tokio::Client;
-pub type Error = gel_errors::Error;
+// pub type Client = ;
+pub type Pool = PgPool;
+pub type Error = sqlx::Error;
 
-pub async fn connect() -> Result<Client, Box<dyn std::error::Error>> {
-    let config = Builder::new()
-        .host(HostType::from_str(&Config::get().db_host)?)
-        .port(Config::get().db_port)
-        .user(&Config::get().db_user)
-        .password(&Config::get().db_password)
-        .tls_security(TlsSecurity::Insecure)
-        .build()?;
+pub async fn connect() -> Result<Pool, Error> {
+    let conn = format!("postgres://{}:{}@{}:{}/{}",
+        config().db_user,
+        config().db_password,
+        config().db_host,
+        config().db_port,
+        config().db_name,
+    );
+    let pool = PgPoolOptions::new()
+        .connect(&conn)
+        .await?;
 
-    let client = Client::new(&config);
-    client.ensure_connected().await?;
-
-    Ok(client)
+    Ok(pool)
 }

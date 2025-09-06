@@ -6,28 +6,23 @@ edition = "2024"
 [dependencies]
 data = { path = "../data/lib/rs" }
 front_protocol = { path = "../front-protocol/lib/rs" }
+util = { path = "../util" }
 
 actix = "0.13"
 bevy_ecs = "0.16.1"
 bytes = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 config = { version = "0.15", features = ["ron"] }
-gel-derive = { workspace = true }
-gel-errors = { workspace = true }
-gel-protocol = { workspace = true }
-gel-tokio = { workspace = true }
 jsonwebtoken = { workspace = true }
-miette = { workspace = true }
 mimalloc = "*"
 nalgebra = { workspace = true }
-prost = { workspace = true }
 quinn = "0.11"
 rand = "0.9"
 rustls = "0.23"
 rustls-pemfile = "2.2"
 serde = { workspace = true }
+sqlx = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-uuid = { workspace = true }

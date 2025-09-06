@@ -21,8 +21,8 @@ pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub account_id: Uuid,
-    pub character_id: Uuid,
+    pub account_id: u64,
+    pub character_id: u64,
 }
 
 #[derive(Component, Clone)]
