@@ -20,23 +20,21 @@ openssl req -quiet -x509 -newkey rsa:4096 \
     -addext "subjectAltName=DNS:lobby.spire.dev" \
     2>/dev/null
 
-# DB Certificate
-echo "Generating self-signed DB certificate..."
-openssl req -quiet -x509 -newkey rsa:4096 \
-    -keyout db-key.pem -out db-cert.pem \
-    -sha256 -days 365 -nodes \
-    -subj "/CN=db.spire.dev" \
-    -addext "subjectAltName=DNS:db.spire.dev" \
-    2>/dev/null
-chmod +r db-key.pem
-
 # Token Key
 openssl rand -base64 32 | head -c -1 > token.key
 
-# DB Password
+# Database Password
 if [ ! -f db-password.key ]; then
     echo "Generating DB password..."
     echo "password" | head -c -1 > db-password.key
+else
+    echo "DB password already exist. Skipping..."
+fi
+
+# Database Admin Password
+if [ ! -f db-admin-password.key ]; then
+    echo "Generating DB password..."
+    echo "password" | head -c -1 > db-admin-password.key
 else
     echo "DB password already exist. Skipping..."
 fi

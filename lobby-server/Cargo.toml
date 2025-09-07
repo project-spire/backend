@@ -12,6 +12,7 @@ config = "0.15"
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 sqlx = { workspace = true }
+thiserror = { workspace = true }
 tonic = { workspace = true }
 tokio = { workspace = true }
 tower = { version = "0.5", features = ["full"] }

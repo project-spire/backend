@@ -2,6 +2,7 @@ use tonic::{Request, Response, Status};
 use tracing::{error, warn};
 use front_protocol::lobby::{DevTokenRequest, DevTokenResponse};
 use crate::config::config;
+use crate::db;
 use crate::lobby_server::LobbyServer;
 use crate::protocol::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
 
@@ -14,29 +15,20 @@ impl DevAuth for LobbyServer {
         check_dev_mode()?;
         let request = request.into_inner();
 
-        let tx = match self.db_pool.begin().await {
-            Ok(tx) => tx,
-            Err(e) => {
-                error!("Failed to begin transaction: {}", e);
-                return Err(Status::internal("Database Error"));
-            }
-        };
+        let tx = self.db_pool.begin().await?;
 
         let account_id = match sqlx::query("SELECT id FROM accounts WHERE platform=? and platform_id=?")
             .bind()
-            .bind(request.dev_id)
+            .bind(&request.dev_id)
             .execute(&self.db_pool)
             .await {
             Ok(row) => {
-
+                row.
             }
             Err(sqlx::Error::RowNotFound) => {
-                //TODO: Insert
+                Self::create_dev_account(&tx, &request.dev_id).await?
             }
-            Err(e) => {
-                error!("Failed to query account: {}", e);
-                return Err(Status::internal("Database Error"));
-            }
+            Err(e) => return Err(e.into()),
         };
 
         let response = DevAccountResponse { account_id };
@@ -52,6 +44,15 @@ impl DevAuth for LobbyServer {
 
 
         Ok(todo!())
+    }
+}
+
+impl LobbyServer {
+    async fn create_dev_account(
+        tx: &db::Transaction<'_>,
+        dev_id: &str,
+    ) -> Result<u64, db::Error> {
+
     }
 }
 

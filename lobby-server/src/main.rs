@@ -6,6 +6,8 @@ mod data {
 mod db;
 mod lobby_server;
 mod protocol;
+mod error;
+
 mod util {
     pub use util::*;
 }

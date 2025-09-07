@@ -1,3 +1,1 @@
-FROM geldata/gel:latest
-
-COPY dbschema /dbschema
+FROM postgres:17-alpine

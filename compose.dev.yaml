@@ -1,0 +1,29 @@
+services:
+  game-server:
+    env_file:
+      - dev.env
+    environment:
+      - NODE_ID=100
+    networks:
+      - dev-network
+    hostname: ${SPIRE_GAME_SERVER_HOST}
+  
+  lobby-server:
+    env_file:
+      - dev.env
+    environment:
+      - NODE_ID=200
+    networks:
+      - dev-network
+    hostname: ${SPIRE_LOBBY_SERVER_HOST}
+
+  db:
+    env_file:
+      - dev.env
+    networks:
+      - dev-network
+    hostname: ${SPIRE_DB_HOST}
+
+networks:
+  dev-network:
+    driver: bridge

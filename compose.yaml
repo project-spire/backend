@@ -8,9 +8,9 @@ services:
     ports:
       - ${SPIRE_GAME_SERVER_PORT}:${SPIRE_GAME_SERVER_PORT}
       - ${SPIRE_GAME_SERVER_CONTROL_PORT}:${SPIRE_GAME_SERVER_CONTROL_PORT}
-    networks:
-      - dev-network
-    hostname: game.spire.dev
+    depends_on:
+      db:
+        condition: service_healthy
     secrets:
       - game-server-cert.pem
       - game-server-key.pem
@@ -25,9 +25,9 @@ services:
       - .env
     ports:
       - ${SPIRE_LOBBY_SERVER_PORT}:${SPIRE_LOBBY_SERVER_PORT}
-    networks:
-      - dev-network
-    hostname: lobby.spire.dev
+    depends_on:
+      db:
+        condition: service_healthy
     secrets:
       - lobby-server-cert.pem
       - lobby-server-key.pem
@@ -35,35 +35,48 @@ services:
       - db-password.key
 
   db:
-    build: db
+    build:
+      context: .
+      dockerfile: db/Dockerfile
     env_file:
       - .env
     environment:
-      - GEL_SERVER_USER=${SPIRE_DB_USER}
-      - GEL_SERVER_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
-      - GEL_SERVER_TLS_CERT_MODE=generate_self_signed
-      # - GEL_SERVER_TLS_CERT_FILE=${SPIRE_DB_TLS_CERT_FILE}
-      # - GEL_SERVER_TLS_KEY_FILE=${SPIRE_DB_TLS_KEY_FILE}
-      - GEL_SERVER_INSTANCE_NAME=spire-db
-      - GEL_SERVER_ADMIN_UI=enabled
+      - POSTGRES_USER=${SPIRE_DB_USER}
+      - POSTGRES_PASSWORD_FILE=${SPIRE_DB_PASSWORD_FILE}
+      - POSTGRES_DB=${SPIRE_DB_NAME}
     ports:
-      - ${SPIRE_DB_PORT}:${SPIRE_DB_PORT}
-    networks:
-      - dev-network
-    hostname: db.spire.dev
+      - ${SPIRE_DB_PORT}:5432
     volumes:
-      - db-data:/var/lib/gel/data
+      - db-data:/var/lib/postgresql/data
     secrets:
       - db-password.key
-      - db-cert.pem
-      - db-key.pem
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${SPIRE_DB_USER} -d ${SPIRE_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  db-admin:
+    image: dpage/pgadmin4:latest
+    profiles:
+      - admin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${SPIRE_DB_ADMIN_USER}
+      - PGADMIN_DEFAULT_PASSWORD_FILE=${SPIRE_DB_ADMIN_PASSWORD_FILE}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - ${SPIRE_DB_ADMIN_PORT}:80
+    volumes:
+      - db-admin-data:/var/lib/pgadmin
+    secrets:
+      - db-admin-password.key
 
 volumes:
   db-data:
-
-networks:
-  dev-network:
-    driver: bridge
+  db-admin-data:
 
 secrets:
   token.key:
@@ -72,13 +85,11 @@ secrets:
     file: secrets/game-server-cert.pem
   game-server-key.pem:
     file: secrets/game-server-key.pem
-  db-cert.pem:
-    file: secrets/db-cert.pem
-  db-key.pem:
-    file: secrets/db-key.pem
-  db-password.key:
-    file: secrets/db-password.key
   lobby-server-cert.pem:
     file: secrets/lobby-server-cert.pem
   lobby-server-key.pem:
     file: secrets/lobby-server-key.pem
+  db-password.key:
+    file: secrets/db-password.key
+  db-admin-password.key:
+    file: secrets/db-admin-password.key
