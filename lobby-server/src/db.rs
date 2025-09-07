@@ -1,7 +1,6 @@
 use sqlx::postgres::{PgPool, PgPoolOptions, PgTransaction};
 use crate::config::config;
 
-// pub type Client = ;
 pub type Pool = PgPool;
 pub type Error = sqlx::Error;
 pub type Transaction<'c> = PgTransaction<'c>;

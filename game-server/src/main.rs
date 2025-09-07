@@ -18,7 +18,6 @@ use actix::prelude::*;
 use clap::Parser;
 use mimalloc::MiMalloc;
 use tracing::{info, error};
-use crate::db::DbContext;
 use crate::env::Env;
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
@@ -49,21 +48,21 @@ async fn main() {
         return;
     }
 
-    let db_ctx = match DbContext::new().await {
-        Ok(ctx) => ctx,
+    let db_pool = match db::connect().await {
+        Ok(pool) => pool,
         Err(e) => {
-            error!("Error creating database context: {}", e);
+            error!("Failed to connect to database: {}", e);
             return;
-        }
+        },
     };
 
     if let Err(e) = data::load::load_all(&Env::get().data_dir).await {
-        error!("Error loading data: {}", e);
+        error!("Failed to load data: {}", e);
         return;
     }
 
     let default_zone = Zone::new(0).start();
-    let gateway = Gateway::new(db_ctx.clone()).start();
+    let gateway = Gateway::new(db_pool.clone()).start();
     let authenticator = Authenticator::new(gateway.clone()).start();
     let _game_listener = GameListener::new(authenticator).start();
     

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use quinn::{Endpoint, ServerConfig};
 use quinn::crypto::rustls::QuicServerConfig;
 use tracing::{info, error};
-use crate::config::Config;
+use crate::config::{config, Config};
 use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 
 pub struct GameListener {
@@ -15,7 +15,7 @@ pub struct GameListener {
 impl GameListener {
     pub fn new(authenticator: Addr<Authenticator>) -> Self {
         GameListener {
-            port: Config::get().port,
+            port: config().port,
             authenticator,
         }
     }
@@ -27,7 +27,7 @@ impl GameListener {
         let mut tls_config = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(cert_chain, private_key)?;
-        tls_config.alpn_protocols = vec![Config::get().application_protocol.as_bytes().to_vec()];
+        tls_config.alpn_protocols = vec![config().application_protocol.as_bytes().to_vec()];
 
         let mut server_config =
             ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));

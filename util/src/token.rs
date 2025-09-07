@@ -6,11 +6,11 @@ const ALGORITHM: Algorithm = Algorithm::HS256;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Claims {
     #[serde(alias = "aid")]
-    pub account_id: u64,
+    pub account_id: i64,
 }
 
 pub fn generate(
-    account_id: u64,
+    account_id: i64,
     encoding_key: &EncodingKey
 ) -> Result<String, jsonwebtoken::errors::Error> {
     let claims = Claims {

@@ -1,4 +1,4 @@
-use jsonwebtoken::{Algorithm, DecodingKey, Validation};
+use jsonwebtoken::DecodingKey;
 use tonic::{Request, Status};
 use tonic::service::Interceptor;
 use crate::config::config;

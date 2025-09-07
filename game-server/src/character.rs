@@ -8,34 +8,29 @@ pub mod stat;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
-use gel_derive::Queryable;
-use uuid::Uuid;
 use crate::data::character::Race;
-use crate::db::{DbClient, DbError};
+use crate::db;
 
-#[derive(Debug, Component, Queryable)]
+#[derive(Debug, Component, sqlx::FromRow)]
 pub struct Character {
-    pub id: Uuid,
+    pub id: i64,
     pub name: String,
     pub race: Race,
 }
 
 impl Character {
     pub async fn load(
-        client: &DbClient,
-        character_id: &Uuid
-    ) -> Result<Character, DbError> {
-        let query = "
-            SELECT Character {
-                id,
-                name,
-                race
-            }
-            FILTER .id = <uuid>$0
-            LIMIT 1;
-        ";
+        tx: &mut db::Transaction<'_>,
+        character_id: &i64
+    ) -> Result<Character, db::Error> {
+        let character = sqlx::query_as!(
+            Character,
+            r#"select id, name, race as "race: _" from character where id=$1"#,
+            character_id
+        )
+            .fetch_one(&mut **tx)
+            .await?;
 
-        let character = client.query_required_single(query, &(character_id,)).await?;
         Ok(character)
     }
 }

@@ -1,29 +1,21 @@
-use gel_tokio::{Builder, Client, TlsSecurity};
-use gel_tokio::dsn::HostType;
-use std::str::FromStr;
-use crate::config::Config;
+use sqlx::postgres::{PgPool, PgPoolOptions, PgTransaction};
+use crate::config::config;
 
-pub type DbClient = Client;
-pub type DbError = gel_errors::Error;
+pub type Pool = PgPool;
+pub type Error = sqlx::Error;
+pub type Transaction<'c> = PgTransaction<'c>;
 
-#[derive(Clone)]
-pub struct DbContext {
-    pub client: DbClient,
-}
+pub async fn connect() -> Result<Pool, Error> {
+    let conn = format!("postgres://{}:{}@{}:{}/{}",
+       config().db_user,
+       config().db_password,
+       config().db_host,
+       config().db_port,
+       config().db_name,
+    );
+    let pool = PgPoolOptions::new()
+        .connect(&conn)
+        .await?;
 
-impl DbContext {
-    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let config = Builder::new()
-            .host(HostType::from_str(&Config::get().db_host)?)
-            .port(Config::get().db_port)
-            .user(&Config::get().db_user)
-            .password(&Config::get().db_password)
-            .tls_security(TlsSecurity::Insecure)
-            .build()?;
-
-        let client = Client::new(&config);
-        client.ensure_connected().await?;
-
-        Ok(DbContext { client })
-    }
+    Ok(pool)
 }

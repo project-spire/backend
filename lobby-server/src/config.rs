@@ -27,7 +27,8 @@ pub struct Config {
 
     #[serde(alias = "lobby_server_dev_mode")]
     pub dev_mode: bool,
-    
+
+    #[serde(alias = "lobby_server_node_id")]
     pub node_id: u16,
 }
 

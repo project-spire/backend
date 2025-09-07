@@ -2,7 +2,7 @@ pub mod account;
 
 use bevy_ecs::prelude::*;
 use crate::character::*;
-use crate::db::{DbClient, DbError};
+use crate::db;
 use crate::net::session::Entry;
 use crate::world::transform::Transform;
 use self::account::Account;
@@ -25,11 +25,11 @@ pub struct PlayerData {
 
 impl PlayerData {
     pub async fn load(
-        client: &DbClient,
+        tx: &mut db::Transaction<'_>,
         entry: &Entry,
-    ) -> Result<Self, DbError> {
+    ) -> Result<Self, db::Error> {
         let account = Account { account_id: entry.account_id };
-        let character = Character::load(client, &entry.character_id).await?;
+        let character = Character::load(&mut *tx, &entry.character_id).await?;
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 
         Ok(PlayerData {

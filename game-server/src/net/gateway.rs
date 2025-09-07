@@ -6,20 +6,20 @@ pub use new_zone::NewZone;
 
 use actix::prelude::*;
 use std::collections::HashMap;
-use crate::db::DbContext;
+use crate::db;
 use crate::world::zone::Zone;
 
 pub struct Gateway {
     zones: HashMap<i64, Addr<Zone>>,
 
-    db_ctx: DbContext,
+    db_pool: db::Pool,
 }
 
 impl Gateway {
-    pub fn new(db_ctx: DbContext) -> Self {
+    pub fn new(db_pool: db::Pool) -> Self {
         let zones = HashMap::new();
 
-        Gateway { zones, db_ctx }
+        Gateway { zones, db_pool }
     }
 }
 

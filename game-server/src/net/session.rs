@@ -5,7 +5,6 @@ use quinn::{Connection, ConnectionError, RecvStream, SendStream};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc;
 use tracing::error;
-use uuid::Uuid;
 use crate::protocol::*;
 
 const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 32;
@@ -21,8 +20,8 @@ pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub account_id: u64,
-    pub character_id: u64,
+    pub account_id: i64,
+    pub character_id: i64,
 }
 
 #[derive(Component, Clone)]

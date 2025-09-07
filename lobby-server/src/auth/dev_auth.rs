@@ -2,7 +2,7 @@ use tonic::{Request, Response, Status};
 use tracing::{error, warn};
 use front_protocol::lobby::{DevTokenRequest, DevTokenResponse};
 use crate::config::config;
-use crate::db;
+use crate::error::Error;
 use crate::lobby_server::LobbyServer;
 use crate::protocol::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
 
@@ -15,20 +15,15 @@ impl DevAuth for LobbyServer {
         check_dev_mode()?;
         let request = request.into_inner();
 
-        let tx = self.db_pool.begin().await?;
-
-        let account_id = match sqlx::query("SELECT id FROM accounts WHERE platform=? and platform_id=?")
-            .bind()
+        let account_id: Option<i64> = sqlx::query_scalar("SELECT account_id FROM dev_account WHERE id=$1")
             .bind(&request.dev_id)
-            .execute(&self.db_pool)
-            .await {
-            Ok(row) => {
-                row.
-            }
-            Err(sqlx::Error::RowNotFound) => {
-                Self::create_dev_account(&tx, &request.dev_id).await?
-            }
-            Err(e) => return Err(e.into()),
+            .fetch_optional(&self.db_pool)
+            .await
+            .map_err(Error::Database)?;
+
+        let account_id = match account_id {
+            Some(account_id) => account_id,
+            None => self.create_dev_account(&request.dev_id).await?,
         };
 
         let response = DevAccountResponse { account_id };
@@ -48,11 +43,29 @@ impl DevAuth for LobbyServer {
 }
 
 impl LobbyServer {
-    async fn create_dev_account(
-        tx: &db::Transaction<'_>,
-        dev_id: &str,
-    ) -> Result<u64, db::Error> {
+    async fn create_dev_account(&self, dev_id: &str) -> Result<i64, Error> {
+        let mut tx = self.db_pool.begin().await?;
 
+        let account_id = util::id::generate();
+
+        sqlx::query!(
+            "insert into account (id) values ($1)",
+            &account_id,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query!(
+            "insert into dev_account (id, account_id) values ($1, $2)",
+            &dev_id,
+            &account_id,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        Ok(account_id)
     }
 }
 

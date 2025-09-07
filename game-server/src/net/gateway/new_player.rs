@@ -19,13 +19,17 @@ impl Handler<NewPlayer> for Gateway {
     type Result = ();
 
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
-        let db_ctx = self.db_ctx.clone();
+        let db_pool = self.db_pool.clone();
 
         ctx.spawn(async move {
+            let mut tx = db_pool.begin().await?;
+
             let player_data = match msg.login_kind {
-                login::Kind::Enter => PlayerData::load(&db_ctx.client, &msg.entry).await?,
+                login::Kind::Enter => PlayerData::load(&mut tx, &msg.entry).await?,
                 login::Kind::Transfer => todo!(),
             };
+
+            tx.commit().await?;
 
             Ok::<(Entry, Connection, PlayerData), Box<dyn std::error::Error>>((
                 msg.entry,

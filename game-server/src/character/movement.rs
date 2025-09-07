@@ -5,7 +5,7 @@ use crate::net::session::{SessionContext};
 use crate::protocol;
 use crate::protocol::convert::*;
 use crate::protocol::play::{movement_command, MovementSync, MovementState, movement_state::Motion};
-use crate::timestamp::Timestamp;
+use crate::util::timestamp::Timestamp;
 use crate::world::transform::Transform;
 
 #[derive(Component, Default)]
