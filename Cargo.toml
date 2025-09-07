@@ -3,7 +3,7 @@ resolver = "3"
 members = [
     "util",
     "data/lib/rs",
-    "front-protocol/lib/rs",
+    "protocol/lib/rs",
 
     "game-server",
     "lobby-server",
