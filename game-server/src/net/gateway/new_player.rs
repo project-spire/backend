@@ -3,7 +3,7 @@ use quinn::{Connection, SendStream, RecvStream};
 use tracing::{error, info};
 use crate::net::session::Entry;
 use crate::player::PlayerData;
-use crate::protocol::auth::login;
+use crate::protocol::game::auth::login;
 use crate::world::zone;
 use super::Gateway;
 

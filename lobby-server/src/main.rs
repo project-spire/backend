@@ -19,7 +19,7 @@ use tracing::info;
 use auth::authenticator::Authenticator;
 use crate::config::{config, Config};
 use crate::lobby_server::LobbyServer;
-use crate::protocol::dev_auth_server::DevAuthServer;
+use crate::protocol::lobby::dev_auth_server::DevAuthServer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

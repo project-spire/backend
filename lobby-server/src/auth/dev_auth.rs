@@ -1,10 +1,10 @@
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
-use front_protocol::lobby::{DevTokenRequest, DevTokenResponse};
 use crate::config::config;
 use crate::error::Error;
 use crate::lobby_server::LobbyServer;
-use crate::protocol::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
+use crate::protocol::lobby::{DevTokenRequest, DevTokenResponse};
+use crate::protocol::lobby::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
 
 #[tonic::async_trait]
 impl DevAuth for LobbyServer {

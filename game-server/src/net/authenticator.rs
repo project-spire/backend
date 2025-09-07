@@ -8,7 +8,7 @@ use tracing::{error, info};
 use crate::config::config;
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
-use crate::protocol::{*, auth::*};
+use crate::protocol::game::{*, auth::*};
 use crate::util::token;
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
@@ -103,9 +103,9 @@ async fn recv_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error
     let mut body_buf = vec![0u8; header.length];
     timeout(READ_TIMEOUT, stream.read_exact(&mut body_buf)).await??;
 
-    let protocol = Protocol::decode(header.id, body_buf.into())?;
+    let protocol = GameProtocol::decode(header.id, body_buf.into())?;
     match protocol {
-        Protocol::Login(login) => Ok(login),
+        GameProtocol::Login(login) => Ok(login),
         _ => Err("Protocol other than Login is received".into())
     }
 }

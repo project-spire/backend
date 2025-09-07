@@ -1,1 +1,1 @@
-pub use front_protocol::lobby::*;
+pub use protocol::*;

@@ -1,4 +1,4 @@
-pub use front_protocol::{*, game::*};
+pub use protocol::*;
 
 pub mod handler;
 

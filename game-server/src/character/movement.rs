@@ -3,8 +3,7 @@ use nalgebra::{UnitVector2, Vector3};
 use tracing::error;
 use crate::net::session::{SessionContext};
 use crate::protocol;
-use crate::protocol::convert::*;
-use crate::protocol::play::{movement_command, MovementSync, MovementState, movement_state::Motion};
+use crate::protocol::game::play::{movement_command, MovementSync, MovementState, movement_state::Motion};
 use crate::util::timestamp::Timestamp;
 use crate::world::transform::Transform;
 
@@ -123,7 +122,7 @@ pub fn sync(
         timestamp: Timestamp::now().into(),
         states,
     };
-    let buf = match protocol::encode(&protocol) {
+    let buf = match protocol::game::encode(&protocol) {
         Ok(buf) => buf,
         Err(e) => {
             error!("Failed to encode: {}", e);
