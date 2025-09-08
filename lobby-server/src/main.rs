@@ -5,8 +5,11 @@ mod data {
 }
 mod db;
 mod lobby_server;
-mod protocol;
+mod protocol {
+    pub use protocol::*;
+}
 mod error;
+mod character;
 
 mod util {
     pub use util::*;

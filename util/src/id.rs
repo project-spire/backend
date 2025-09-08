@@ -6,7 +6,7 @@ const MAX_NODE_ID: u16 = (1 << 10) - 1;
 const MAX_SEQUENCE: u16 = (1 << 12) - 1;
 const CUSTOM_EPOCH: u64 = 1735689600000; // 2025-01-01 00:00:00 UTC
 
-const GENERATOR: OnceLock<Generator> = OnceLock::new();
+static GENERATOR: OnceLock<Generator> = OnceLock::new();
 
 #[derive(Debug)]
 pub struct Generator {

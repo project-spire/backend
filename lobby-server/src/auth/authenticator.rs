@@ -21,13 +21,13 @@ impl Interceptor for Authenticator {
     fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
         let token = request
             .metadata()
-            .get("authorization")
+            .get("authentication")
             .and_then(|v| v.to_str().ok());
 
         let token = if let Some(token) = token {
             token
         } else {
-            return Err(Status::unauthenticated("Missing authorization token"));
+            return Err(Status::unauthenticated("Missing authentication token"));
         };
 
         let claims = match token::verify(
@@ -36,7 +36,7 @@ impl Interceptor for Authenticator {
         ) {
             Ok(claims) => claims,
             Err(e) => return Err(Status::unauthenticated(
-                format!("Invalid authorization token: {}", e)
+                format!("Invalid authentication token: {}", e)
             )),
         };
 

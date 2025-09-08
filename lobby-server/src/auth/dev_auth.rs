@@ -27,7 +27,6 @@ impl DevAuth for LobbyServer {
         };
 
         let response = DevAccountResponse { account_id };
-
         Ok(Response::new(response))
     }
 
@@ -36,9 +35,18 @@ impl DevAuth for LobbyServer {
         request: Request<DevTokenRequest>
     ) -> Result<Response<DevTokenResponse>, Status> {
         check_dev_mode()?;
-
-
-        Ok(todo!())
+        let request = request.into_inner();
+        
+        let token = match util::token::generate(request.account_id, &self.encoding_key) {
+            Ok(token) => token,
+            Err(e) => {
+                error!("Failed to generate token: {}", e);
+                return Err(Status::unauthenticated("Token error"));
+            }
+        };
+        
+        let response = DevTokenResponse { token };
+        Ok(Response::new(response))
     }
 }
 
