@@ -1,7 +1,7 @@
 mod auth;
 mod config;
 mod data {
-    pub use data::*;
+    pub use ::data::*;
 }
 mod db;
 mod lobby_server;

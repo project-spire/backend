@@ -1,7 +1,7 @@
 mod calc;
 mod character;
 mod data {
-    pub use data::*;
+    pub use ::data::*;
 }
 mod db;
 mod env;
@@ -56,7 +56,7 @@ async fn main() {
         },
     };
 
-    if let Err(e) = data::load::load_all(&Env::get().data_dir).await {
+    if let Err(e) = data::load_all(&Env::get().data_dir).await {
         error!("Failed to load data: {}", e);
         return;
     }
