@@ -25,7 +25,7 @@ pub struct Config {
     pub db_password: String,
     db_password_file: PathBuf,
 
-    #[serde(alias = "lobby_server_dev_mode")]
+    #[serde(alias = "lobby_server_dev_mode", default)]
     pub dev_mode: bool,
 
     #[serde(alias = "lobby_server_node_id")]

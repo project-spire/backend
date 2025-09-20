@@ -2,12 +2,12 @@ use tonic::{Request, Response, Status};
 use tracing::{error, warn};
 use crate::config::config;
 use crate::error::Error;
-use crate::lobby_server::LobbyServer;
+use crate::context::Context;
 use crate::protocol::lobby::{DevTokenRequest, DevTokenResponse};
 use crate::protocol::lobby::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
 
 #[tonic::async_trait]
-impl DevAuth for LobbyServer {
+impl DevAuth for Context {
     async fn get_dev_account(
         &self,
         request: Request<DevAccountRequest>
@@ -50,7 +50,7 @@ impl DevAuth for LobbyServer {
     }
 }
 
-impl LobbyServer {
+impl Context {
     async fn create_dev_account(&self, dev_id: &str) -> Result<i64, Error> {
         let mut tx = self.db_pool.begin().await?;
 

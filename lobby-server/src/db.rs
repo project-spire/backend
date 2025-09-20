@@ -1,3 +1,4 @@
+use std::time::Duration;
 use sqlx::postgres::{PgPool, PgPoolOptions, PgTransaction};
 use crate::config::config;
 
@@ -14,6 +15,7 @@ pub async fn connect() -> Result<Pool, Error> {
         config().db_name,
     );
     let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(5))
         .connect(&conn)
         .await?;
 
