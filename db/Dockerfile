@@ -1,1 +1,1 @@
-FROM postgres:17-bookworm
+FROM postgres:17-trixie

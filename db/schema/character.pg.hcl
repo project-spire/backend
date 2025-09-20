@@ -1,3 +1,21 @@
+enum "race" {
+    schema = schema.public
+    values = [
+        "Human",
+        "Orc",
+    ]
+}
+
+composite "location" {
+    schema = schema.public
+    field "floor" {
+        type = int2
+    }
+    field "id" {
+        type = bigint
+    }
+}
+
 table "character" {
     schema = schema.public
 
@@ -7,14 +25,22 @@ table "character" {
 
     column "account_id" {
         type = bigint
+        null = true
     }
 
     column "name" {
         type = varchar(16)
+        null = true
     }
 
     column "race" {
         type = enum.race
+        null = true
+    }
+
+    column "location" {
+        type = composite.location
+        null = true
     }
 
     primary_key {
