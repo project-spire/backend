@@ -9,6 +9,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::time::Duration;
 use tokio::sync::mpsc;
+use crate::character;
 use crate::net::session::IngressProtocol;
 
 const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
@@ -70,7 +71,10 @@ impl Zone {
     }
 
     fn tick(&mut self, ctx: &mut <Self as Actor>::Context) {
+        //TODO: Initialize once and use
         let mut schedule = Schedule::default();
+        schedule.add_systems(character::movement::update);
+
         schedule.run(&mut self.world);
 
         self.ticks += 1;

@@ -1,5 +1,5 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use quinn::{Connection, SendStream, RecvStream};
+use quinn::{Connection, RecvStream};
 use tracing::{error, info};
 use crate::net::session::Entry;
 use crate::player::PlayerData;

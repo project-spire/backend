@@ -36,7 +36,7 @@ if [ ! -f db-admin-password.key ]; then
     echo "Generating DB admin password..."
     echo "password" | head -c -1 > db-admin-password.key
 else
-    echo "DB password already exist. Skipping..."
+    echo "DB admin password already exist. Skipping..."
 fi
 
 echo "Generate complete!"

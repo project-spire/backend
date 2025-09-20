@@ -15,7 +15,7 @@ pub enum Tag {
     Datagram
 }
 
-pub type IngressProtocol = (SessionContext, GameProtocol);
+pub type IngressProtocol = (SessionContext, Protocol);
 pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
@@ -215,7 +215,7 @@ impl Actor for Session {
 
 async fn recv_from_stream(
     stream: &mut RecvStream,
-) -> Result<GameProtocol, Box<dyn std::error::Error>> {
+) -> Result<Protocol, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; HEADER_SIZE];
     stream.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
@@ -223,7 +223,7 @@ async fn recv_from_stream(
     let mut body_buf = vec![0u8; header.length];
     stream.read_exact(&mut body_buf).await?;
 
-    let protocol = GameProtocol::decode(header.id, body_buf.into())?;
+    let protocol = Protocol::decode(header.id, body_buf.into())?;
     Ok(protocol)
 }
 

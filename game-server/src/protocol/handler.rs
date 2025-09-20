@@ -4,7 +4,7 @@ pub mod play;
 use actix::Actor;
 use tracing::error;
 use crate::net::session::IngressProtocol;
-use crate::protocol::game::GameProtocol;
+use crate::protocol::game::Protocol;
 use crate::world::zone::Zone;
 
 impl Zone {
@@ -19,11 +19,17 @@ impl Zone {
             // ---
             // net
             // ---
-            
+            Protocol::Ping(ping) => {
+                net::ping::handle(session_ctx, &ping);
+            },
+            Protocol::Pong(pong) => {
+                net::pong::handle(session_ctx, &pong);
+            },
+
             // ----
             // play
             // ----
-            GameProtocol::MovementCommand(movement_command) => {
+            Protocol::MovementCommand(movement_command) => {
                 self.handle_movement_command(&session_ctx, &movement_command)
             },
             

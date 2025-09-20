@@ -14,8 +14,9 @@ use crate::db;
 #[derive(Debug, Component, sqlx::FromRow)]
 pub struct Character {
     pub id: i64,
-    pub name: String,
-    pub race: Race,
+    pub name: Option<String>,
+    pub race: Option<Race>,
+    // pub location: Option<(u16, i64)>,
 }
 
 impl Character {
@@ -25,7 +26,9 @@ impl Character {
     ) -> Result<Character, db::Error> {
         let character = sqlx::query_as!(
             Character,
-            r#"select id, name, race as "race: _" from character where id=$1"#,
+            r#"select id, name, race as "race: _"
+            from character
+            where id=$1"#,
             character_id
         )
             .fetch_one(&mut **tx)
