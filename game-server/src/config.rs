@@ -45,11 +45,10 @@ pub struct Config {
 
 impl Config {
     pub fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let mut config = config::Config::builder()
+        let mut config: Config = config::Config::builder()
             .add_source(config::Environment::with_prefix("SPIRE"))
-            .build()?;
-
-        let mut config: Config = config.try_deserialize()?;
+            .build()?
+            .try_deserialize()?;
 
         config.db_password = util::io::read_file(&config.db_password_file)?;
         config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
