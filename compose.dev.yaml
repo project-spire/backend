@@ -4,8 +4,8 @@ services:
       - dev.env
     environment:
       - NODE_ID=${SPIRE_GAME_SERVER_NODE_ID}
-#    networks:
-#      - dev-network
+    networks:
+      - dev-network
     hostname: ${SPIRE_GAME_SERVER_HOST}
   
   lobby-server:
@@ -13,22 +13,22 @@ services:
       - dev.env
     environment:
       - NODE_ID=${SPIRE_LOBBY_SERVER_NODE_ID}
-#    networks:
-#      - dev-network
+    networks:
+      - dev-network
     hostname: ${SPIRE_LOBBY_SERVER_HOST}
 
   db:
     env_file:
       - dev.env
-#    networks:
-#      - dev-network
+    networks:
+      - dev-network
     hostname: ${SPIRE_DB_HOST}
 
   db-admin:
     env_file:
       - dev.env
-#    networks:
-#      - dev-network
+    networks:
+      - dev-network
     hostname: ${SPIRE_DB_ADMIN_HOST}
 
 networks:

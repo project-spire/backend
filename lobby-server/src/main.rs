@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .service(DevAuthServer::new(ctx));
     //     // .layer(InterceptorLayer::new(authenticator));
 
-    let addr = format!("[::1]:{}", config().lobby_port).parse()?;
+    let addr = format!("[::]:{}", config().lobby_port).parse()?;
     info!("Serving on {}", addr);
     
     Server::builder()
