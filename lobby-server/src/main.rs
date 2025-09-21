@@ -1,9 +1,12 @@
-mod auth;
 mod config;
+mod context;
+mod data {
+    pub use ::data::*;
+}
 mod db;
 mod error;
-mod context;
 mod middleware;
+mod service;
 
 mod protocol {
     pub use protocol::*;
@@ -23,7 +26,10 @@ use tracing::info;
 use crate::config::{config, Config};
 use crate::context::Context;
 use crate::middleware::authenticator::Authenticator;
-use crate::protocol::lobby::dev_auth_server::DevAuthServer;
+use crate::protocol::lobby::{
+    characters_server::CharactersServer,
+    dev_auth_server::DevAuthServer,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,18 +43,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ctx = Context::new(db_pool);
     let authenticator = Authenticator::new();
 
-    // let service = ServiceBuilder::new()
-    //     .layer(TraceLayer::new_for_grpc())
-    //     .service(DevAuthServer::new(ctx));
-    //     // .layer(InterceptorLayer::new(authenticator));
+    let authenticated_service = ServiceBuilder::new()
+        .layer(InterceptorLayer::new(authenticator))
+        .service(CharactersServer::new(ctx.clone()));
 
-    let addr = format!("[::]:{}", config().lobby_port).parse()?;
+    let addr = format!("[::]:{}", config().port).parse()?;
     info!("Serving on {}", addr);
     
     Server::builder()
         .tls_config(load_tls_config()?)?
         .layer(TraceLayer::new_for_grpc())
         .add_service(DevAuthServer::new(ctx.clone()))
+        // .add_service(SteamAuthServer::new(ctx.clone()))
+        .add_service(authenticated_service)
         .serve(addr)
         .await?;
 

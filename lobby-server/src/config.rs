@@ -7,7 +7,7 @@ static CONFIG: OnceLock<Config> = OnceLock::new();
 #[derive(Debug, Deserialize)]
 pub struct Config {
     #[serde(alias = "lobby_server_port")]
-    pub lobby_port: u16,
+    pub port: u16,
     #[serde(alias = "lobby_server_tls_cert_file")]
     pub tls_cert_file: PathBuf,
     #[serde(alias = "lobby_server_tls_key_file")]
@@ -16,6 +16,7 @@ pub struct Config {
     #[serde(skip_deserializing)]
     pub token_key: Vec<u8>,
     token_key_file: PathBuf,
+    pub token_expiration_seconds: u64,
 
     pub db_host: String,
     pub db_port: u16,

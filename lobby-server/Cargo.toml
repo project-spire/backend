@@ -10,6 +10,7 @@ util = { path = "../util" }
 
 config = "0.15"
 jsonwebtoken = { workspace = true }
+prost = { workspace = true }
 serde = { workspace = true }
 sqlx = { workspace = true }
 thiserror = { workspace = true }

@@ -10,6 +10,9 @@ pub enum Error {
 
     #[error("Not found: {0}")]
     NotFound(String),
+
+    #[error("Unknown enum value: {0}")]
+    UnknownEnumValue(#[from] prost::UnknownEnumValue)
 }
 
 impl From<Error> for tonic::Status {
@@ -21,6 +24,7 @@ impl From<Error> for tonic::Status {
             },
             Error::Validation(msg) => tonic::Status::unauthenticated(msg),
             Error::NotFound(msg) => tonic::Status::not_found(msg),
+            Error::UnknownEnumValue(_) => tonic::Status::invalid_argument("")
         }
     }
 }

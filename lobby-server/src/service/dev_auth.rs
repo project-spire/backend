@@ -1,43 +1,55 @@
+use std::time::Duration;
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
 use crate::config::config;
 use crate::error::Error;
 use crate::context::Context;
-use crate::protocol::lobby::{DevTokenRequest, DevTokenResponse};
-use crate::protocol::lobby::{dev_auth_server::DevAuth, DevAccountRequest, DevAccountResponse};
+use crate::protocol::lobby::*;
+use crate::protocol::lobby::dev_auth_server::DevAuth;
 
 #[tonic::async_trait]
 impl DevAuth for Context {
     async fn get_dev_account(
         &self,
-        request: Request<DevAccountRequest>
-    ) -> Result<Response<DevAccountResponse>, Status> {
+        request: Request<GetDevAccountRequest>
+    ) -> Result<Response<GetDevAccountResponse>, Status> {
         check_dev_mode()?;
         let request = request.into_inner();
 
-        let account_id: Option<i64> = sqlx::query_scalar("SELECT account_id FROM dev_account WHERE id=$1")
-            .bind(&request.dev_id)
-            .fetch_optional(&self.db_pool)
-            .await
-            .map_err(Error::Database)?;
+        let account_id: Option<i64> = sqlx::query_scalar!(
+            "select account_id from dev_account where id=$1",
+            &request.dev_id,
+        )
+        .fetch_optional(&self.db_pool)
+        .await
+        .map_err(Error::Database)?;
 
         let account_id = match account_id {
             Some(account_id) => account_id,
             None => self.create_dev_account(&request.dev_id).await?,
         };
 
-        let response = DevAccountResponse { account_id };
+        let response = GetDevAccountResponse { account_id };
         Ok(Response::new(response))
     }
 
-    async fn get_token(
+    async fn get_dev_token(
         &self,
-        request: Request<DevTokenRequest>
-    ) -> Result<Response<DevTokenResponse>, Status> {
+        request: Request<GetDevTokenRequest>
+    ) -> Result<Response<GetDevTokenResponse>, Status> {
         check_dev_mode()?;
         let request = request.into_inner();
-        
-        let token = match util::token::generate(request.account_id, &self.encoding_key) {
+
+        let _exists: Option<bool> = sqlx::query_scalar!(
+            "select true from dev_account where account_id = $1 limit 1",
+            &request.account_id,
+        )
+        .fetch_one(&self.db_pool)
+        .await
+        .map_err(Error::Database)?;
+
+        let expiration = Duration::from_secs(config().token_expiration_seconds);
+        let token = match util::token::generate(request.account_id, &self.encoding_key, expiration) {
             Ok(token) => token,
             Err(e) => {
                 error!("Failed to generate token: {}", e);
@@ -45,7 +57,7 @@ impl DevAuth for Context {
             }
         };
         
-        let response = DevTokenResponse { token };
+        let response = GetDevTokenResponse { token };
         Ok(Response::new(response))
     }
 }

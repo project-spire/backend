@@ -11,6 +11,7 @@ members = [
 
 [workspace.dependencies]
 bytes = { version = "1", default-features = false }
+chrono = "*"
 jsonwebtoken = "9"
 nalgebra = "0.34"
 prost = "0.14"

@@ -23,7 +23,8 @@ FROM chef AS builder
 WORKDIR /tool
 RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v32.1/protoc-32.1-linux-x86_64.zip && \
     unzip protoc-32.1-linux-x86_64.zip -d protoc && \
-    cp protoc/bin/protoc /usr/local/bin/
+    cp protoc/bin/protoc /usr/local/bin/ && \
+    cp -r protoc/include /usr/local
 
 WORKDIR /app
 

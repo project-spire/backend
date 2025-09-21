@@ -1,3 +1,4 @@
+use chrono::{Utc, TimeZone};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
@@ -5,16 +6,23 @@ const ALGORITHM: Algorithm = Algorithm::HS256;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Claims {
-    #[serde(alias = "aid")]
+    #[serde(rename = "aid")]
     pub account_id: i64,
+
+    #[serde(rename = "exp")]
+    pub expire: i64,
 }
 
 pub fn generate(
     account_id: i64,
-    encoding_key: &EncodingKey
+    encoding_key: &EncodingKey,
+    expiration: std::time::Duration,
 ) -> Result<String, jsonwebtoken::errors::Error> {
+    let expire = (Utc::now() + expiration).timestamp();
+
     let claims = Claims {
         account_id,
+        expire,
     };
 
     jsonwebtoken::encode(
