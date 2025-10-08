@@ -9,8 +9,8 @@ use crate::util::token::Claims;
 #[derive(Debug, sqlx::FromRow)]
 pub struct Character {
     pub id: i64,
-    pub name: Option<String>,
-    pub race: Option<Race>,
+    pub name: String,
+    pub race: Race,
 }
 
 #[tonic::async_trait]
@@ -89,11 +89,11 @@ impl Characters for Context {
 
 impl Into<protocol::Character> for Character {
     fn into(self) -> protocol::Character {
-        let race: protocol::Race = self.race.unwrap().into();
+        let race: protocol::Race = self.race.into();
 
         protocol::Character {
             id: self.id,
-            name: self.name.unwrap(),
+            name: self.name,
             race: race.into(),
         }
     }
