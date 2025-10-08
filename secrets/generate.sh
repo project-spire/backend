@@ -7,8 +7,8 @@ echo "Generating self-signed game server certificate..."
 openssl req -quiet -x509 -newkey rsa:4096 \
     -keyout game-server-key.pem -out game-server-cert.pem \
     -sha256 -days 365 -nodes \
-    -subj "/CN=game.spire.dev" \
-    -addext "subjectAltName=DNS:game.spire.dev" \
+    -subj "/CN=game.spire.local" \
+    -addext "subjectAltName=DNS:game.spire.local" \
     2>/dev/null
 
 # Lobby Server Certificate
@@ -16,8 +16,8 @@ echo "Generating self-signed lobby server certificate..."
 openssl req -quiet -x509 -newkey rsa:4096 \
     -keyout lobby-server-key.pem -out lobby-server-cert.pem \
     -sha256 -days 365 -nodes \
-    -subj "/CN=lobby.spire.dev" \
-    -addext "subjectAltName=DNS:lobby.spire.dev" \
+    -subj "/CN=lobby.spire.local" \
+    -addext "subjectAltName=DNS:lobby.spire.local" \
     2>/dev/null
 
 # Token Key
@@ -28,7 +28,7 @@ if [ ! -f db-password.key ]; then
     echo "Generating DB password..."
     echo "password" | head -c -1 > db-password.key
 else
-    echo "DB password already exist. Skipping..."
+    echo "DB password already exists. Skipping..."
 fi
 
 # Database Admin Password
@@ -36,7 +36,7 @@ if [ ! -f db-admin-password.key ]; then
     echo "Generating DB admin password..."
     echo "password" | head -c -1 > db-admin-password.key
 else
-    echo "DB admin password already exist. Skipping..."
+    echo "DB admin password already exists. Skipping..."
 fi
 
 echo "Generate complete!"

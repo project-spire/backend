@@ -2,7 +2,7 @@
 
 docker compose \
     --env-file .env \
-    --env-file dev.env \
+    --env-file local.env \
     -f compose.yaml \
-    -f compose.dev.yaml \
+    -f compose.local.yaml \
     "$@"

@@ -1,36 +1,36 @@
 services:
   game-server:
     env_file:
-      - dev.env
+      - local.env
     environment:
       - NODE_ID=${SPIRE_GAME_SERVER_NODE_ID}
     networks:
-      - dev-network
+      - local-network
     hostname: ${SPIRE_GAME_SERVER_HOST}
   
   lobby-server:
     env_file:
-      - dev.env
+      - local.env
     environment:
       - NODE_ID=${SPIRE_LOBBY_SERVER_NODE_ID}
     networks:
-      - dev-network
+      - local-network
     hostname: ${SPIRE_LOBBY_SERVER_HOST}
 
   db:
     env_file:
-      - dev.env
+      - local.env
     networks:
-      - dev-network
+      - local-network
     hostname: ${SPIRE_DB_HOST}
 
   db-admin:
     env_file:
-      - dev.env
+      - local.env
     networks:
-      - dev-network
+      - local-network
     hostname: ${SPIRE_DB_ADMIN_HOST}
 
 networks:
-  dev-network:
+  local-network:
     driver: bridge
