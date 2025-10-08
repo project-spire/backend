@@ -41,6 +41,9 @@ pub struct Config {
     #[serde(skip_deserializing)]
     pub token_key: Vec<u8>,
     token_key_file: PathBuf,
+
+    #[serde(alias = "game_server_env_file")]
+    pub env_file: PathBuf,
 }
 
 impl Config {

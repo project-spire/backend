@@ -1,4 +1,4 @@
 (
-    data_dir: "../data/src",
+    data_dir: "data/src",
     cheat_enabled: true,
 )
