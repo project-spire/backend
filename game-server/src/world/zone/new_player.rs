@@ -1,9 +1,9 @@
+use super::Zone;
+use crate::net::session::{Entry, Session, SessionContext};
+use crate::player::PlayerData;
 use actix::{Actor, Handler};
 use quinn::{Connection, RecvStream, SendStream};
 use tracing::info;
-use crate::net::session::{Entry, Session, SessionContext};
-use crate::player::PlayerData;
-use super::Zone;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
@@ -14,11 +14,7 @@ pub struct NewPlayer {
 }
 
 impl NewPlayer {
-    pub fn new(
-        entry: Entry,
-        connection: Connection,
-        player_data: PlayerData
-    ) -> Self {
+    pub fn new(entry: Entry, connection: Connection, player_data: PlayerData) -> Self {
         NewPlayer {
             entry,
             connection,

@@ -1,11 +1,13 @@
 use std::time::Duration;
+
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
+
 use crate::config::config;
 use crate::error::Error;
 use crate::context::Context;
-use crate::protocol::lobby::*;
-use crate::protocol::lobby::dev_auth_server::DevAuth;
+use protocol::lobby::*;
+use protocol::lobby::dev_auth_server::DevAuth;
 
 #[tonic::async_trait]
 impl DevAuth for Context {

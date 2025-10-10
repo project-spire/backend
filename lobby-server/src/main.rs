@@ -1,20 +1,9 @@
 mod config;
 mod context;
-mod data {
-    pub use ::data::*;
-}
 mod db;
 mod error;
 mod middleware;
 mod service;
-
-mod protocol {
-    pub use protocol::*;
-}
-
-mod util {
-    pub use util::*;
-}
 
 use tonic::service::InterceptorLayer;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
@@ -23,10 +12,11 @@ use tower_http::{
     trace::TraceLayer,
 };
 use tracing::info;
+
 use crate::config::{config, Config};
 use crate::context::Context;
 use crate::middleware::authenticator::Authenticator;
-use crate::protocol::lobby::{
+use protocol::lobby::{
     characters_server::CharactersServer,
     dev_auth_server::DevAuthServer,
 };

@@ -1,8 +1,9 @@
 use jsonwebtoken::DecodingKey;
 use tonic::{Request, Status};
 use tonic::service::Interceptor;
+
 use crate::config::config;
-use crate::util::token;
+use util::token;
 
 #[derive(Clone)]
 pub struct Authenticator {

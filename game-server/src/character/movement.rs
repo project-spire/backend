@@ -1,11 +1,12 @@
 use bevy_ecs::prelude::*;
 use nalgebra::{UnitVector2, Vector3};
 use tracing::error;
-use crate::net::session::{SessionContext};
-use crate::protocol;
-use crate::protocol::game::play::{movement_command, MovementSync, MovementState, movement_state::Motion};
-use crate::util::timestamp::Timestamp;
+
+use crate::net::session::SessionContext;
 use crate::world::transform::Transform;
+use protocol;
+use protocol::game::play::{MovementState, MovementSync, movement_command, movement_state::Motion};
+use util::timestamp::Timestamp;
 
 #[derive(Component, Default)]
 pub struct Movement {
@@ -24,9 +25,7 @@ pub enum MovementCommand {
 }
 
 #[derive(Default)]
-pub struct MovementStat {
-
-}
+pub struct MovementStat {}
 
 impl Movement {
     pub fn add_command(&mut self, timestamp: Timestamp, command: MovementCommand) {
@@ -34,9 +33,7 @@ impl Movement {
     }
 }
 
-pub fn update(
-    mut query: Query<(&mut Movement, &mut Transform)>,
-) {
+pub fn update(mut query: Query<(&mut Movement, &mut Transform)>) {
     query.iter_mut().for_each(|(mut movement, mut transform)| {
         let commands: Vec<_> = movement.commands.drain(..).collect();
         for (timestamp, command) in commands {
@@ -59,7 +56,7 @@ fn handle_command(
         Halt => {
             movement.motion = Motion::Idle;
             movement.direction = None;
-        },
+        }
         Walk { direction } => {
             movement.motion = Motion::Walking;
             movement.direction = Some(direction);
@@ -82,10 +79,7 @@ fn handle_command(
     }
 }
 
-fn handle_movement(
-    movement: &Movement,
-    transform: &mut Transform,
-) {
+fn handle_movement(movement: &Movement, transform: &mut Transform) {
     if movement.motion == Motion::Idle {
         return;
     }
@@ -148,22 +142,28 @@ impl TryFrom<movement_command::Command> for MovementCommand {
                     return Err(());
                 }
 
-                MovementCommand::Walk { direction: walk.direction.unwrap().try_into()? }
-            },
+                MovementCommand::Walk {
+                    direction: walk.direction.unwrap().try_into()?,
+                }
+            }
             Command::Run(run) => {
                 if run.direction.is_none() {
                     return Err(());
                 }
 
-                MovementCommand::Run { direction: run.direction.unwrap().try_into()? }
-            },
+                MovementCommand::Run {
+                    direction: run.direction.unwrap().try_into()?,
+                }
+            }
             Command::Roll(roll) => {
                 if roll.direction.is_none() {
                     return Err(());
                 }
 
-                MovementCommand::Roll { direction: roll.direction.unwrap().try_into()? }
-            },
+                MovementCommand::Roll {
+                    direction: roll.direction.unwrap().try_into()?,
+                }
+            }
         })
     }
 }

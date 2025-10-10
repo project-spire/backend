@@ -8,8 +8,9 @@ pub mod stat;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
-use crate::data::character::Race;
+
 use crate::db;
+use data::character::Race;
 
 #[derive(Debug, Component, sqlx::FromRow)]
 pub struct Character {
@@ -22,7 +23,7 @@ pub struct Character {
 impl Character {
     pub async fn load(
         tx: &mut db::Transaction<'_>,
-        character_id: &i64
+        character_id: &i64,
     ) -> Result<Character, db::Error> {
         let character = sqlx::query_as!(
             Character,
@@ -31,8 +32,8 @@ impl Character {
             where id=$1"#,
             character_id
         )
-            .fetch_one(&mut **tx)
-            .await?;
+        .fetch_one(&mut **tx)
+        .await?;
 
         Ok(character)
     }

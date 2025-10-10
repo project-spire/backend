@@ -1,11 +1,11 @@
+use crate::config::{Config, config};
+use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 use actix::prelude::*;
+use quinn::crypto::rustls::QuicServerConfig;
+use quinn::{Endpoint, ServerConfig};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use quinn::{Endpoint, ServerConfig};
-use quinn::crypto::rustls::QuicServerConfig;
-use tracing::{info, error};
-use crate::config::{config, Config};
-use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
+use tracing::{error, info};
 
 pub struct GameListener {
     port: u16,
@@ -51,20 +51,23 @@ impl Actor for GameListener {
 
         info!("Listening on {}", endpoint.local_addr().unwrap());
 
-        ctx.spawn(async move {
-            while let Some(incoming) = endpoint.accept().await {
-                let connection = match incoming.await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        error!("Failed to accept: {}", e);
-                        continue;
-                    }
-                };
+        ctx.spawn(
+            async move {
+                while let Some(incoming) = endpoint.accept().await {
+                    let connection = match incoming.await {
+                        Ok(c) => c,
+                        Err(e) => {
+                            error!("Failed to accept: {}", e);
+                            continue;
+                        }
+                    };
 
-                info!("Accepted from {}", connection.remote_address());
-                authenticator.do_send(NewUnauthorizedSession { connection });
+                    info!("Accepted from {}", connection.remote_address());
+                    authenticator.do_send(NewUnauthorizedSession { connection });
+                }
             }
-        }.into_actor(self));
+            .into_actor(self),
+        );
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {

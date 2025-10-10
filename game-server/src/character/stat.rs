@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::*;
 use crate::calc::Chance;
+use bevy_ecs::prelude::*;
 
 #[derive(Debug)]
 pub enum CoreStatType {

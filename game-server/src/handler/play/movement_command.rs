@@ -1,22 +1,23 @@
 use tracing::error;
+
 use crate::character::movement;
 use crate::net::session::SessionContext;
-use crate::protocol::game::play::*;
-use crate::util::timestamp::Timestamp;
 use crate::world::zone::Zone;
+use protocol::game::play::*;
+use util::timestamp::Timestamp;
 
 impl Zone {
     pub fn handle_movement_command(
         &mut self,
         session_ctx: &SessionContext,
-        protocol: &MovementCommand
+        protocol: &MovementCommand,
     ) {
         let command = match protocol.command {
             Some(c) => c,
             None => {
                 error!("Empty command");
                 return;
-            },
+            }
         };
 
         let entity = match self.characters.get(&session_ctx.entry.character_id) {
@@ -43,10 +44,7 @@ impl Zone {
         };
 
         if let Ok(command) = movement::MovementCommand::try_from(command) {
-            movement.add_command(
-                Timestamp::from_millis(protocol.timestamp),
-                command,
-            );
+            movement.add_command(Timestamp::from_millis(protocol.timestamp), command);
         } else {
             todo!()
         }

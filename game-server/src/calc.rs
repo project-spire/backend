@@ -11,7 +11,7 @@ pub struct BasedValue<T> {
 
 impl<T> BasedValue<T>
 where
-    T: Clone + Copy
+    T: Clone + Copy,
 {
     pub fn new(value: T, base: T) -> Self {
         Self { value, base }
@@ -38,7 +38,7 @@ pub struct MaxedValue<T> {
 
 impl<T> MaxedValue<T>
 where
-    T: PartialOrd + Clone + Copy + Default
+    T: PartialOrd + Clone + Copy + Default,
 {
     pub fn new(value: T, max: T) -> Self {
         let value = clamp_max(value, max);
@@ -67,7 +67,7 @@ pub struct RangedValue<T> {
 
 impl<T> RangedValue<T>
 where
-    T: PartialOrd + Clone + Copy + Default
+    T: PartialOrd + Clone + Copy + Default,
 {
     pub fn new(value: T, min: T, max: T) -> Self {
         let value = clamp(value, min, max);
@@ -89,7 +89,7 @@ impl<T> Deref for RangedValue<T> {
 
 impl<T> AddAssign<T> for RangedValue<T>
 where
-    T: Add<Output = T> + PartialOrd + Clone + Copy + Default
+    T: Add<Output = T> + PartialOrd + Clone + Copy + Default,
 {
     fn add_assign(&mut self, rhs: T) {
         self.value = clamp(self.value + rhs, self.min, self.max);
@@ -98,7 +98,7 @@ where
 
 impl<T> SubAssign<T> for RangedValue<T>
 where
-    T: Sub<Output = T> + PartialOrd + Clone + Copy + Default
+    T: Sub<Output = T> + PartialOrd + Clone + Copy + Default,
 {
     fn sub_assign(&mut self, rhs: T) {
         self.value = clamp(self.value - rhs, self.min, self.max);
@@ -113,7 +113,9 @@ pub struct Chance {
 
 impl Chance {
     pub fn new(value: u16) -> Self {
-        Self { value: RangedValue::new(value, 0, BASIS) }
+        Self {
+            value: RangedValue::new(value, 0, BASIS),
+        }
     }
 
     pub fn hit(&self) -> bool {
@@ -121,8 +123,7 @@ impl Chance {
     }
 }
 
-impl Deref for Chance
-{
+impl Deref for Chance {
     type Target = u16;
 
     fn deref(&self) -> &Self::Target {
@@ -159,11 +160,7 @@ pub fn clamp<T: PartialOrd>(value: T, min: T, max: T) -> T {
 #[inline]
 pub fn clamp_min<T: PartialOrd>(value: T, min: T) -> T {
     debug_assert!(min == min);
-    if value < min {
-        min
-    } else {
-        value
-    }
+    if value < min { min } else { value }
 }
 
 /// A value bounded by a maximum value
@@ -176,11 +173,7 @@ pub fn clamp_min<T: PartialOrd>(value: T, min: T) -> T {
 #[inline]
 pub fn clamp_max<T: PartialOrd>(value: T, max: T) -> T {
     debug_assert!(max == max);
-    if value > max {
-        max
-    } else {
-        value
-    }
+    if value > max { max } else { value }
 }
 
 #[cfg(test)]

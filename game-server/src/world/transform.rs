@@ -11,7 +11,7 @@ impl Default for Transform {
     fn default() -> Self {
         Transform {
             position: Point3::default(),
-            direction: UnitVector2::new_normalize(Vector2::new(1.0, 0.0))
+            direction: UnitVector2::new_normalize(Vector2::new(1.0, 0.0)),
         }
     }
 }

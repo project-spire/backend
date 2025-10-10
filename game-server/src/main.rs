@@ -1,30 +1,26 @@
 mod calc;
 mod character;
-mod data {
-    pub use ::data::*;
-}
+mod config;
 mod db;
 mod env;
+mod handler;
 mod net;
 mod player;
-mod protocol;
-mod config;
-mod util {
-    pub use util::*;
-}
 mod world;
 
 use std::process::exit;
+
 use actix::prelude::*;
 use clap::Parser;
 use mimalloc::MiMalloc;
 use rustls::crypto::aws_lc_rs;
-use tracing::{info, error};
+use tracing::{error, info};
+
+use crate::config::Config;
 use crate::env::Env;
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
-use crate::config::Config;
 use crate::world::zone::Zone;
 
 #[global_allocator]
@@ -60,7 +56,7 @@ async fn main() {
         Err(e) => {
             error!("Failed to connect to database: {}", e);
             exit(1);
-        },
+        }
     };
 
     if let Err(e) = data::load_all(&Env::get().data_dir).await {
@@ -72,8 +68,11 @@ async fn main() {
     let gateway = Gateway::new(db_pool.clone()).start();
     let authenticator = Authenticator::new(gateway.clone()).start();
     let _game_listener = GameListener::new(authenticator).start();
-    
-    gateway.do_send(NewZone { id: 0, zone: default_zone.clone() });
+
+    gateway.do_send(NewZone {
+        id: 0,
+        zone: default_zone.clone(),
+    });
 
     if options.dry_run {
         info!("Dry running done");

@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::*;
 use crate::calc::RangedValue;
+use bevy_ecs::prelude::*;
 
 #[derive(Debug, Default)]
 pub struct ResourceBlock {

@@ -1,10 +1,14 @@
 use tonic::{Request, Response, Status};
-use protocol::lobby::characters_server::Characters;
-use protocol::lobby::{create_character_response, CreateCharacterRequest, CreateCharacterResponse, DeleteCharacterRequest, DeleteCharacterResponse, ListCharactersResponse};
-use crate::data::character::Race;
-use crate::error::Error;
+
 use crate::context::Context;
-use crate::util::token::Claims;
+use crate::error::Error;
+use data::character::Race;
+use protocol::lobby::characters_server::Characters;
+use protocol::lobby::{
+    CreateCharacterRequest, CreateCharacterResponse, DeleteCharacterRequest,
+    DeleteCharacterResponse, ListCharactersResponse, create_character_response,
+};
+use util::token::Claims;
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct Character {
@@ -17,7 +21,7 @@ pub struct Character {
 impl Characters for Context {
     async fn list_characters(
         &self,
-        request: Request<()>
+        request: Request<()>,
     ) -> Result<Response<ListCharactersResponse>, Status> {
         let claims = request.extensions().get::<Claims>().unwrap();
 
@@ -32,10 +36,8 @@ impl Characters for Context {
         .await
         .map_err(|e| Error::Database(e))?;
 
-        let characters: Vec<protocol::Character> = characters
-            .into_iter()
-            .map(|c| c.into())
-            .collect();
+        let characters: Vec<protocol::Character> =
+            characters.into_iter().map(|c| c.into()).collect();
         let response = ListCharactersResponse { characters };
 
         Ok(Response::new(response))
@@ -43,7 +45,7 @@ impl Characters for Context {
 
     async fn create_character(
         &self,
-        request: Request<CreateCharacterRequest>
+        request: Request<CreateCharacterRequest>,
     ) -> Result<Response<CreateCharacterResponse>, Status> {
         let claims = request.extensions().get::<Claims>().unwrap().clone();
         let request = request.into_inner();
@@ -81,7 +83,7 @@ impl Characters for Context {
 
     async fn delete_character(
         &self,
-        request: Request<DeleteCharacterRequest>
+        request: Request<DeleteCharacterRequest>,
     ) -> Result<Response<DeleteCharacterResponse>, Status> {
         todo!()
     }

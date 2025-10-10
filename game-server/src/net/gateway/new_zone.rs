@@ -1,7 +1,7 @@
+use super::Zone;
+use crate::net::gateway::Gateway;
 use actix::{Addr, Handler};
 use tracing::info;
-use crate::net::gateway::Gateway;
-use super::Zone;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]

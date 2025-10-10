@@ -1,15 +1,16 @@
+use std::time::Duration;
+
 use actix::prelude::*;
 use jsonwebtoken::DecodingKey;
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
-use quinn::{Connection, RecvStream, SendStream};
+use quinn::{Connection, RecvStream};
 use tokio::time::timeout;
 use tracing::{error, info};
+
 use crate::config::config;
 use crate::net::gateway::{Gateway, NewPlayer};
 use crate::net::session::Entry;
-use crate::protocol::game::{*, auth::*};
-use crate::util::token;
+use protocol::game::{auth::*, *};
+use util::token;
 
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -23,7 +24,10 @@ impl Authenticator {
     pub fn new(gateway: Addr<Gateway>) -> Self {
         let decoding_key = DecodingKey::from_secret(&config().token_key);
 
-        Authenticator { decoding_key, gateway }
+        Authenticator {
+            decoding_key,
+            gateway,
+        }
     }
 }
 
@@ -42,51 +46,55 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
 
     fn handle(&mut self, msg: NewUnauthorizedSession, ctx: &mut Self::Context) -> Self::Result {
         // Read only one protocol with timeout
-        ctx.spawn(async move {
-            let connection = msg.connection;
-            let mut recv_stream = timeout(READ_TIMEOUT, connection.accept_uni()).await??;
+        ctx.spawn(
+            async move {
+                let connection = msg.connection;
+                let mut recv_stream = timeout(READ_TIMEOUT, connection.accept_uni()).await??;
 
-            let login = recv_login(&mut recv_stream).await?;
+                let login = recv_login(&mut recv_stream).await?;
 
-            Ok::<(Connection, Login), Box<dyn std::error::Error>>((connection, login))
-        }
-        .into_actor(self)
-        .then(|res, act, ctx| {
-            let (connection, login) = match res {
-                Ok(o) => o,
-                Err(e) => {
-                    error!("Failed to receive login protocol: {}", e);
-                    return actix::fut::ready(());
-                }
-            };
+                Ok::<(Connection, Login), Box<dyn std::error::Error>>((connection, login))
+            }
+            .into_actor(self)
+            .then(|res, act, ctx| {
+                let (connection, login) = match res {
+                    Ok(o) => o,
+                    Err(e) => {
+                        error!("Failed to receive login protocol: {}", e);
+                        return actix::fut::ready(());
+                    }
+                };
 
-            let (entry, login_kind) = match act.validate_login(login) {
-                Ok(o) => o,
-                Err(e) => {
-                    error!("Failed to validate login: {}", e);
-                    return actix::fut::ready(());
-                },
-            };
+                let (entry, login_kind) = match act.validate_login(login) {
+                    Ok(o) => o,
+                    Err(e) => {
+                        error!("Failed to validate login: {}", e);
+                        return actix::fut::ready(());
+                    }
+                };
 
-            info!("Authenticated: {:?}", entry);
-            act.gateway.do_send(NewPlayer {
-                connection,
-                login_kind,
-                entry
-            });
+                info!("Authenticated: {:?}", entry);
+                act.gateway.do_send(NewPlayer {
+                    connection,
+                    login_kind,
+                    entry,
+                });
 
-            actix::fut::ready(())
-        }));
+                actix::fut::ready(())
+            }),
+        );
     }
 }
 
 impl Authenticator {
-    fn validate_login(&self, login: Login) -> Result<(Entry, login::Kind), Box<dyn std::error::Error>> {
+    fn validate_login(
+        &self,
+        login: Login,
+    ) -> Result<(Entry, login::Kind), Box<dyn std::error::Error>> {
         let claims = token::verify(&login.token, &self.decoding_key)?;
         let entry = Entry {
             account_id: claims.account_id,
             character_id: login.character_id,
-
         };
         let login_kind = login::Kind::try_from(login.kind)?;
 
@@ -106,6 +114,6 @@ async fn recv_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error
     let protocol = Protocol::decode(header.id, body_buf.into())?;
     match protocol {
         Protocol::Login(login) => Ok(login),
-        _ => Err("Protocol other than Login is received".into())
+        _ => Err("Protocol other than Login is received".into()),
     }
 }

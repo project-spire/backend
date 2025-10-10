@@ -1,9 +1,9 @@
 #![allow(static_mut_refs)]
 
-use serde::Deserialize;
-use std::path::PathBuf;
-use std::mem::MaybeUninit;
 use crate::config::config;
+use serde::Deserialize;
+use std::mem::MaybeUninit;
+use std::path::PathBuf;
 
 static mut ENV: MaybeUninit<Env> = MaybeUninit::uninit();
 
@@ -16,11 +16,16 @@ pub struct Env {
 impl Env {
     pub fn init() -> Result<(), Box<dyn std::error::Error>> {
         let settings = config::Config::builder()
-            .add_source(config::File::with_name(config().env_file.as_os_str().to_str().unwrap()).required(true))
+            .add_source(
+                config::File::with_name(config().env_file.as_os_str().to_str().unwrap())
+                    .required(true),
+            )
             .build()?
             .try_deserialize()?;
 
-        unsafe { ENV.write(settings); }
+        unsafe {
+            ENV.write(settings);
+        }
         Ok(())
     }
 
