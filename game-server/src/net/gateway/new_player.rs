@@ -1,8 +1,9 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use quinn::{Connection, RecvStream};
+use quinn::Connection;
 use tracing::{error, info};
 
 use super::Gateway;
+use crate::db;
 use crate::net::session::Entry;
 use crate::player::PlayerData;
 use crate::world::zone;
@@ -20,11 +21,9 @@ impl Handler<NewPlayer> for Gateway {
     type Result = ();
 
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
-        let db_pool = self.db_pool.clone();
-
         ctx.spawn(
             async move {
-                let mut tx = db_pool.begin().await?;
+                let mut tx = db::get().begin().await?;
 
                 let player_data = match msg.login_kind {
                     login::Kind::Enter => PlayerData::load(&mut tx, &msg.entry).await?,

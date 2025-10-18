@@ -34,50 +34,54 @@ struct Options {
 
 #[actix::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
-
-    if let Err(e) = aws_lc_rs::default_provider().install_default() {
-        error!("Failed to install crypto provider: {:?}", e);
-        exit(1);
-    }
-
     let options = Options::parse();
-    if let Err(e) = Config::init() {
-        error!("Failed to initialize configuration: {e}");
-        exit(1);
-    }
-    if let Err(e) = Env::init() {
-        error!("Failed to initialize environment: {e}");
-        exit(1);
-    }
 
-    let db_pool = match db::connect().await {
-        Ok(pool) => pool,
+    match init().await {
+        Ok(_) => {}
         Err(e) => {
-            error!("Failed to connect to database: {}", e);
+            error!("Failed to initialize: {}", e);
             exit(1);
         }
-    };
-
-    if let Err(e) = data::load_all(&Env::get().data_dir).await {
-        error!("Failed to load data: {}", e);
-        exit(1);
     }
-
-    let default_zone = Zone::new(0).start();
-    let gateway = Gateway::new(db_pool.clone()).start();
-    let authenticator = Authenticator::new(gateway.clone()).start();
-    let _game_listener = GameListener::new(authenticator).start();
-
-    gateway.do_send(NewZone {
-        id: 0,
-        zone: default_zone.clone(),
-    });
 
     if options.dry_run {
         info!("Dry running done");
         exit(0);
     }
 
+    start();
+
     tokio::signal::ctrl_c().await.unwrap();
 }
+
+async fn init() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
+
+    aws_lc_rs::default_provider()
+        .install_default()
+        .map_err(|_| std::io::Error::new(
+            std::io::ErrorKind::Other, 
+            "Failed to install default provider"
+        ))?;
+
+    Config::init()?;
+    Env::init()?;
+
+    db::init().await?;
+    data::load_all(&Env::get().data_dir).await?;
+
+    Ok(())
+}
+
+fn start() {
+    let _ = Authenticator::from_registry();
+    let _ = GameListener::from_registry();
+    let _ = Gateway::from_registry();
+
+    let default_zone = Zone::new(0).start();
+    Gateway::from_registry().do_send(NewZone {
+        id: 0,
+        zone: default_zone.clone(),
+    });
+}
+

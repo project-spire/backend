@@ -1,9 +1,11 @@
 #![allow(static_mut_refs)]
 
-use crate::config::config;
-use serde::Deserialize;
 use std::mem::MaybeUninit;
 use std::path::PathBuf;
+
+use serde::Deserialize;
+
+use crate::config::config;
 
 static mut ENV: MaybeUninit<Env> = MaybeUninit::uninit();
 

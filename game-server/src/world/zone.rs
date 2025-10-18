@@ -2,15 +2,17 @@ mod new_player;
 
 pub use new_player::NewPlayer;
 
-use crate::character;
-use crate::net::session::IngressProtocol;
-use actix::prelude::*;
-use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::Duration;
+
+use actix::prelude::*;
+use bevy_ecs::prelude::*;
 use tokio::sync::mpsc;
+
+use crate::character;
+use crate::net::session::IngressProtocol;
 
 const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);

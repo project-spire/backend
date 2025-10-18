@@ -11,18 +11,20 @@ use std::collections::HashMap;
 
 pub struct Gateway {
     zones: HashMap<i64, Addr<Zone>>,
-
-    db_pool: db::Pool,
 }
 
-impl Gateway {
-    pub fn new(db_pool: db::Pool) -> Self {
-        let zones = HashMap::new();
-
-        Gateway { zones, db_pool }
+impl Default for Gateway {
+    fn default() -> Self {
+        Self {
+            zones: HashMap::new(),
+        }
     }
 }
 
 impl Actor for Gateway {
     type Context = Context<Self>;
 }
+
+impl Supervised for Gateway {}
+
+impl SystemService for Gateway {}

@@ -1,25 +1,19 @@
-use crate::config::{Config, config};
-use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
+use std::net::SocketAddr;
+use std::sync::Arc;
+
 use actix::prelude::*;
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Endpoint, ServerConfig};
-use std::net::SocketAddr;
-use std::sync::Arc;
 use tracing::{error, info};
+
+use crate::config::{Config, config};
+use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
 
 pub struct GameListener {
     port: u16,
-    authenticator: Addr<Authenticator>,
 }
 
 impl GameListener {
-    pub fn new(authenticator: Addr<Authenticator>) -> Self {
-        GameListener {
-            port: config().port,
-            authenticator,
-        }
-    }
-
     fn load_server_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
         let cert_chain = Config::get_tls_cert_chain()?;
         let private_key = Config::get_tls_key()?;
@@ -39,6 +33,14 @@ impl GameListener {
     }
 }
 
+impl Default for GameListener {
+    fn default() -> Self {
+        Self {
+            port: config().port,
+        }
+    }
+}
+
 impl Actor for GameListener {
     type Context = Context<Self>;
 
@@ -46,8 +48,6 @@ impl Actor for GameListener {
         let listen_addr = SocketAddr::from(([0, 0, 0, 0], self.port));
         let server_config = Self::load_server_config().unwrap();
         let endpoint = Endpoint::server(server_config, listen_addr).unwrap();
-
-        let authenticator = self.authenticator.clone();
 
         info!("Listening on {}", endpoint.local_addr().unwrap());
 
@@ -63,7 +63,7 @@ impl Actor for GameListener {
                     };
 
                     info!("Accepted from {}", connection.remote_address());
-                    authenticator.do_send(NewUnauthorizedSession { connection });
+                    Authenticator::from_registry().do_send(NewUnauthorizedSession { connection });
                 }
             }
             .into_actor(self),
@@ -74,3 +74,7 @@ impl Actor for GameListener {
         info!("Game Listener stopped");
     }
 }
+
+impl Supervised for GameListener {}
+
+impl SystemService for GameListener {}

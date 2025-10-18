@@ -1,12 +1,17 @@
-use crate::config::config;
-use sqlx::postgres::{PgPool, PgPoolOptions, PgTransaction};
+use std::sync::OnceLock;
 use std::time::Duration;
+
+use sqlx::postgres::{PgPool, PgPoolOptions, PgTransaction};
+
+use crate::config::config;
 
 pub type Pool = PgPool;
 pub type Error = sqlx::Error;
 pub type Transaction<'c> = PgTransaction<'c>;
 
-pub async fn connect() -> Result<Pool, Error> {
+static POOL: OnceLock<Pool> = OnceLock::new();
+
+pub async fn init() -> Result<(), Error> {
     let conn = format!(
         "postgres://{}:{}@{}:{}/{}",
         config().db_user,
@@ -20,5 +25,10 @@ pub async fn connect() -> Result<Pool, Error> {
         .connect(&conn)
         .await?;
 
-    Ok(pool)
+    POOL.set(pool).unwrap();
+    Ok(())
+}
+
+pub fn get() -> &'static Pool {
+    POOL.get().unwrap()
 }

@@ -50,6 +50,7 @@ services:
       - db-data:/var/lib/postgresql/data
     secrets:
       - db-password.key
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${SPIRE_DB_USER} -d ${SPIRE_DB_NAME}" ]
       interval: 5s
@@ -73,6 +74,7 @@ services:
       - db-admin-data:/var/lib/pgadmin
     secrets:
       - db-admin-password.key
+    restart: unless-stopped
 
 volumes:
   db-data:

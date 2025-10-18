@@ -1,9 +1,8 @@
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
 use quinn::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use serde::Deserialize;
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 fn default_log_level() -> String {
     "info".to_string()
@@ -56,7 +55,7 @@ impl Config {
         config.db_password = util::io::read_file(&config.db_password_file)?;
         config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
 
-        CONFIG.set(config).expect("Config already initialized");
+        CONFIG.set(config).unwrap();
         Ok(())
     }
 
@@ -79,5 +78,5 @@ impl Config {
 }
 
 pub fn config() -> &'static Config {
-    CONFIG.get().expect("Config not initialized yet!")
+    CONFIG.get().unwrap()
 }

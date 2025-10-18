@@ -16,24 +16,23 @@ const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct Authenticator {
     decoding_key: DecodingKey,
-
-    gateway: Addr<Gateway>,
 }
 
-impl Authenticator {
-    pub fn new(gateway: Addr<Gateway>) -> Self {
+impl Default for Authenticator {
+    fn default() -> Self {
         let decoding_key = DecodingKey::from_secret(&config().token_key);
 
-        Authenticator {
-            decoding_key,
-            gateway,
-        }
+        Self { decoding_key }
     }
 }
 
 impl Actor for Authenticator {
     type Context = Context<Self>;
 }
+
+impl Supervised for Authenticator {}
+
+impl SystemService for Authenticator {}
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
@@ -74,7 +73,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                 };
 
                 info!("Authenticated: {:?}", entry);
-                act.gateway.do_send(NewPlayer {
+                Gateway::from_registry().do_send(NewPlayer {
                     connection,
                     login_kind,
                     entry,
