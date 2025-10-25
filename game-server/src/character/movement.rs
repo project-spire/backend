@@ -124,9 +124,9 @@ pub fn sync(
         }
     };
 
-    sessions.iter().for_each(|session| {
-        session.do_send(buf.clone());
-    });
+    // sessions.iter().for_each(|session| {
+    //     session.do_send(buf.clone());
+    // });
 }
 
 impl TryFrom<movement_command::Command> for MovementCommand {

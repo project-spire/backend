@@ -50,13 +50,13 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                 let connection = msg.connection;
                 let mut recv_stream = timeout(READ_TIMEOUT, connection.accept_uni()).await??;
 
-                let login = recv_login(&mut recv_stream).await?;
+                let protocol = recv_protocol(&mut recv_stream).await?;
 
-                Ok::<(Connection, Login), Box<dyn std::error::Error>>((connection, login))
+                Ok::<(Connection, Box<dyn Protocol>), Box<dyn std::error::Error>>((connection, protocol))
             }
             .into_actor(self)
             .then(|res, act, ctx| {
-                let (connection, login) = match res {
+                let (connection, protocol) = match res {
                     Ok(o) => o,
                     Err(e) => {
                         error!("Failed to receive login protocol: {}", e);
@@ -64,7 +64,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                     }
                 };
 
-                let (entry, login_kind) = match act.validate_login(login) {
+                let (entry, login_kind) = match act.validate_login(protocol) {
                     Ok(o) => o,
                     Err(e) => {
                         error!("Failed to validate login: {}", e);
@@ -88,8 +88,13 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
 impl Authenticator {
     fn validate_login(
         &self,
-        login: Login,
+        protocol: Box<dyn Protocol>,
     ) -> Result<(Entry, login::Kind), Box<dyn std::error::Error>> {
+        let login = match protocol.as_any().downcast_ref::<Login>() {
+            Some(login) => login,
+            None => return Err("Protocol is not Login".into()),
+        };
+
         let claims = token::verify(&login.token, &self.decoding_key)?;
         let entry = Entry {
             account_id: claims.account_id,
@@ -101,8 +106,8 @@ impl Authenticator {
     }
 }
 
-async fn recv_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error::Error>> {
-    let mut header_buf = [0u8; HEADER_SIZE];
+async fn recv_protocol(stream: &mut RecvStream) -> Result<Box<dyn Protocol>, Box<dyn std::error::Error>> {
+    let mut header_buf = [0u8; Header::size()];
     timeout(READ_TIMEOUT, stream.read_exact(&mut header_buf)).await??;
 
     let header = Header::decode(&header_buf)?;
@@ -110,9 +115,5 @@ async fn recv_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error
     let mut body_buf = vec![0u8; header.length];
     timeout(READ_TIMEOUT, stream.read_exact(&mut body_buf)).await??;
 
-    let protocol = Protocol::decode(header.id, body_buf.into())?;
-    match protocol {
-        Protocol::Login(login) => Ok(login),
-        _ => Err("Protocol other than Login is received".into()),
-    }
+    Ok(decode(header.id, body_buf.into())?)
 }

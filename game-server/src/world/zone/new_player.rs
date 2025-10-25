@@ -30,14 +30,12 @@ impl Handler<NewPlayer> for Zone {
         let (entry, connection, player_data) = (msg.entry, msg.connection, msg.player_data);
 
         // Create a session
-        let session = Session::new(entry.clone(), connection, self.ingress_proto_tx.clone());
+        let session = Session::new(entry.clone(), connection);
         let egress_proto_tx = session.egress_tx.clone();
-        let transfer_tx = session.transfer_tx.clone();
         let session_ctx = SessionContext {
             entry,
             session: session.start(),
             egress_tx: egress_proto_tx,
-            transfer_tx,
         };
 
         // Spawn on the world
