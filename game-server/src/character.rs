@@ -1,8 +1,8 @@
 // pub mod audition;
 // pub mod cognition;
 // pub mod combat;
+pub mod effect;
 pub mod movement;
-pub mod resource;
 pub mod status;
 // pub mod vision;
 

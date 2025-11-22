@@ -105,6 +105,20 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Modifier<T> {
+    Set(T),
+    Add(T),
+    Sub(T),
+    Mul(f64),
+}
+
+impl<T> Modifier<T> {
+    pub fn modify(&self, target: &mut Modifiable<T>) {
+
+    }
+}
+
 /// Basis pointed probability value
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Chance {
