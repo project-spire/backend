@@ -1,199 +1,159 @@
-use std::collections::HashMap;
-use rand::Rng;
-use std::ops::{Add, AddAssign, Deref, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, Deref, Div, Mul};
 
-pub const BASIS: u16 = 10000;
+#[derive(Debug, Clone, Copy)]
+pub struct BasisPoint<T> {
+    value: T,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ModifierInstance<T> {
+    id: i64,
+    modifier: Modifier<T>,
+    priority: u8,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Modifier<T> {
     Add(T),
-    Multiply(f64),
+    Multiply(BasisPoint<T>),
     Set(T),
 }
 
-pub trait Modifiable<T> {
-    fn modify(&mut self, modifiers: &mut [Modifier<T>]);
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Range<T> {
-    value: T,
-    min: T,
-    max: T,
-}
-
-#[derive(Debug, Default)]
-pub struct BasedRange<T>
-where
-    T: Clone + Copy + Add + AddAssign + Mul + MulAssign
+pub trait Modifiable<T>
 {
-    base: T,
+    fn add_modifier(&mut self, modifier: ModifierInstance<T>);
+    fn remove_modifier(&mut self, id: i64);
+    fn recalculate(&mut self);
+}
+
+#[derive(Debug)]
+pub struct BasedValue<T>
+{
     value: T,
+    base: T,
+    modifiers: Vec<ModifierInstance<T>>, //TODO: Consider using `smallvec` crate if optimization is needed.
+}
+
+#[derive(Debug)]
+pub struct BasedRange<T>
+{
+    inner: BasedValue<T>,
     min: T,
     max: T,
 }
 
-impl<T> PartialEq for Modifier<T> {
-    fn eq(&self, other: &Self) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
-}
-impl<T> Eq for Modifier<T> {}
+impl Mul<BasisPoint<i64>> for i64 {
+    type Output = i64;
 
-impl<T> PartialOrd for Modifier<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
+    fn mul(self, rhs: BasisPoint<i64>) -> Self::Output {
+        (self * rhs.value) / 10000
     }
 }
 
-impl<T> Ord for Modifier<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let rank = |modifier: &Self| -> u8 {
-            match modifier {
-                Modifier::Add(_) => 0,
-                Modifier::Multiply(_) => 1,
-                Modifier::Set(_) => 2,
+impl<T> ModifierInstance<T> {
+    pub fn new(id: i64, modifier: Modifier<T>, priority: u8,) -> Self {
+        Self { id, modifier, priority }
+    }
+}
+
+impl<T> BasedValue<T>
+where
+    T: Copy,
+{
+    pub fn new(base: T) -> BasedValue<T> {
+        BasedValue {
+            base,
+            value: base,
+            modifiers: Vec::new(),
+        }
+    }
+}
+
+impl<T> Modifiable<T> for BasedValue<T>
+where
+    T: Copy + Add<Output = T> + Mul<BasisPoint<T>, Output = T>,
+{
+    fn add_modifier(&mut self, modifier: ModifierInstance<T>) {
+        self.modifiers.push(modifier);
+        self.recalculate();
+    }
+
+    fn remove_modifier(&mut self, id: i64) {
+        if let Some(index) = self.modifiers.iter().position(|m| m.id == id) {
+            self.modifiers.swap_remove(index);
+            self.recalculate();
+        }
+    }
+
+    fn recalculate(&mut self) {
+        self.modifiers.sort_by_key(|m| std::cmp::Reverse(m.priority));
+
+        self.value = self.base;
+
+        for modifier in &self.modifiers {
+            match modifier.modifier {
+                Modifier::Add(amount) => {
+                    self.value = self.value + amount;
+                }
+                Modifier::Multiply(factor) => {
+                    self.value = self.value * factor;
+                }
+                Modifier::Set(new_value) => {
+                    self.value = new_value;
+                }
             }
-        };
+        }
+    }
+}
 
-        rank(self).cmp(&rank(other))
+impl<T> Deref for BasedValue<T>
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T> Deref for BasedRange<T>
+{
+    type Target = BasedValue<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> BasedRange<T>
+where
+    T: Copy,
+{
+    pub fn new(base: T, min: T, max: T) -> BasedRange<T> {
+        BasedRange {
+            inner: BasedValue::new(base),
+            min,
+            max,
+        }
     }
 }
 
 impl<T> Modifiable<T> for BasedRange<T>
 where
-    T: Clone + Copy + Add + AddAssign + Mul<f64, Output = T> + MulAssign<f64> + Default
+    T: Copy + PartialOrd + Add<Output = T> + Mul<BasisPoint<T>, Output = T>,
 {
-    fn modify(&mut self, modifiers: &mut [Modifier<T>]) {
-        self.value = self.base;
-
-        // Modify by order of: add -> multiply -> set
-        modifiers.sort();
-
-        for modifier in modifiers {
-            match modifier {
-                Modifier::Add(v) => self.value += *v,
-                Modifier::Multiply(v) => self.value *= *v,
-                Modifier::Set(v) => self.value = *v,
-            }
-        }
-    }
-}
-
-
-
-impl<T> BasedValue<T>
-where
-    T: Clone + Copy,
-{
-    pub fn new(value: T, base: T) -> Self {
-        Self { value, base }
+    fn add_modifier(&mut self, modifier: ModifierInstance<T>) {
+        self.inner.add_modifier(modifier);
+        self.inner.value = clamp(self.inner.value, self.min, self.max);
     }
 
-    pub fn reset(&mut self) {
-        self.value = self.base;
-    }
-}
-
-impl<T> Deref for BasedValue<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> MaxedValue<T>
-where
-    T: PartialOrd + Clone + Copy + Default,
-{
-    pub fn new(value: T, max: T) -> Self {
-        let value = clamp_max(value, max);
-        Self { value, max }
+    fn remove_modifier(&mut self, id: i64) {
+        self.inner.remove_modifier(id);
+        self.inner.value = clamp(self.inner.value, self.min, self.max);
     }
 
-    pub fn set(&mut self, value: T) {
-        self.value = clamp_max(value, self.max);
-    }
-}
-
-impl<T> Deref for MaxedValue<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> RangedValue<T>
-where
-    T: PartialOrd + Clone + Copy + Default,
-{
-    pub fn new(value: T, min: T, max: T) -> Self {
-        let value = clamp(value, min, max);
-        Self { value, min, max }
-    }
-
-    pub fn set(&mut self, value: T) {
-        self.value = clamp(value, self.min, self.max);
-    }
-}
-
-impl<T> Deref for RangedValue<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<T> AddAssign<T> for RangedValue<T>
-where
-    T: Add<Output = T> + PartialOrd + Clone + Copy + Default,
-{
-    fn add_assign(&mut self, rhs: T) {
-        self.value = clamp(self.value + rhs, self.min, self.max);
-    }
-}
-
-impl<T> SubAssign<T> for RangedValue<T>
-where
-    T: Sub<Output = T> + PartialOrd + Clone + Copy + Default,
-{
-    fn sub_assign(&mut self, rhs: T) {
-        self.value = clamp(self.value - rhs, self.min, self.max);
-    }
-}
-
-impl<T> Modifier<T> {
-    pub fn modify(&self, target: &mut Modifiable<T>) {
-
-    }
-}
-
-/// Basis pointed probability value
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Chance {
-    pub value: RangedValue<u16>,
-}
-
-impl Chance {
-    pub fn new(value: u16) -> Self {
-        Self {
-            value: RangedValue::new(value, 0, BASIS),
-        }
-    }
-
-    pub fn hit(&self) -> bool {
-        rand::rng().random_range(0..=BASIS) >= *self.value
-    }
-}
-
-impl Deref for Chance {
-    type Target = u16;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
+    fn recalculate(&mut self) {
+        self.inner.recalculate();
+        self.inner.value = clamp(self.inner.value, self.min, self.max);
     }
 }
 
@@ -245,20 +205,6 @@ pub fn clamp_max<T: PartialOrd>(value: T, max: T) -> T {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn maxed_value_test() {
-        assert_eq!(*MaxedValue::new(1, 1), 1);
-        assert_eq!(*MaxedValue::new(10, 1), 1);
-        assert_eq!(*MaxedValue::new(1, 10), 1);
-    }
-
-    #[test]
-    fn ranged_value_test() {
-        assert_eq!(*RangedValue::new(1, 1, 10), 1);
-        assert_eq!(*RangedValue::new(-1, 1, 10), 1);
-        assert_eq!(*RangedValue::new(15, 1, 10), 10);
-    }
 
     #[test]
     fn clamp_test() {

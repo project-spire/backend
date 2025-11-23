@@ -1,5 +1,7 @@
-mod modify_resource;
-mod modify_stat;
+mod resource_modify;
+mod stat_modify;
+mod state_add;
+mod state_clear;
 
 use std::time::{Duration, Instant};
 use bevy_ecs::prelude::*;
@@ -31,12 +33,13 @@ pub enum Effect {
     StatModify {
         stat: Stat,
         modifier: Modifier<i64>,
+        priority: u8,
     },
     StateAdd {
         state: State,
         count: u8,
     },
-    StateErase {
+    StateClear {
         state: State,
     },
 }
@@ -95,7 +98,6 @@ impl EffectInstance {
 
     pub fn can_apply(
         &self,
-        condition: Option<&EffectCondition>,
         now: &Instant,
     ) -> bool {
         match &self.trigger {
@@ -105,12 +107,8 @@ impl EffectInstance {
             EffectTrigger::Periodic { period: _period, next } => {
                 *now >= *next
             }
-            EffectTrigger::Conditional { condition: my_condition } => {
-                if let Some(condition) = condition {
-                    condition == my_condition
-                } else {
-                    false
-                }
+            EffectTrigger::Conditional { .. } => {
+                false
             }
         }
     }
@@ -129,34 +127,64 @@ impl EffectInstance {
         for target in targets {
             for effect in &self.effects {
                 match effect {
-                    Effect::ResourceModify { .. } => {}
-                    Effect::StatModify { stat, modifier } => {
-                        modify_stat::apply(world, target, &stat, modifier);
+                    Effect::ResourceModify { resource, modifier } => {
+                        resource_modify::apply(world, target, resource, modifier);
                     }
-                    _ => unimplemented!()
+                    Effect::StatModify { stat, modifier, priority } => {
+                        stat_modify::apply(world, target, stat, modifier, self.id, *priority);
+                    }
+                    Effect::StateAdd { state, count } => {
+                        state_add::apply(world, target, *state, *count);
+                    }
+                    Effect::StateClear { state } => {
+                        state_clear::apply(world, target, *state);
+                    }
                 }
             }
         }
     }
-    
+
     pub fn can_expire(&self, now: &Instant) -> bool {
-        if let Some(expire) = &self.expire {
-            now >= expire
-        } else {
-            false
+        if let Some(expire) = &self.expire && now >= expire {
+            return true;
         }
+
+        if let Some(trigger_limit) = &self.trigger_limit && self.trigger_count >= *trigger_limit {
+            return true;
+        }
+
+        false
     }
-    
+
     pub fn expire(
         &mut self,
         world: &mut World,
         source: &Entity,
     ) {
-        if let EffectTrigger::Conditional { condition } = &self.trigger {
-            if *condition == EffectCondition::OnEffectExpired {
-                self.apply(world, source);
-            }
+        self.trigger(world, source, &EffectCondition::OnEffectExpired);
+    }
+
+    pub fn trigger(
+        &mut self,
+        world: &mut World,
+        source: &Entity,
+        condition: &EffectCondition,
+    ) {
+        match &self.trigger {
+            EffectTrigger::Conditional { condition: my_condition } => {
+                if condition != my_condition {
+                    return;
+                }
+            },
+            _ => return,
+        };
+
+        if let Some(trigger_limit) = &self.trigger_limit && self.trigger_count >= *trigger_limit {
+            return;
         }
+
+        self.apply(world, source);
+        self.trigger_count = self.trigger_count.saturating_add(1);
     }
 
     pub fn id(&self) -> i64 { self.id }

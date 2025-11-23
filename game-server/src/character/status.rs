@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bevy_ecs::prelude::*;
 
@@ -14,7 +14,7 @@ pub struct Status {
 
     pub states: [u8; State::Size as usize],
     
-    pub resources: HashMap<Resource, RangedValue<i64>>,
+    pub resources: HashMap<Resource, BasedRange<i64>>,
     pub stats: HashMap<Stat, BasedValue<i64>>,
     
     pub effects: HashMap<i64, EffectInstance>,
@@ -44,7 +44,7 @@ pub enum State {
     Size = 10,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub enum Resource {
     Health,
     Stamina,
@@ -89,11 +89,20 @@ impl Status {
         entity: &Entity,
         mut effect: EffectInstance,
     ) {
-        if effect.can_apply(Some(&EffectCondition::OnEffectAdded), &Instant::now()) {
-            effect.apply(world, entity);
-        }
+        effect.trigger(world, entity, &EffectCondition::OnEffectAdded);
 
         self.effects.insert(effect.id(), effect);
+    }
+
+    pub fn trigger_effect(
+        &mut self,
+        world: &mut World,
+        entity: &Entity,
+        condition: &EffectCondition,
+    ) {
+        for effect in self.effects.values_mut() {
+            effect.trigger(world, entity, condition);
+        }
     }
 
     pub fn erase_effect(&mut self, id: i64) {
@@ -104,22 +113,16 @@ impl Status {
         self.effects.get(&id).is_some()
     }
 
-    pub fn recalculate(&mut self) {
-        for stat in self.stats.values_mut() {
-            stat.reset();
-        }
-    }
-
     pub fn has_state(&self, state: State) -> bool {
         self.states[state as usize] > 0
     }
 
-    pub fn add_state(&mut self, state: State) {
-        self.states[state as usize] = self.states[state as usize].saturating_add(1);
+    pub fn add_state(&mut self, state: State, count: u8) {
+        self.states[state as usize] = self.states[state as usize].saturating_add(count);
     }
 
-    pub fn sub_state(&mut self, state: State) {
-        self.states[state as usize] = self.states[state as usize].saturating_sub(1);
+    pub fn sub_state(&mut self, state: State, count: u8) {
+        self.states[state as usize] = self.states[state as usize].saturating_sub(count);
     }
 
     pub fn clear_state(&mut self, state: State) {
@@ -148,7 +151,7 @@ fn update_effects(
             return false;
         }
 
-        if effect.can_apply(None, now) {
+        if effect.can_apply(now) {
             effect.apply(world, source);
         }
 
