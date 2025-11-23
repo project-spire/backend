@@ -10,7 +10,6 @@ util = { path = "../util" }
 
 actix = "0.13"
 bevy_ecs = "0.17.3"
-bitflags = "2.10.0"
 bytes = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 config = { version = "0.15", features = ["ron"] }

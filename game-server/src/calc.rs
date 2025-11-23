@@ -1,13 +1,86 @@
+use std::collections::HashMap;
 use rand::Rng;
-use std::ops::{Add, AddAssign, Deref, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Deref, Mul, MulAssign, Sub, SubAssign};
 
 pub const BASIS: u16 = 10000;
 
-#[derive(Debug, Default)]
-pub struct BasedValue<T> {
-    pub value: T,
-    pub base: T,
+#[derive(Debug, Clone, Copy)]
+pub enum Modifier<T> {
+    Add(T),
+    Multiply(f64),
+    Set(T),
 }
+
+pub trait Modifiable<T> {
+    fn modify(&mut self, modifiers: &mut [Modifier<T>]);
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Range<T> {
+    value: T,
+    min: T,
+    max: T,
+}
+
+#[derive(Debug, Default)]
+pub struct BasedRange<T>
+where
+    T: Clone + Copy + Add + AddAssign + Mul + MulAssign
+{
+    base: T,
+    value: T,
+    min: T,
+    max: T,
+}
+
+impl<T> PartialEq for Modifier<T> {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+impl<T> Eq for Modifier<T> {}
+
+impl<T> PartialOrd for Modifier<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> Ord for Modifier<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let rank = |modifier: &Self| -> u8 {
+            match modifier {
+                Modifier::Add(_) => 0,
+                Modifier::Multiply(_) => 1,
+                Modifier::Set(_) => 2,
+            }
+        };
+
+        rank(self).cmp(&rank(other))
+    }
+}
+
+impl<T> Modifiable<T> for BasedRange<T>
+where
+    T: Clone + Copy + Add + AddAssign + Mul<f64, Output = T> + MulAssign<f64> + Default
+{
+    fn modify(&mut self, modifiers: &mut [Modifier<T>]) {
+        self.value = self.base;
+
+        // Modify by order of: add -> multiply -> set
+        modifiers.sort();
+
+        for modifier in modifiers {
+            match modifier {
+                Modifier::Add(v) => self.value += *v,
+                Modifier::Multiply(v) => self.value *= *v,
+                Modifier::Set(v) => self.value = *v,
+            }
+        }
+    }
+}
+
+
 
 impl<T> BasedValue<T>
 where
@@ -30,12 +103,6 @@ impl<T> Deref for BasedValue<T> {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct MaxedValue<T> {
-    value: T,
-    max: T,
-}
-
 impl<T> MaxedValue<T>
 where
     T: PartialOrd + Clone + Copy + Default,
@@ -56,13 +123,6 @@ impl<T> Deref for MaxedValue<T> {
     fn deref(&self) -> &Self::Target {
         &self.value
     }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct RangedValue<T> {
-    value: T,
-    min: T,
-    max: T,
 }
 
 impl<T> RangedValue<T>
@@ -103,14 +163,6 @@ where
     fn sub_assign(&mut self, rhs: T) {
         self.value = clamp(self.value - rhs, self.min, self.max);
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum Modifier<T> {
-    Set(T),
-    Add(T),
-    Sub(T),
-    Mul(f64),
 }
 
 impl<T> Modifier<T> {
