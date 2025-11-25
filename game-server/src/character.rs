@@ -5,6 +5,7 @@ pub mod effect;
 pub mod movement;
 pub mod resource;
 pub mod stats;
+mod sense;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
