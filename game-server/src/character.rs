@@ -3,7 +3,8 @@
 // pub mod combat;
 pub mod effect;
 pub mod movement;
-pub mod status;
+pub mod resource;
+pub mod stats;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
