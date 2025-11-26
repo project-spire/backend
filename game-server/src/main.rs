@@ -5,6 +5,7 @@ mod db;
 mod env;
 mod handler;
 mod net;
+mod physics;
 mod player;
 mod world;
 
