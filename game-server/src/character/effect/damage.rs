@@ -8,7 +8,7 @@ use crate::character::status::shield::Shield;
 pub struct Damage {
     pub source: Entity,
     pub target: Entity,
-    pub amount: u32,
+    pub amount: u64,
     pub element: Element,
 }
 
@@ -48,11 +48,16 @@ fn apply_shield(
     mut query: Query<&mut Shield>,
 ) {
     for message in damage_messages.read() {
-        let Ok(shield) = query.get_mut(message.target) else {
+        let Ok(mut shield) = query.get_mut(message.target) else {
             continue;
         };
-
-        //TODO: Decrease damage amount by shield
+        
+        let blocked_damage = shield.block_damage(message.amount);
+        if blocked_damage > 0 {
+            //TODO: Write message?
+            
+            message.amount -= blocked_damage;
+        }
     }
 }
 

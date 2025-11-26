@@ -2,6 +2,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub type Id = i64;
+
 const MAX_NODE_ID: u16 = (1 << 10) - 1;
 const MAX_SEQUENCE: u16 = (1 << 12) - 1;
 const CUSTOM_EPOCH: u64 = 1735689600000; // 2025-01-01 00:00:00 UTC
@@ -31,7 +33,7 @@ impl Generator {
     }
 
     /// Generate a 64-bit universally unique id.
-    fn generate(&self) -> i64 {
+    fn generate(&self) -> Id {
         loop {
             let timestamp = current_timestamp();
 
