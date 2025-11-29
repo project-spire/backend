@@ -6,5 +6,5 @@ pub mod net;
 pub mod play;
 
 pub trait ProtocolHandler {
-    fn handle(&self, ctx: &SessionContext);
+    fn handle(self, ctx: &SessionContext);
 }

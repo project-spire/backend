@@ -1,6 +1,8 @@
 mod new_player;
+mod movement_command;
 
 pub use new_player::NewPlayer;
+pub use movement_command::MovementCommand;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -9,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
-
+use bevy_ecs::world::error::EntityMutableFetchError;
 use crate::character;
 use crate::world::time::Time;
 
@@ -32,6 +34,31 @@ impl Zone {
             schedule: new_schedule(),
             characters: HashMap::new(),
         }
+    }
+
+    pub fn get_component_mut<T>(
+        &mut self,
+        character_id: i64,
+    ) -> Option<Mut<T>>
+    where
+        T: Component<Mutability = bevy_ecs::component::Mutable>,
+    {
+        self.characters
+            .get(&character_id)
+            .and_then(|entity| self.world.get_mut::<T>(*entity))
+    }
+
+    pub fn with_component_mut<T, F, R>(
+        &mut self,
+        character_id: i64,
+        function: F,
+    ) -> Option<R>
+    where
+        T: Component<Mutability = bevy_ecs::component::Mutable>,
+        F: FnMut(Mut<T>) -> R,
+    {
+        self.get_component_mut::<T>(character_id)
+            .map(function)
     }
 
     fn tick(&mut self, _: &mut <Self as Actor>::Context) {

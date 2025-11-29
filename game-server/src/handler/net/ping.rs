@@ -5,7 +5,7 @@ use crate::net::session::SessionContext;
 use protocol::game::net::Ping;
 
 impl ProtocolHandler for Ping {
-    fn handle(&self, ctx: &SessionContext) {
+    fn handle(self, ctx: &SessionContext) {
         info!("Ping: {}", self.timestamp);
     }
 }

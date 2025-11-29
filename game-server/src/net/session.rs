@@ -181,3 +181,13 @@ impl Display for Session {
         )
     }
 }
+
+impl SessionContext {
+    pub fn account_id(&self) -> i64 {
+        self.entry.account_id
+    }
+    
+    pub fn character_id(&self) -> i64 {
+        self.entry.character_id
+    }
+}

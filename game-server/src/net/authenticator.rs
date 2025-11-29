@@ -62,7 +62,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                     Ok(o) => o,
                     Err(e) => {
                         error!("Failed to receive login protocol: {}", e);
-                        return actix::fut::ready(());
+                        return fut::ready(());
                     }
                 };
 
@@ -70,7 +70,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                     Ok(o) => o,
                     Err(e) => {
                         error!("Failed to validate login: {}", e);
-                        return actix::fut::ready(());
+                        return fut::ready(());
                     }
                 };
 
@@ -81,7 +81,7 @@ impl Handler<NewUnauthorizedSession> for Authenticator {
                     entry,
                 });
 
-                actix::fut::ready(())
+                fut::ready(())
             }),
         );
     }

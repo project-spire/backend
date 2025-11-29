@@ -1,9 +1,10 @@
+use actix::prelude::*;
+use quinn::Connection;
+use tracing::info;
+
 use super::Zone;
 use crate::net::session::{Entry, Session, SessionContext};
 use crate::player::PlayerData;
-use actix::{Actor, Handler};
-use quinn::{Connection, RecvStream, SendStream};
-use tracing::info;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
