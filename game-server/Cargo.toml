@@ -16,6 +16,7 @@ config = { version = "0.15", features = ["ron"] }
 jsonwebtoken = { workspace = true }
 mimalloc = "*"
 nalgebra = { workspace = true }
+prost = { workspace = true }
 quinn = "0.11"
 rand = "0.9"
 rustls = { version = "0.23", features = ["aws-lc-rs"], default-features = false }
@@ -26,3 +27,6 @@ sqlx = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+[build-dependencies]
+protocol-generator = { path = "../protocol/lib/rs/generator" }

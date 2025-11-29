@@ -1,8 +1,11 @@
 use tracing::{error, info};
 
+use crate::handler::ProtocolHandler;
 use crate::net::session::SessionContext;
-use protocol::game::net::*;
+use protocol::game::net::Pong;
 
-pub fn handle(session_ctx: SessionContext, pong: &Pong) {
-    info!("Pong: {}", pong.timestamp);
+impl ProtocolHandler for Pong {
+    fn handle(&self, ctx: &SessionContext) {
+        info!("Pong: {}", self.timestamp);
+    }
 }

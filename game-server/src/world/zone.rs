@@ -5,21 +5,22 @@ pub use new_player::NewPlayer;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
 
 use crate::character;
+use crate::world::time::Time;
 
-const INGRESS_PROTOCOL_BUFFER_SIZE: usize = 256;
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct Zone {
     pub id: i64,
 
     pub world: World,
-    pub ticks: u64,
+    pub schedule: Schedule,
+
     pub characters: HashMap<i64, Entity>,
 }
 
@@ -27,20 +28,18 @@ impl Zone {
     pub fn new(id: i64) -> Self {
         Zone {
             id,
-            world: World::new(),
-            ticks: 0,
+            world: new_world(),
+            schedule: new_schedule(),
             characters: HashMap::new(),
         }
     }
 
     fn tick(&mut self, _: &mut <Self as Actor>::Context) {
-        //TODO: Initialize once and use
-        let mut schedule = Schedule::default();
-        schedule.add_systems(character::movement::update);
+        self.schedule.run(&mut self.world);
 
-        schedule.run(&mut self.world);
-
-        self.ticks += 1;
+        let mut time = self.world.get_resource_mut::<Time>().unwrap();
+        time.last_tick = Instant::now();
+        time.ticks += 1;
     }
 }
 
@@ -58,4 +57,20 @@ impl fmt::Display for Zone {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Zone[{}]", self.id)
     }
+}
+
+fn new_world() -> World {
+    let mut world = World::new();
+
+    world.insert_resource(Time::new());
+
+    world
+}
+
+fn new_schedule() -> Schedule {
+    let mut schedule = Schedule::default();
+
+    character::status::movement::register(&mut schedule);
+
+    schedule
 }

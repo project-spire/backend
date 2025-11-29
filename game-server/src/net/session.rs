@@ -7,6 +7,7 @@ use quinn::{Connection, ConnectionError, RecvStream, SendStream};
 use tokio::sync::mpsc;
 use tracing::error;
 
+use crate::handler;
 use protocol::game::*;
 
 // const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 32;
@@ -26,6 +27,18 @@ pub struct Entry {
     pub character_id: i64,
 }
 
+pub struct Session {
+    entry: Entry,
+    connection: Connection,
+
+    pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
+    egress_rx: Option<mpsc::UnboundedReceiver<EgressProtocol>>,
+    // ingress_tx: Option<mpsc::Sender<IngressProtocol>>,
+
+    // pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
+    // transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
+}
+
 #[derive(Component, Clone)]
 pub struct SessionContext {
     pub entry: Entry,
@@ -42,18 +55,6 @@ impl Display for SessionContext {
             self.entry.account_id, self.entry.character_id,
         )
     }
-}
-
-pub struct Session {
-    entry: Entry,
-    connection: Connection,
-
-    pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
-    egress_rx: Option<mpsc::UnboundedReceiver<EgressProtocol>>,
-    // ingress_tx: Option<mpsc::Sender<IngressProtocol>>,
-
-    // pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
-    // transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
 }
 
 impl Session {
@@ -93,7 +94,8 @@ impl Session {
         ctx.spawn(
             async move {
                 loop {
-                    let protocol = recv_from_stream(&mut stream).await?;
+                    let (id, data) = recv_from_stream(&mut stream).await?;
+                    handler::decode_and_handle(id, data, &session_ctx)?;
 
                     // if let Ok(tx) = transfer_rx.try_recv() {
                     //     ingress_tx = tx;
@@ -200,7 +202,7 @@ impl Actor for Session {
     }
 }
 
-async fn recv_from_stream(stream: &mut RecvStream) -> Result<Box<dyn Protocol>, Box<dyn std::error::Error>> {
+async fn recv_from_stream(stream: &mut RecvStream) -> Result<(u16, Bytes), Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; Header::size()];
     stream.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
@@ -208,8 +210,7 @@ async fn recv_from_stream(stream: &mut RecvStream) -> Result<Box<dyn Protocol>, 
     let mut body_buf = vec![0u8; header.length];
     stream.read_exact(&mut body_buf).await?;
 
-    let protocol = decode(header.id, body_buf.into())?;
-    Ok(protocol)
+    Ok((header.id, body_buf.into()))
 }
 
 async fn send_to_stream(stream: &mut SendStream, buffer: Bytes) -> Result<(), std::io::Error> {
