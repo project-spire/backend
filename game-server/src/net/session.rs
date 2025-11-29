@@ -3,22 +3,13 @@ use std::fmt::{Display, Formatter};
 use actix::prelude::*;
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use quinn::{Connection, ConnectionError, RecvStream, SendStream};
+use quinn::{Connection, ConnectionError, ReadExactError, RecvStream, SendStream, WriteError};
 use tokio::sync::mpsc;
 use tracing::error;
 
 use crate::handler;
 use protocol::game::*;
 
-// const EGRESS_PROTOCOL_BUFFER_SIZE: usize = 32;
-
-// #[derive(Debug)]
-// pub enum Tag {
-//     Stream,
-//     Datagram,
-// }
-
-// pub type IngressProtocol = (SessionContext, Box<dyn Protocol>);
 pub type EgressProtocol = Bytes;
 
 #[derive(Debug, Clone)]
@@ -33,10 +24,6 @@ pub struct Session {
 
     pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
     egress_rx: Option<mpsc::UnboundedReceiver<EgressProtocol>>,
-    // ingress_tx: Option<mpsc::Sender<IngressProtocol>>,
-
-    // pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
-    // transfer_rx: Option<mpsc::Receiver<mpsc::Sender<IngressProtocol>>>,
 }
 
 #[derive(Component, Clone)]
@@ -44,51 +31,44 @@ pub struct SessionContext {
     pub entry: Entry,
     pub session: Addr<Session>,
     pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
-    // pub transfer_tx: mpsc::Sender<mpsc::Sender<IngressProtocol>>,
 }
 
-impl Display for SessionContext {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Session(account_id: {}, character_id: {})",
-            self.entry.account_id, self.entry.character_id,
-        )
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Protocol(#[from] protocol::game::Error),
+
+    #[error(transparent)]
+    Read(#[from] ReadExactError),
+
+    #[error(transparent)]
+    Write(#[from] WriteError),
 }
 
 impl Session {
     pub fn new(
         entry: Entry,
         connection: Connection,
-        // ingress_tx: mpsc::Sender<IngressProtocol>,
     ) -> Self {
         let (egress_tx, egress_rx) = mpsc::unbounded_channel();
-        // let (transfer_tx, transfer_rx) = mpsc::channel(2);
 
         Session {
             entry,
             connection,
             egress_tx,
             egress_rx: Some(egress_rx),
-            // ingress_tx: Some(ingress_tx),
-            // transfer_tx,
-            // transfer_rx: Some(transfer_rx),
         }
     }
 
     fn start_recv(
         &mut self,
         mut stream: RecvStream,
-        // mut ingress_tx: mpsc::Sender<IngressProtocol>,
-        // mut transfer_rx: mpsc::Receiver<mpsc::Sender<IngressProtocol>>,
         ctx: &mut <Session as Actor>::Context,
     ) {
         let session_ctx = SessionContext {
             entry: self.entry.clone(),
             session: ctx.address(),
             egress_tx: self.egress_tx.clone(),
-            // transfer_tx: self.transfer_tx.clone(),
         };
 
         ctx.spawn(
@@ -96,26 +76,16 @@ impl Session {
                 loop {
                     let (id, data) = recv_from_stream(&mut stream).await?;
                     handler::decode_and_handle(id, data, &session_ctx)?;
-
-                    // if let Ok(tx) = transfer_rx.try_recv() {
-                    //     ingress_tx = tx;
-                    // }
-                    // _ = ingress_tx.send((session_ctx.clone(), protocol)).await;
                 }
-
-                Ok::<(), Box<dyn std::error::Error>>(())
             }
             .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error receiving: {}", e);
-                    }
+            .then(|res: Result<(), Error>, act, ctx| {
+                if let Err(e) = res {
+                    error!("{} failed to receive: {}", act, e);
                 }
 
                 ctx.stop();
-                actix::fut::ready(())
+                fut::ready(())
             }),
         );
     }
@@ -137,16 +107,11 @@ impl Session {
                         send_to_stream(&mut stream, proto).await?;
                     }
                 }
-
-                Ok::<(), std::io::Error>(())
             }
             .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error sending: {}", e);
-                    }
+            .then(|res: Result<(), Error>, act, ctx| {
+                if let Err(e) = res {
+                    error!("{} failed to send: {}", act, e);
                 }
 
                 ctx.stop();
@@ -167,42 +132,31 @@ impl Actor for Session {
             .take()
             .expect("Egress protocol channel must be set before start");
 
-        // let ingress_proto_tx = self
-        //     .ingress_tx
-        //     .take()
-        //     .expect("Ingress protocol channel must be set before start");
-        //
-        // let transfer_rx = self
-        //     .transfer_rx
-        //     .take()
-        //     .expect("Transfer channel must be set before start");
-
         ctx.spawn(
             async move {
                 let (send_stream, recv_stream) = connection.accept_bi().await?;
                 Ok::<(SendStream, RecvStream), ConnectionError>((send_stream, recv_stream))
             }
             .into_actor(self)
-            .then(|res, actor, ctx| {
+            .then(|res, act, ctx| {
                 match res {
                     Ok((send_stream, recv_stream)) => {
-                        actor.start_send(send_stream, egress_rx, ctx);
-                        // actor.start_recv(recv_stream, ingress_proto_tx, transfer_rx, ctx);
-                        actor.start_recv(recv_stream, ctx);
+                        act.start_send(send_stream, egress_rx, ctx);
+                        act.start_recv(recv_stream, ctx);
                     }
                     Err(e) => {
-                        error!("Failed to open bidirectional stream: {}", e);
+                        error!("{} failed to open bidirectional stream: {}", act, e);
                         ctx.stop();
                     }
                 }
 
-                actix::fut::ready(())
+                fut::ready(())
             }),
         );
     }
 }
 
-async fn recv_from_stream(stream: &mut RecvStream) -> Result<(u16, Bytes), Box<dyn std::error::Error>> {
+async fn recv_from_stream(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes), Error> {
     let mut header_buf = [0u8; Header::size()];
     stream.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
@@ -213,7 +167,17 @@ async fn recv_from_stream(stream: &mut RecvStream) -> Result<(u16, Bytes), Box<d
     Ok((header.id, body_buf.into()))
 }
 
-async fn send_to_stream(stream: &mut SendStream, buffer: Bytes) -> Result<(), std::io::Error> {
+async fn send_to_stream(stream: &mut SendStream, buffer: Bytes) -> Result<(), Error> {
     stream.write_all(&buffer[..]).await?;
     Ok(())
+}
+
+impl Display for Session {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Session(account_id: {}, character_id: {})",
+            self.entry.account_id, self.entry.character_id,
+        )
+    }
 }
