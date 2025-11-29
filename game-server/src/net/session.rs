@@ -1,14 +1,15 @@
 use std::fmt::{Display, Formatter};
-
+use std::sync::Arc;
 use actix::prelude::*;
 use bevy_ecs::component::Component;
 use bytes::Bytes;
 use quinn::{Connection, ConnectionError, ReadExactError, RecvStream, SendStream, WriteError};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock, RwLockReadGuard};
 use tracing::error;
 
 use crate::handler;
 use protocol::game::*;
+use crate::world::zone::Zone;
 
 pub type EgressProtocol = Bytes;
 
@@ -21,16 +22,20 @@ pub struct Entry {
 pub struct Session {
     entry: Entry,
     connection: Connection,
+    addr: Option<Addr<Session>>,
 
     pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
     egress_rx: Option<mpsc::UnboundedReceiver<EgressProtocol>>,
+
+    zone_addr: Arc<RwLock<Addr<Zone>>>,
 }
 
 #[derive(Component, Clone)]
 pub struct SessionContext {
     pub entry: Entry,
-    pub session: Addr<Session>,
     pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
+    pub session_addr: Addr<Session>,
+    pub zone_addr: Arc<RwLock<Addr<Zone>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -49,14 +54,40 @@ impl Session {
     pub fn new(
         entry: Entry,
         connection: Connection,
+        zone: Addr<Zone>,
     ) -> Self {
         let (egress_tx, egress_rx) = mpsc::unbounded_channel();
 
         Session {
             entry,
             connection,
+            addr: None,
             egress_tx,
             egress_rx: Some(egress_rx),
+            zone_addr: Arc::new(RwLock::new(zone)),
+        }
+    }
+
+    pub fn ctx(&self) -> SessionContext {
+        SessionContext {
+            entry: self.entry.clone(),
+            session_addr: self.addr.clone().unwrap(),
+            egress_tx: self.egress_tx.clone(),
+            zone_addr: self.zone_addr.clone(),
+        }
+    }
+
+    pub fn ctx_with_start(self) -> SessionContext {
+        let entry = self.entry.clone();
+        let egress_tx = self.egress_tx.clone();
+        let zone = self.zone_addr.clone();
+        let session = self.start();
+
+        SessionContext {
+            entry,
+            egress_tx,
+            zone_addr: zone,
+            session_addr: session,
         }
     }
 
@@ -65,17 +96,13 @@ impl Session {
         mut stream: RecvStream,
         ctx: &mut <Session as Actor>::Context,
     ) {
-        let session_ctx = SessionContext {
-            entry: self.entry.clone(),
-            session: ctx.address(),
-            egress_tx: self.egress_tx.clone(),
-        };
+        let session_ctx = self.ctx();
 
         ctx.spawn(
             async move {
                 loop {
                     let (id, data) = recv_from_stream(&mut stream).await?;
-                    handler::decode_and_handle(id, data, &session_ctx)?;
+                    handler::decode_and_handle(id, data, &session_ctx).await?;
                 }
             }
             .into_actor(self)
@@ -125,6 +152,8 @@ impl Actor for Session {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
+        self.addr = Some(ctx.address());
+
         let connection = self.connection.clone();
 
         let egress_rx = self
@@ -186,8 +215,21 @@ impl SessionContext {
     pub fn account_id(&self) -> i64 {
         self.entry.account_id
     }
-    
+
     pub fn character_id(&self) -> i64 {
         self.entry.character_id
+    }
+
+    pub async fn do_send_to_zone<T>(
+        &self,
+        msg: T,
+    )
+    where
+        T: actix::Message + Send,
+        T::Result: Send,
+        Zone: Handler<T>,
+        <Zone as Actor>::Context: dev::ToEnvelope<Zone, T>,
+    {
+        self.zone_addr.read().await.do_send(msg);
     }
 }

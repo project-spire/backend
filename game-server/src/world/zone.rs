@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_ecs::world::error::EntityMutableFetchError;
+
 use crate::character;
 use crate::world::time::Time;
 
@@ -36,16 +36,41 @@ impl Zone {
         }
     }
 
+    pub fn get_component<T>(
+        &mut self,
+        character_id: i64,
+    ) -> Option<&T>
+    where
+        T: Component,
+    {
+        self.characters
+            .get(&character_id)
+            .and_then(|entity| self.world.get::<T>(*entity))
+    }
+
     pub fn get_component_mut<T>(
         &mut self,
         character_id: i64,
-    ) -> Option<Mut<T>>
+    ) -> Option<Mut<'_, T>>
     where
         T: Component<Mutability = bevy_ecs::component::Mutable>,
     {
         self.characters
             .get(&character_id)
             .and_then(|entity| self.world.get_mut::<T>(*entity))
+    }
+
+    pub fn with_component<T, F, R>(
+        &mut self,
+        character_id: i64,
+        function: F,
+    ) -> Option<R>
+    where
+        T: Component,
+        F: Fn(&T) -> R,
+    {
+        self.get_component::<T>(character_id)
+            .map(function)
     }
 
     pub fn with_component_mut<T, F, R>(

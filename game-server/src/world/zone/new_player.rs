@@ -27,17 +27,12 @@ impl NewPlayer {
 impl Handler<NewPlayer> for Zone {
     type Result = ();
 
-    fn handle(&mut self, msg: NewPlayer, _: &mut Self::Context) -> Self::Result {
+    fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
         let (entry, connection, player_data) = (msg.entry, msg.connection, msg.player_data);
 
         // Create a session
-        let session = Session::new(entry.clone(), connection);
-        let egress_proto_tx = session.egress_tx.clone();
-        let session_ctx = SessionContext {
-            entry,
-            session: session.start(),
-            egress_tx: egress_proto_tx,
-        };
+        let session = Session::new(entry.clone(), connection, ctx.address());
+        let session_ctx = session.ctx_with_start();
 
         // Spawn on the world
         let character_id = player_data.character.id;
