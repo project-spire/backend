@@ -1,10 +1,9 @@
-use crate::handler::ProtocolHandler;
-use crate::net::session::SessionContext;
-use crate::world::zone::{self};
+use crate::handler::ProtocolLocalHandler;
+use crate::world::zone::Zone;
 use protocol::game::play::MovementCommand;
 
-impl ProtocolHandler for MovementCommand {
-    async fn handle(self, ctx: &SessionContext) {
-        ctx.do_send_to_zone(zone::MovementCommand::new(self, ctx.clone())).await;
+impl ProtocolLocalHandler for MovementCommand {
+    fn handle(self, zone: &mut Zone) {
+        unimplemented!();
     }
 }

@@ -1,11 +1,9 @@
-pub mod account;
+use bevy_ecs::prelude::*;
 
-use self::account::Account;
 use crate::character::*;
 use crate::db;
-use crate::net::session::Entry;
+use crate::net::session::Session;
 use crate::world::transform::Transform;
-use bevy_ecs::prelude::*;
 // use crate::character::movement::MovementController;
 // use crate::character::stat::*;
 // use crate::character::status_effect::*;
@@ -13,7 +11,7 @@ use bevy_ecs::prelude::*;
 
 #[derive(Bundle)]
 pub struct PlayerData {
-    pub account: Account,
+    pub session: Session,
     pub character: Character,
     // pub character_stat: CharacterStat,
     // pub mobility_stat: MobilityStat,
@@ -24,15 +22,16 @@ pub struct PlayerData {
 }
 
 impl PlayerData {
-    pub async fn load(tx: &mut db::Transaction<'_>, entry: &Entry) -> Result<Self, db::Error> {
-        let account = Account {
-            account_id: entry.account_id,
-        };
-        let character = Character::load(&mut *tx, &entry.character_id).await?;
+    pub async fn load(session: Session) -> Result<Self, db::Error> {
+        let mut tx = db::get().begin().await?;
+        
+        let character = Character::load(&mut tx, session.character_id()).await?;
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 
+        tx.commit().await?;
+
         Ok(PlayerData {
-            account,
+            session,
             character,
             // character_stat,
             transform: Transform::default(),

@@ -18,7 +18,7 @@ use rustls::crypto::aws_lc_rs;
 use tracing::{error, info};
 
 use crate::config::Config;
-use crate::env::Env;
+use crate::env::{env, Env};
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
@@ -69,7 +69,7 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
     Env::init()?;
 
     db::init().await?;
-    data::load_all(&Env::get().data_dir).await?;
+    data::load_all(&env().data_dir).await?;
 
     Ok(())
 }

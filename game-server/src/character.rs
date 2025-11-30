@@ -17,13 +17,12 @@ pub struct Character {
     pub id: i64,
     pub name: Option<String>,
     pub race: Option<Race>,
-    // pub location: Option<(u16, i64)>,
 }
 
 impl Character {
     pub async fn load(
         tx: &mut db::Transaction<'_>,
-        character_id: &i64,
+        character_id: i64,
     ) -> Result<Character, db::Error> {
         let character = sqlx::query_as!(
             Character,

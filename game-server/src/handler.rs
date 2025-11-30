@@ -1,10 +1,15 @@
-include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.handle.rs"));
+use crate::net::session::Entry;
+use crate::world::zone::Zone;
 
-use crate::net::session::SessionContext;
+include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.handle.rs"));
 
 pub mod net;
 pub mod play;
 
-pub trait ProtocolHandler {
-    async fn handle(self, ctx: &SessionContext);
+pub trait ProtocolLocalHandler {
+    fn handle(self, zone: &mut Zone);
+}
+
+pub trait ProtocolGlobalHandler {
+    fn handle(self, entry: Entry);
 }

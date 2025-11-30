@@ -1,8 +1,6 @@
 mod new_player;
-mod movement_command;
 
 pub use new_player::NewPlayer;
-pub use movement_command::MovementCommand;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -13,6 +11,7 @@ use actix::prelude::*;
 use bevy_ecs::prelude::*;
 
 use crate::character;
+use crate::net::session::Session;
 use crate::world::time::Time;
 
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
@@ -87,11 +86,23 @@ impl Zone {
     }
 
     fn tick(&mut self, _: &mut <Self as Actor>::Context) {
+        self.handle_protocols();
+
         self.schedule.run(&mut self.world);
 
         let mut time = self.world.get_resource_mut::<Time>().unwrap();
         time.last_tick = Instant::now();
         time.ticks += 1;
+    }
+
+    fn handle_protocols(&mut self) {
+        let mut query = self.world.query::<(Entity, &mut Session)>();
+
+        for (_, mut session) in query.iter_mut(&mut self.world) {
+            for protocol in session.ingress_protocol_receiver.try_iter() {
+                crate::handler::handle_local(protocol, self);
+            }
+        }
     }
 }
 

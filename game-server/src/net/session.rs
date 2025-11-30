@@ -1,41 +1,33 @@
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
-use actix::prelude::*;
+
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use quinn::{Connection, ConnectionError, ReadExactError, RecvStream, SendStream, WriteError};
-use tokio::sync::{mpsc, RwLock, RwLockReadGuard};
+use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
+use tokio::sync::mpsc;
 use tracing::error;
 
-use crate::handler;
-use protocol::game::*;
-use crate::world::zone::Zone;
+use crate::env::env;
+use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
+use util::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Entry {
     pub account_id: i64,
     pub character_id: i64,
 }
 
+#[derive(Component)]
 pub struct Session {
-    entry: Entry,
-    connection: Connection,
-    addr: Option<Addr<Session>>,
-
-    pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
-    egress_rx: Option<mpsc::UnboundedReceiver<EgressProtocol>>,
-
-    zone_addr: Arc<RwLock<Addr<Zone>>>,
-}
-
-#[derive(Component, Clone)]
-pub struct SessionContext {
     pub entry: Entry,
-    pub egress_tx: mpsc::UnboundedSender<EgressProtocol>,
-    pub session_addr: Addr<Session>,
-    pub zone_addr: Arc<RwLock<Addr<Zone>>>,
+
+    pub connection: Connection,
+    pub ingress_protocol_receiver: crossbeam_channel::Receiver<IngressLocalProtocol>,
+    pub egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
+
+    receive_task: tokio::task::JoinHandle<Result<(), Error>>,
+    send_task: tokio::task::JoinHandle<Result<(), Error>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,144 +40,113 @@ pub enum Error {
 
     #[error(transparent)]
     Write(#[from] WriteError),
+
+    #[error("Ingress protocols limit error: {0}")]
+    IngressProtocolsLimit(util::rate_limiter::Error),
+
+    #[error("Ingress bytes limit error: {0}")]
+    IngressBytesLimit(util::rate_limiter::Error),
 }
 
 impl Session {
-    pub fn new(
+    pub fn start(
         entry: Entry,
         connection: Connection,
-        zone: Addr<Zone>,
+        receive_stream: RecvStream,
+        send_stream: SendStream,
     ) -> Self {
-        let (egress_tx, egress_rx) = mpsc::unbounded_channel();
+        let (ingress_protocol_sender, ingress_protocol_receiver) = crossbeam_channel::unbounded();
+        let (egress_protocol_sender, egress_protocol_receiver) = mpsc::unbounded_channel();
 
-        Session {
+        let receive_task = Self::start_receive(receive_stream, ingress_protocol_sender, entry);
+        let send_task = Self::start_send(send_stream, egress_protocol_receiver);
+
+        Self {
             entry,
             connection,
-            addr: None,
-            egress_tx,
-            egress_rx: Some(egress_rx),
-            zone_addr: Arc::new(RwLock::new(zone)),
+            ingress_protocol_receiver,
+            egress_protocol_sender,
+            receive_task,
+            send_task,
         }
     }
 
-    pub fn ctx(&self) -> SessionContext {
-        SessionContext {
-            entry: self.entry.clone(),
-            session_addr: self.addr.clone().unwrap(),
-            egress_tx: self.egress_tx.clone(),
-            zone_addr: self.zone_addr.clone(),
-        }
+    pub fn stop(&self) {
+        self.receive_task.abort();
+        self.send_task.abort();
+        self.connection.close(0u32.into(), b"Session closed manually");
     }
 
-    pub fn ctx_with_start(self) -> SessionContext {
-        let entry = self.entry.clone();
-        let egress_tx = self.egress_tx.clone();
-        let zone = self.zone_addr.clone();
-        let session = self.start();
-
-        SessionContext {
-            entry,
-            egress_tx,
-            zone_addr: zone,
-            session_addr: session,
-        }
-    }
-
-    fn start_recv(
-        &mut self,
+    fn start_receive(
         mut stream: RecvStream,
-        ctx: &mut <Session as Actor>::Context,
-    ) {
-        let session_ctx = self.ctx();
+        ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
+        entry: Entry,
+    ) -> tokio::task::JoinHandle<Result<(), Error>> {
+        let mut ingress_protocols_limiter = env()
+            .ingress_protocols_rate_limit
+            .map(|params| RateLimiter::new(params));
+        let mut ingress_bytes_limiter = env()
+            .ingress_bytes_rate_limit
+            .map(|params| RateLimiter::new(params));
 
-        ctx.spawn(
-            async move {
-                loop {
-                    let (id, data) = recv_from_stream(&mut stream).await?;
-                    handler::decode_and_handle(id, data, &session_ctx).await?;
+        tokio::spawn(async move {
+            loop {
+                let (id, data) = receive_protocol(&mut stream).await?;
+
+                if let Some(limiter) = ingress_protocols_limiter.as_mut() {
+                    limiter.check().map_err(Error::IngressProtocolsLimit)?;
+                }
+                if let Some(limiter) = ingress_bytes_limiter.as_mut() {
+                    limiter.check_with_value(data.len() as f32).map_err(Error::IngressBytesLimit)?;
+                }
+
+                match protocol::game::protocol_handler(id)? {
+                    ProtocolHandler::Local => {
+                        let protocol = protocol::game::decode_local(id, data)?;
+                        if let Err(crossbeam_channel::TrySendError::Disconnected(_)) = ingress_protocol_sender.try_send(protocol) {
+                            break;
+                        }
+                    }
+                    ProtocolHandler::Global => {
+                        let protocol = protocol::game::decode_global(id, data)?;
+                        crate::handler::handle_global(protocol, entry);
+                    }
                 }
             }
-            .into_actor(self)
-            .then(|res: Result<(), Error>, act, ctx| {
-                if let Err(e) = res {
-                    error!("{} failed to receive: {}", act, e);
-                }
 
-                ctx.stop();
-                fut::ready(())
-            }),
-        );
+            Ok(())
+        })
     }
 
     fn start_send(
-        &mut self,
         mut stream: SendStream,
-        mut egress_rx: mpsc::UnboundedReceiver<EgressProtocol>,
-        ctx: &mut <Session as Actor>::Context,
-    ) {
-        ctx.spawn(
-            async move {
-                let mut protocols = Vec::with_capacity(16);
+        mut egress_protocol_receiver: mpsc::UnboundedReceiver<EgressProtocol>,
+    ) -> tokio::task::JoinHandle<Result<(), Error>> {
+        tokio::spawn(async move {
+            let mut protocols = Vec::with_capacity(16);
 
-                loop {
-                    egress_rx.recv_many(&mut protocols, 16).await;
+            loop {
+                egress_protocol_receiver.recv_many(&mut protocols, 16).await;
 
-                    for proto in protocols.drain(..) {
-                        send_to_stream(&mut stream, proto).await?;
-                    }
+                for proto in protocols.drain(..) {
+                    send_protocol(&mut stream, proto).await?;
                 }
             }
-            .into_actor(self)
-            .then(|res: Result<(), Error>, act, ctx| {
-                if let Err(e) = res {
-                    error!("{} failed to send: {}", act, e);
-                }
 
-                ctx.stop();
-                actix::fut::ready(())
-            }),
-        );
+            Ok(())
+        })
+    }
+
+    pub fn account_id(&self) -> i64 {
+        self.entry.account_id
+    }
+
+    pub fn character_id(&self) -> i64 {
+        self.entry.character_id
     }
 }
 
-impl Actor for Session {
-    type Context = Context<Self>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        self.addr = Some(ctx.address());
-
-        let connection = self.connection.clone();
-
-        let egress_rx = self
-            .egress_rx
-            .take()
-            .expect("Egress protocol channel must be set before start");
-
-        ctx.spawn(
-            async move {
-                let (send_stream, recv_stream) = connection.accept_bi().await?;
-                Ok::<(SendStream, RecvStream), ConnectionError>((send_stream, recv_stream))
-            }
-            .into_actor(self)
-            .then(|res, act, ctx| {
-                match res {
-                    Ok((send_stream, recv_stream)) => {
-                        act.start_send(send_stream, egress_rx, ctx);
-                        act.start_recv(recv_stream, ctx);
-                    }
-                    Err(e) => {
-                        error!("{} failed to open bidirectional stream: {}", act, e);
-                        ctx.stop();
-                    }
-                }
-
-                fut::ready(())
-            }),
-        );
-    }
-}
-
-async fn recv_from_stream(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes), Error> {
+async fn receive_protocol(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes), Error> {
     let mut header_buf = [0u8; Header::size()];
     stream.read_exact(&mut header_buf).await?;
     let header = Header::decode(&header_buf)?;
@@ -196,8 +157,8 @@ async fn recv_from_stream(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes)
     Ok((header.id, body_buf.into()))
 }
 
-async fn send_to_stream(stream: &mut SendStream, buffer: Bytes) -> Result<(), Error> {
-    stream.write_all(&buffer[..]).await?;
+async fn send_protocol(stream: &mut SendStream, data: Bytes) -> Result<(), Error> {
+    stream.write_all(&data[..]).await?;
     Ok(())
 }
 
@@ -208,28 +169,5 @@ impl Display for Session {
             "Session(account_id: {}, character_id: {})",
             self.entry.account_id, self.entry.character_id,
         )
-    }
-}
-
-impl SessionContext {
-    pub fn account_id(&self) -> i64 {
-        self.entry.account_id
-    }
-
-    pub fn character_id(&self) -> i64 {
-        self.entry.character_id
-    }
-
-    pub async fn do_send_to_zone<T>(
-        &self,
-        msg: T,
-    )
-    where
-        T: actix::Message + Send,
-        T::Result: Send,
-        Zone: Handler<T>,
-        <Zone as Actor>::Context: dev::ToEnvelope<Zone, T>,
-    {
-        self.zone_addr.read().await.do_send(msg);
     }
 }

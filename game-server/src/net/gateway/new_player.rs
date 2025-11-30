@@ -1,10 +1,9 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use quinn::Connection;
+use quinn::{Connection, RecvStream, SendStream};
 use tracing::{error, info};
 
 use super::Gateway;
-use crate::db;
-use crate::net::session::Entry;
+use crate::net::session::{Entry, Session};
 use crate::player::PlayerData;
 use crate::world::zone;
 use protocol::game::auth::login;
@@ -13,6 +12,8 @@ use protocol::game::auth::login;
 #[rtype(result = "()")]
 pub struct NewPlayer {
     pub connection: Connection,
+    pub receive_stream: RecvStream,
+    pub send_stream: SendStream,
     pub login_kind: login::Kind,
     pub entry: Entry,
 }
@@ -21,42 +22,35 @@ impl Handler<NewPlayer> for Gateway {
     type Result = ();
 
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
-        ctx.spawn(
-            async move {
-                let mut tx = db::get().begin().await?;
+        ctx.spawn(async move {
+            let session = Session::start(msg.entry, msg.connection, msg.receive_stream, msg.send_stream);
 
-                let player_data = match msg.login_kind {
-                    login::Kind::Enter => PlayerData::load(&mut tx, &msg.entry).await?,
-                    login::Kind::Transfer => todo!(),
-                };
+            let player_data = match msg.login_kind {
+                login::Kind::Enter => PlayerData::load(session).await?,
+                login::Kind::Transfer => todo!(),
+            };
 
-                tx.commit().await?;
-
-                Ok::<(Entry, Connection, PlayerData), Box<dyn std::error::Error>>((
-                    msg.entry,
-                    msg.connection,
-                    player_data,
-                ))
-            }
-            .into_actor(self)
-            .then(|res, act, _| {
-                if let Err(e) = res {
+            Ok::<PlayerData, Box<dyn std::error::Error>>(player_data)
+        }
+        .into_actor(self)
+        .then(|res, act, _| {
+            let player_data = match res {
+                Ok(data) => data,
+                Err(e) => {
                     error!("Failed to load player data: {}", e);
                     return actix::fut::ready(());
                 }
+            };
+            // info!(
+            //     "Player loaded: {:?}, {:?}",
+            //     player_data.account, player_data.character
+            // );
 
-                let (entry, connection, player_data) = res.unwrap();
-                info!(
-                    "Player loaded: {:?}, {:?}",
-                    player_data.account, player_data.character
-                );
+            //TODO: Find the player's last zone
+            let default_zone = act.zones.get(&0).unwrap();
+            default_zone.do_send(zone::NewPlayer { player_data });
 
-                //TODO: Find the player's last zone
-                let default_zone = act.zones.get(&0).unwrap();
-                default_zone.do_send(zone::NewPlayer::new(entry, connection, player_data));
-
-                actix::fut::ready(())
-            }),
-        );
+            actix::fut::ready(())
+        }));
     }
 }

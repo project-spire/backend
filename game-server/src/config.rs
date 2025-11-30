@@ -55,7 +55,8 @@ impl Config {
         config.db_password = util::io::read_file(&config.db_password_file)?;
         config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
 
-        CONFIG.set(config).unwrap();
+        CONFIG.set(config)
+            .map_err(|_| "Attempted to initialize Config more than once")?;
         Ok(())
     }
 
@@ -78,5 +79,5 @@ impl Config {
 }
 
 pub fn config() -> &'static Config {
-    CONFIG.get().unwrap()
+    CONFIG.get().expect("Config is not initialized yet")
 }

@@ -1,11 +1,11 @@
-use tracing::{error, info};
+use tracing::info;
 
-use crate::handler::ProtocolHandler;
-use crate::net::session::SessionContext;
+use crate::handler::ProtocolGlobalHandler;
+use crate::net::session::Entry;
 use protocol::game::net::Ping;
 
-impl ProtocolHandler for Ping {
-    async fn handle(self, ctx: &SessionContext) {
-        info!("Ping: {}", self.timestamp);
+impl ProtocolGlobalHandler for Ping {
+    fn handle(self, entry: Entry) {
+        info!("[{:?}] Ping: {}", entry, self.timestamp);
     }
 }

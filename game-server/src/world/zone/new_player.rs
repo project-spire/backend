@@ -1,45 +1,24 @@
 use actix::prelude::*;
-use quinn::Connection;
 use tracing::info;
 
 use super::Zone;
-use crate::net::session::{Entry, Session, SessionContext};
 use crate::player::PlayerData;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewPlayer {
-    entry: Entry,
-    connection: Connection,
-    player_data: PlayerData,
-}
-
-impl NewPlayer {
-    pub fn new(entry: Entry, connection: Connection, player_data: PlayerData) -> Self {
-        NewPlayer {
-            entry,
-            connection,
-            player_data,
-        }
-    }
+    pub player_data: PlayerData,
 }
 
 impl Handler<NewPlayer> for Zone {
     type Result = ();
 
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
-        let (entry, connection, player_data) = (msg.entry, msg.connection, msg.player_data);
-
-        // Create a session
-        let session = Session::new(entry.clone(), connection, ctx.address());
-        let session_ctx = session.ctx_with_start();
+        let player_data = msg.player_data;
 
         // Spawn on the world
         let character_id = player_data.character.id;
         let entity = self.world.spawn(player_data).id();
-        if let Ok(mut entity) = self.world.get_entity_mut(entity) {
-            entity.insert(session_ctx);
-        }
 
         self.characters.insert(character_id, entity);
         info!("{}: New player added", self);

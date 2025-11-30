@@ -7,7 +7,7 @@ use quinn::{Endpoint, ServerConfig};
 use tracing::{error, info};
 
 use crate::config::{Config, config};
-use crate::net::authenticator::{Authenticator, NewUnauthorizedSession};
+use crate::net::authenticator::{Authenticator, NewConnection};
 
 pub struct GameListener {
     port: u16,
@@ -51,23 +51,20 @@ impl Actor for GameListener {
 
         info!("Listening on {}", endpoint.local_addr().unwrap());
 
-        ctx.spawn(
-            async move {
-                while let Some(incoming) = endpoint.accept().await {
-                    let connection = match incoming.await {
-                        Ok(c) => c,
-                        Err(e) => {
-                            error!("Failed to accept: {}", e);
-                            continue;
-                        }
-                    };
+        ctx.spawn(async move {
+            while let Some(incoming) = endpoint.accept().await {
+                let connection = match incoming.await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("Failed to accept: {}", e);
+                        continue;
+                    }
+                };
 
-                    info!("Accepted from {}", connection.remote_address());
-                    Authenticator::from_registry().do_send(NewUnauthorizedSession { connection });
-                }
+                info!("Accepted from {}", connection.remote_address());
+                Authenticator::from_registry().do_send(NewConnection { connection });
             }
-            .into_actor(self),
-        );
+        }.into_actor(self));
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {

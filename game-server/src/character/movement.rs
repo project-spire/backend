@@ -2,7 +2,7 @@ use bevy_ecs::prelude::*;
 use nalgebra::{UnitVector2, Vector3};
 use tracing::error;
 
-use crate::net::session::SessionContext;
+use crate::net::session::Session;
 use crate::world::transform::Transform;
 use protocol;
 use protocol::game::play::{MovementState, MovementSync, movement_command, movement_state::Motion};
@@ -96,7 +96,7 @@ fn handle_movement(movement: &Movement, transform: &mut Transform) {
 //TODO: Add session as component?
 pub fn sync(
     mut query: Query<(Entity, &mut Movement, &Transform), Changed<Movement>>,
-    mut sessions: Query<(&SessionContext)>,
+    mut sessions: Query<(&Session)>,
 ) {
     let mut states = Vec::new();
     query.iter_mut().for_each(|(entity, movement, transform)| {
