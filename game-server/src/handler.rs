@@ -1,3 +1,5 @@
+use bevy_ecs::entity::Entity;
+
 use crate::net::session::Entry;
 use crate::world::zone::Zone;
 
@@ -7,7 +9,7 @@ pub mod net;
 pub mod play;
 
 pub trait ProtocolLocalHandler {
-    fn handle(self, zone: &mut Zone);
+    fn handle(self, entity: Entity, zone: &mut Zone);
 }
 
 pub trait ProtocolGlobalHandler {

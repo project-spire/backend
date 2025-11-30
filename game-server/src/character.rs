@@ -2,7 +2,6 @@
 // pub mod cognition;
 // pub mod combat;
 pub mod effect;
-pub mod movement;
 pub mod sense;
 pub mod status;
 // pub mod vision;

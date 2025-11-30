@@ -22,13 +22,33 @@ pub enum State {
     Bound,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum Motion {
     #[default]
     Idle,
     Walking,
     Running,
+    Rolling,
     Jumping,
+}
+
+impl Movement {
+    pub fn can_move(&self) -> bool {
+        match self.state {
+            State::Normal => true,
+            State::Bound => false,
+        }
+    }
+    
+    pub fn can_jump(&self) -> bool {
+        if !self.can_move() {
+            return false;
+        }
+        
+        //TODO: Check if is on the ground
+        
+        true
+    }
 }
 
 impl Default for Movement {

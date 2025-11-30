@@ -59,29 +59,29 @@ impl Zone {
             .and_then(|entity| self.world.get_mut::<T>(*entity))
     }
 
-    pub fn with_component<T, F, R>(
+    pub fn with_component<C, F, R>(
         &mut self,
         character_id: i64,
         function: F,
     ) -> Option<R>
     where
-        T: Component,
-        F: Fn(&T) -> R,
+        C: Component,
+        F: Fn(&C) -> R,
     {
-        self.get_component::<T>(character_id)
+        self.get_component::<C>(character_id)
             .map(function)
     }
 
-    pub fn with_component_mut<T, F, R>(
+    pub fn with_component_mut<C, F, R>(
         &mut self,
         character_id: i64,
         function: F,
     ) -> Option<R>
     where
-        T: Component<Mutability = bevy_ecs::component::Mutable>,
-        F: FnMut(Mut<T>) -> R,
+        C: Component<Mutability = bevy_ecs::component::Mutable>,
+        F: FnMut(Mut<C>) -> R,
     {
-        self.get_component_mut::<T>(character_id)
+        self.get_component_mut::<C>(character_id)
             .map(function)
     }
 
@@ -98,17 +98,17 @@ impl Zone {
     fn handle_protocols(&mut self) {
         const PROTOCOLS_EXPECTED: usize = 64;
 
-        let mut query = self.world.query::<&Session>();
+        let mut query = self.world.query::<(Entity, &Session)>();
         let mut protocols = Vec::with_capacity(PROTOCOLS_EXPECTED);
 
-        for session in query.iter(&mut self.world) {
+        for (entity, session) in query.iter(&mut self.world) {
             for protocol in session.ingress_protocol_receiver.try_iter() {
-                protocols.push(protocol);
+                protocols.push((entity, protocol));
             }
         }
 
-        for protocol in protocols {
-            crate::handler::handle_local(protocol, self);
+        for (entity, protocol) in protocols {
+            crate::handler::handle_local(protocol, entity, self);
         }
     }
 }
