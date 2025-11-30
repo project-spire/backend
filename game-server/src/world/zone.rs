@@ -96,12 +96,19 @@ impl Zone {
     }
 
     fn handle_protocols(&mut self) {
-        let mut query = self.world.query::<(Entity, &mut Session)>();
+        const PROTOCOLS_EXPECTED: usize = 64;
 
-        for (_, mut session) in query.iter_mut(&mut self.world) {
+        let mut query = self.world.query::<&Session>();
+        let mut protocols = Vec::with_capacity(PROTOCOLS_EXPECTED);
+
+        for session in query.iter(&mut self.world) {
             for protocol in session.ingress_protocol_receiver.try_iter() {
-                crate::handler::handle_local(protocol, self);
+                protocols.push(protocol);
             }
+        }
+
+        for protocol in protocols {
+            crate::handler::handle_local(protocol, self);
         }
     }
 }
