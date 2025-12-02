@@ -2,8 +2,11 @@
 // pub mod cognition;
 // pub mod combat;
 pub mod effect;
+pub mod equipment;
+pub mod inventory;
 pub mod sense;
 pub mod status;
+mod skill_set;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;

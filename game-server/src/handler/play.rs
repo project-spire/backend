@@ -1,1 +1,2 @@
-pub mod movement_command;
+mod movement_command;
+mod item_pickup;

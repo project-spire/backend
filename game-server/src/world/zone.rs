@@ -96,10 +96,8 @@ impl Zone {
     }
 
     fn handle_protocols(&mut self) {
-        const PROTOCOLS_EXPECTED: usize = 64;
-
         let mut query = self.world.query::<(Entity, &Session)>();
-        let mut protocols = Vec::with_capacity(PROTOCOLS_EXPECTED);
+        let mut protocols = Vec::with_capacity(self.characters.len() * 2); //TODO: Optimize here not to allocate vector everytime.
 
         for (entity, session) in query.iter(&mut self.world) {
             for protocol in session.ingress_protocol_receiver.try_iter() {
