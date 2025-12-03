@@ -4,9 +4,10 @@
 pub mod effect;
 pub mod equipment;
 pub mod inventory;
+pub mod path_tree;
 pub mod sense;
 pub mod status;
-mod skill_set;
+pub mod skill_set;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;

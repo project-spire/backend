@@ -1,9 +1,10 @@
 [workspace]
 resolver = "3"
 members = [
-    "util",
     "data/lib/rs",
+    "db/lib/rs",
     "protocol/lib/rs",
+    "util",
 
     "game-server",
     "lobby-server",
@@ -12,7 +13,7 @@ members = [
 [workspace.dependencies]
 bytes = { version = "1", default-features = false }
 chrono = "*"
-jsonwebtoken = "9"
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 nalgebra = "0.34"
 prost = "0.14"
 serde = { version = "1.0", features = ["derive"] }
