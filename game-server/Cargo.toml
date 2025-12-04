@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 data = { path = "../data/lib/rs" }
+db = { path = "../db/lib/rs" }
 protocol = { path = "../protocol/lib/rs" }
 util = { path = "../util" }
 
@@ -23,7 +24,6 @@ rand = "0.9"
 rustls = { version = "0.23", features = ["aws-lc-rs"], default-features = false }
 rustls-pemfile = "2.2"
 serde = { workspace = true }
-sqlx = { workspace = true }
 #strum = { version = "0.27", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }

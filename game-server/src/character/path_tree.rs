@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
 
-use crate::db;
 use data::DataId;
 use data::character::PathNode;
 

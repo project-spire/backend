@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::*;
 
 use crate::character::*;
-use crate::db;
 use crate::net::session::Session;
 use crate::world::transform::Transform;
 // use crate::character::movement::MovementController;
@@ -23,9 +22,9 @@ pub struct PlayerData {
 
 impl PlayerData {
     pub async fn load(session: Session) -> Result<Self, db::Error> {
-        let mut tx = db::get().begin().await?;
+        let mut conn = db::get().await?;
         
-        let character = Character::load(&mut tx, session.character_id()).await?;
+        let character = Character::load(&mut conn, session.character_id()).await?;
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 
         tx.commit().await?;

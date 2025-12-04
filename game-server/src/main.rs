@@ -1,7 +1,6 @@
 mod calc;
 mod character;
 mod config;
-mod db;
 mod env;
 mod handler;
 mod net;
@@ -17,7 +16,7 @@ use mimalloc::MiMalloc;
 use rustls::crypto::aws_lc_rs;
 use tracing::{error, info};
 
-use crate::config::Config;
+use crate::config::{config, Config};
 use crate::env::{env, Env};
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
@@ -68,7 +67,13 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
     Config::init()?;
     Env::init()?;
 
-    db::init().await?;
+    db::init(
+        &config().db_user,
+        &config().db_password,
+        &config().db_host,
+        config().db_port,
+        &config().db_name
+    ).await?;
     data::load_all(&env().data_dir).await?;
 
     Ok(())

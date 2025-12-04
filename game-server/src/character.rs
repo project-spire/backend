@@ -11,20 +11,18 @@ pub mod skill_set;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;
-
-use crate::db;
 use data::character::Race;
 
-#[derive(Debug, Component, sqlx::FromRow)]
+#[derive(Debug, Component)]
 pub struct Character {
     pub id: i64,
-    pub name: Option<String>,
+    pub name: String,
     pub race: Option<Race>,
 }
 
 impl Character {
     pub async fn load(
-        tx: &mut db::Transaction<'_>,
+        conn: &mut db::Connection,
         character_id: i64,
     ) -> Result<Character, db::Error> {
         let character = sqlx::query_as!(
