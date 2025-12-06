@@ -27,8 +27,6 @@ impl PlayerData {
         let character = Character::load(&mut conn, session.character_id()).await?;
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 
-        tx.commit().await?;
-
         Ok(PlayerData {
             session,
             character,

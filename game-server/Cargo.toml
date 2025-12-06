@@ -15,6 +15,8 @@ bytes = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 config = { version = "0.15", features = ["ron"] }
 crossbeam-channel = "0.5"
+diesel = { workspace = true }
+diesel-async = { workspace = true }
 jsonwebtoken = { workspace = true }
 mimalloc = "*"
 nalgebra = { workspace = true }

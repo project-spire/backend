@@ -15,9 +15,9 @@ pub struct PathTree {
 
 impl PathTree {
     pub fn load(
-        tx: &mut db::Transaction<'_>,
+        conn: &mut db::Connection,
         character_id: i64,
     ) -> Result<PathTree, db::Error> {
-
+        unimplemented!()
     }
 }

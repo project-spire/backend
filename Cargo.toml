@@ -14,6 +14,7 @@ members = [
 bytes = { version = "1", default-features = false }
 chrono = "*"
 diesel = { version = "2.3.4", features = ["postgres"] }
+diesel-async = { version = "0.7.4", features = ["postgres", "pool", "deadpool"] }
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 nalgebra = "0.34"
 prost = "0.14"

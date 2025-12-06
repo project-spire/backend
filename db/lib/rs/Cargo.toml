@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 diesel = { workspace = true }
-diesel-async = { version = "0.7.4", features = ["postgres", "pool", "deadpool"] }
+diesel-async = { workspace = true }
 thiserror = { workspace = true }

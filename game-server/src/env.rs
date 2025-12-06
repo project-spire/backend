@@ -16,8 +16,8 @@ pub struct Env {
     #[serde(skip_deserializing)]
     pub login_timeout: Duration,
     
-    pub ingress_protocols_rate_limit: Option<util::rate_limiter::Params>,
-    pub ingress_bytes_rate_limit: Option<util::rate_limiter::Params>,
+    pub ingress_protocols_rate_limit: Option<common::rate_limiter::Params>,
+    pub ingress_bytes_rate_limit: Option<common::rate_limiter::Params>,
     
     // Game
     pub cheat_enabled: bool,
