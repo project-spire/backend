@@ -1,0 +1,18 @@
+[package]
+name = "protocol"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytes = { workspace = true }
+nalgebra = { workspace = true }
+prost = { workspace = true }
+thiserror = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = "*"
+
+[build-dependencies]
+glob = "0.3"
+prost-build = "*"
+tonic-prost-build = "*"
+protocol-generator = { path = "generator" }

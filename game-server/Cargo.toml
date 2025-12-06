@@ -5,9 +5,9 @@ edition = "2024"
 
 [dependencies]
 common = { path = "../common" }
-data = { path = "../data/lib/rs" }
-db = { path = "../db/lib/rs" }
-protocol = { path = "../protocol/lib/rs" }
+data = { path = "../data" }
+db = { path = "../db" }
+protocol = { path = "../protocol" }
 
 actix = "0.13"
 bevy_ecs = "0.17"
@@ -33,4 +33,4 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [build-dependencies]
-protocol-generator = { path = "../protocol/lib/rs/generator" }
+protocol-generator = { path = "../protocol/generator" }

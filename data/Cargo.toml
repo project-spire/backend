@@ -1,0 +1,16 @@
+[package]
+name = "data"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+protocol = { path = "../protocol" }
+
+calamine = "0.32.0"
+diesel = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[build-dependencies]
+data-generator = { path = "generator" }

@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
 members = [
-    "data/lib/rs",
-    "db/lib/rs",
-    "protocol/lib/rs",
+    "data",
+    "db",
+    "protocol",
     "common",
 
     "game-server",
