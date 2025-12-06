@@ -31,31 +31,12 @@ impl Character {
     ) -> Result<Character, db::Error> {
         use data::schema::character::dsl::*;
 
-        character
+        let c = character
             .filter(id.eq(character_id))
             .select(Character::as_select())
-            .load(conn)
+            .first(conn)
             .await?;
 
-        // use data::schema::character::dsl;
-        //
-        // dsl::character
-        //     .filter(dsl::character_id.eq(character_id))
-        //     .select(data::model::character::Character::as_select())
-        //     .load(conn);
-
-        // let character = sqlx::query_as!(
-        //     Character,
-        //     r#"select id, name, race as "race: _"
-        //     from character
-        //     where id=$1"#,
-        //     character_id
-        // )
-        // .fetch_one(&mut **tx)
-        // .await?;
-        //
-        // Ok(character)
-
-        todo!()
+        Ok(c)
     }
 }

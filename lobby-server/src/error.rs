@@ -3,7 +3,7 @@ use tracing::error;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(#[from] db::Error),
 
     #[error("Validation error: {0}")]
     Validation(String),

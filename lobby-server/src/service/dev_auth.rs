@@ -5,7 +5,6 @@ use tracing::{error, warn};
 
 use crate::config::config;
 use crate::error::Error;
-use crate::context::Context;
 use protocol::lobby::*;
 use protocol::lobby::dev_auth_server::DevAuth;
 

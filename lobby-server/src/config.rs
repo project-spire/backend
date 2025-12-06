@@ -41,8 +41,8 @@ impl Config {
 
         let mut config: Config = config.try_deserialize()?;
 
-        config.db_password = util::io::read_file(&config.db_password_file)?;
-        config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
+        config.db_password = common::io::read_file(&config.db_password_file)?;
+        config.token_key = common::io::read_file(&config.token_key_file)?.into_bytes();
 
         CONFIG.set(config).expect("Config already initialized");
         Ok(())

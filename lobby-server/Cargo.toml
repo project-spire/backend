@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 common = { path = "../common" }
 data = { path = "../data/lib/rs" }
+db = { path = "../db/lib/rs" }
 protocol = { path = "../protocol/lib/rs" }
 
 config = "0.15"

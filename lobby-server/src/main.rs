@@ -1,6 +1,4 @@
 mod config;
-mod context;
-mod db;
 mod error;
 mod middleware;
 mod service;
@@ -14,7 +12,6 @@ use tower_http::{
 use tracing::info;
 
 use crate::config::{config, Config};
-use crate::context::Context;
 use crate::middleware::authenticator::Authenticator;
 use protocol::lobby::{
     characters_server::CharactersServer,
@@ -27,15 +24,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     info!("Initializing...");
     Config::init()?;
-    util::id::Generator::init(config().node_id);
+    common::id::init(config().node_id);
 
-    let db_pool = db::connect().await?;
-    let ctx = Context::new(db_pool);
+    db::init(
+        &config().db_user,
+        &config().db_password,
+        &config().db_host,
+        config().db_port,
+        &config().db_name
+    ).await?;
+
     let authenticator = Authenticator::new();
 
     let authenticated_service = ServiceBuilder::new()
         .layer(InterceptorLayer::new(authenticator))
-        .service(CharactersServer::new(ctx.clone()));
+        .service(CharactersServer::new());
 
     let addr = format!("[::]:{}", config().port).parse()?;
     info!("Serving on {}", addr);
@@ -43,8 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .tls_config(load_tls_config()?)?
         .layer(TraceLayer::new_for_grpc())
-        .add_service(DevAuthServer::new(ctx.clone()))
-        // .add_service(SteamAuthServer::new(ctx.clone()))
+        .add_service(DevAuthServer::new())
+        // .add_service(SteamAuthServer::new())
         .add_service(authenticated_service)
         .serve(addr)
         .await?;

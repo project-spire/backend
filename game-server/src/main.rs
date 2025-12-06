@@ -67,6 +67,8 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
     Config::init()?;
     Env::init()?;
 
+    common::id::init(config().node_id);
+
     db::init(
         &config().db_user,
         &config().db_password,
@@ -74,6 +76,7 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
         config().db_port,
         &config().db_name
     ).await?;
+
     data::load_all(&env().data_dir).await?;
 
     Ok(())

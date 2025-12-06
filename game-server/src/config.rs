@@ -43,6 +43,9 @@ pub struct Config {
 
     #[serde(alias = "game_server_env_file")]
     pub env_file: PathBuf,
+
+    #[serde(alias = "game_server_node_id")]
+    pub node_id: u16,
 }
 
 impl Config {
