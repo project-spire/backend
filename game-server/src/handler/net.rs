@@ -1,2 +1,2 @@
-pub mod ping;
-pub mod pong;
+mod ping;
+mod pong;

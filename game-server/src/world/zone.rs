@@ -2,17 +2,17 @@ mod new_player;
 
 pub use new_player::NewPlayer;
 
+use crate::character;
+use crate::net::session::Session;
+use crate::world::time::Time;
+use actix::prelude::*;
+use bevy_ecs::prelude::*;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::{Duration, Instant};
-
-use actix::prelude::*;
-use bevy_ecs::prelude::*;
-
-use crate::character;
-use crate::net::session::Session;
-use crate::world::time::Time;
+use protocol::game::{encode, Protocol};
+use protocol::game::tool::CheatResult;
 
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -35,10 +35,7 @@ impl Zone {
         }
     }
 
-    pub fn get_component<T>(
-        &mut self,
-        character_id: i64,
-    ) -> Option<&T>
+    pub fn get_component<T>(&mut self, character_id: i64) -> Option<&T>
     where
         T: Component,
     {
@@ -47,10 +44,7 @@ impl Zone {
             .and_then(|entity| self.world.get::<T>(*entity))
     }
 
-    pub fn get_component_mut<T>(
-        &mut self,
-        character_id: i64,
-    ) -> Option<Mut<'_, T>>
+    pub fn get_component_mut<T>(&mut self, character_id: i64) -> Option<Mut<'_, T>>
     where
         T: Component<Mutability = bevy_ecs::component::Mutable>,
     {
@@ -59,30 +53,32 @@ impl Zone {
             .and_then(|entity| self.world.get_mut::<T>(*entity))
     }
 
-    pub fn with_component<C, F, R>(
-        &mut self,
-        character_id: i64,
-        function: F,
-    ) -> Option<R>
+    pub fn with_component<C, F, R>(&mut self, character_id: i64, function: F) -> Option<R>
     where
         C: Component,
         F: Fn(&C) -> R,
     {
-        self.get_component::<C>(character_id)
-            .map(function)
+        self.get_component::<C>(character_id).map(function)
     }
 
-    pub fn with_component_mut<C, F, R>(
-        &mut self,
-        character_id: i64,
-        function: F,
-    ) -> Option<R>
+    pub fn with_component_mut<C, F, R>(&mut self, character_id: i64, function: F) -> Option<R>
     where
         C: Component<Mutability = bevy_ecs::component::Mutable>,
         F: FnMut(Mut<C>) -> R,
     {
-        self.get_component_mut::<C>(character_id)
-            .map(function)
+        self.get_component_mut::<C>(character_id).map(function)
+    }
+
+    pub fn send(&self, entity: Entity, protocol: &(impl prost::Message + Protocol)) {
+        let Ok(bytes) = encode(protocol) else {
+            return;
+        };
+
+        let Some(session) = self.world.get::<Session>(entity) else {
+            return;
+        };
+
+        _ = session.egress_protocol_sender.send(bytes);
     }
 
     fn tick(&mut self, _: &mut <Self as Actor>::Context) {

@@ -78,6 +78,8 @@ impl Generator {
             self.categories.push(category);
         }
 
+        self.categories.sort_by(|a, b| a.offset.cmp(&b.offset));
+
         for mut category in self.categories.drain(..) {
             let mut number = category.offset;
 
@@ -166,9 +168,10 @@ impl crate::game::Protocol for {protocol_full_name} {{
                 }
 
                 protocol_handler_enums.push(format!(
-                    "{TAB}{TAB}{} => {},",
+                    "{TAB}{TAB}{} => {}, // {}",
                     entry.number,
                     protocol_handler,
+                    entry.protocol.protocol,
                 ))
             };
 

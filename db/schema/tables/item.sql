@@ -3,6 +3,7 @@ create table item (
     character_id bigint not null,
     data_id integer not null,
     count integer not null,
+    level smallint not null,
     is_bound boolean not null default false,
     attributes jsonb,
 

@@ -8,6 +8,10 @@ pub mod net {
     include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.net.rs"));
 }
 
+pub mod tool {
+    include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.tool.rs"));
+}
+
 pub mod play {
     include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.play.rs"));
 }
