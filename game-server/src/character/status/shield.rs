@@ -1,8 +1,6 @@
-use std::collections::VecDeque;
-
 use bevy_ecs::prelude::*;
-
-use util::id::Id;
+use common::id::Id;
+use std::collections::VecDeque;
 
 #[derive(Component, Default)]
 pub struct Shield {

@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+common = { path = "../common" }
 data = { path = "../data/lib/rs" }
 protocol = { path = "../protocol/lib/rs" }
-util = { path = "../util" }
 
 config = "0.15"
 jsonwebtoken = { workspace = true }

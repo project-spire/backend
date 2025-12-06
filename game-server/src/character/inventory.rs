@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use bevy_ecs::prelude::*;
-
-use util::id::Id;
+use std::collections::HashMap;
+use common::id::Id;
 
 #[derive(Component)]
 pub struct Inventory {

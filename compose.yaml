@@ -47,7 +47,7 @@ services:
     ports:
       - ${SPIRE_DB_PORT}:5432
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
     secrets:
       - db-password.key
     restart: unless-stopped

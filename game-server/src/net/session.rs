@@ -8,7 +8,7 @@ use tracing::error;
 
 use crate::env::env;
 use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
-use util::rate_limiter::RateLimiter;
+use common::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
 
@@ -42,10 +42,10 @@ pub enum Error {
     Write(#[from] WriteError),
 
     #[error("Ingress protocols limit error: {0}")]
-    IngressProtocolsLimit(util::rate_limiter::Error),
+    IngressProtocolsLimit(common::rate_limiter::Error),
 
     #[error("Ingress bytes limit error: {0}")]
-    IngressBytesLimit(util::rate_limiter::Error),
+    IngressBytesLimit(common::rate_limiter::Error),
 }
 
 impl Session {

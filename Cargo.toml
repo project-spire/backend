@@ -4,7 +4,7 @@ members = [
     "data/lib/rs",
     "db/lib/rs",
     "protocol/lib/rs",
-    "util",
+    "common",
 
     "game-server",
     "lobby-server",

@@ -17,7 +17,7 @@ use data::character::Race;
 pub struct Character {
     pub id: i64,
     pub name: String,
-    pub race: Option<Race>,
+    pub race: Race,
 }
 
 impl Character {

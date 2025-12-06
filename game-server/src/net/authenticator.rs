@@ -3,12 +3,11 @@ mod new_connection;
 pub use new_connection::NewConnection;
 
 use actix::prelude::*;
-use jsonwebtoken::DecodingKey;
-
+use common::token;
 use crate::config::config;
 use crate::net::session::Entry;
+use jsonwebtoken::DecodingKey;
 use protocol::game::auth::*;
-use util::token;
 
 pub struct Authenticator {
     decoding_key: DecodingKey,

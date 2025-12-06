@@ -1,5 +1,5 @@
 \i types/location.sql
-\i types/race.sql
+\i types/race.gen.sql
 
 \i tables/account.sql
 \i tables/character.sql
