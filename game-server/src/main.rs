@@ -6,15 +6,8 @@ mod handler;
 mod net;
 mod physics;
 mod player;
+mod transaction;
 mod world;
-
-use std::process::exit;
-
-use actix::prelude::*;
-use clap::Parser;
-use mimalloc::MiMalloc;
-use rustls::crypto::aws_lc_rs;
-use tracing::{error, info};
 
 use crate::config::{config, Config};
 use crate::env::{env, Env};
@@ -22,6 +15,12 @@ use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
 use crate::world::zone::Zone;
+use actix::prelude::*;
+use clap::Parser;
+use mimalloc::MiMalloc;
+use rustls::crypto::aws_lc_rs;
+use std::process::exit;
+use tracing::{error, info};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -59,10 +58,12 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
 
     aws_lc_rs::default_provider()
         .install_default()
-        .map_err(|_| std::io::Error::new(
-            std::io::ErrorKind::Other, 
-            "Failed to install default provider"
-        ))?;
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Failed to install default provider",
+            )
+        })?;
 
     Config::init()?;
     Env::init()?;
@@ -74,7 +75,7 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
         &config().db_password,
         &config().db_host,
         config().db_port,
-        &config().db_name
+        &config().db_name,
     ).await?;
 
     data::load_all(&env().data_dir).await?;
@@ -93,4 +94,3 @@ fn start() {
         zone: default_zone.clone(),
     });
 }
-

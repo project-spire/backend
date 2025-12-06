@@ -9,7 +9,7 @@ data = { path = "../data" }
 db = { path = "../db" }
 protocol = { path = "../protocol" }
 
-config = "0.15"
+config = { workspace = true }
 jsonwebtoken = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
