@@ -1,14 +1,12 @@
-use std::fmt::{Display, Formatter};
-
+use crate::config;
 use bevy_ecs::component::Component;
 use bytes::Bytes;
+use common::rate_limiter::RateLimiter;
+use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
 use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
+use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc;
 use tracing::error;
-
-use crate::env::env;
-use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
-use common::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
 
@@ -82,11 +80,9 @@ impl Session {
         ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
         entry: Entry,
     ) -> tokio::task::JoinHandle<Result<(), Error>> {
-        let mut ingress_protocols_limiter = env()
-            .ingress_protocols_rate_limit
+        let mut ingress_protocols_limiter = config!(app).ingress.protocols_rate_limit
             .map(|params| RateLimiter::new(params));
-        let mut ingress_bytes_limiter = env()
-            .ingress_bytes_rate_limit
+        let mut ingress_bytes_limiter = config!(app).ingress.bytes_rate_limit
             .map(|params| RateLimiter::new(params));
 
         tokio::spawn(async move {
@@ -132,8 +128,6 @@ impl Session {
                     send_protocol(&mut stream, proto).await?;
                 }
             }
-
-            Ok(())
         })
     }
 

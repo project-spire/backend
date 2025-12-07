@@ -57,8 +57,8 @@ impl crate::Loadable for PathNodeData {
         for row in rows {
             let (id, object) = PathNode::parse(row)
                 .map_err(|(column, error)| Error::Parse {
-                    workbook: "weapon.ods",
-                    sheet: "Weapon",
+                    workbook: "path_node.ods",
+                    sheet: "PathNode",
                     row: index + 1,
                     column,
                     error,

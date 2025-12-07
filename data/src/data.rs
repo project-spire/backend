@@ -54,7 +54,7 @@ async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error
     load::<LinkTestData>(data_dir.join("link_test.ods"), "LinkTest", &mut tasks);
     load::<item::RandomBoxData>(data_dir.join("item/random_box.ods"), "RandomBox", &mut tasks);
     load::<item::WeaponData>(data_dir.join("item/weapon.ods"), "Weapon", &mut tasks);
-    load::<character::PathNodeData>(data_dir.join("character/weapon.ods"), "Weapon", &mut tasks);
+    load::<character::PathNodeData>(data_dir.join("character/path_node.ods"), "PathNode", &mut tasks);
 
     for task in tasks {
         match task.await {

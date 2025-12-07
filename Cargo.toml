@@ -13,9 +13,10 @@ members = [
 [workspace.dependencies]
 bytes = { version = "1", default-features = false }
 chrono = "*"
-config = { version = "0.15", features = ["ron"] }
+config = { version = "0.15", features = ["toml"] }
 diesel = { version = "2.3.4", features = ["postgres"] }
 diesel-async = { version = "0.7.4", features = ["postgres", "pool", "deadpool"] }
+dotenvy = "*"
 futures = "0.3"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 mimalloc = "*"

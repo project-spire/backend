@@ -1,15 +1,14 @@
+use crate::config;
+use crate::net::authenticator::Authenticator;
+use crate::net::gateway::{Gateway, NewPlayer};
 use actix::prelude::*;
 use bytes::Bytes;
 use prost::Message;
+use protocol::game::auth::Login;
+use protocol::game::Header;
 use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
 use tracing::{error, info};
-
-use crate::env::env;
-use crate::net::authenticator::Authenticator;
-use crate::net::gateway::{Gateway, NewPlayer};
-use protocol::game::auth::Login;
-use protocol::game::Header;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
@@ -25,7 +24,7 @@ impl Handler<NewConnection> for Authenticator {
             // Receive login protocol with timeout.
             let connection = msg.connection;
             let (send_stream, mut receive_stream) = timeout(
-                env().login_timeout,
+                config!(app).login.timeout,
                 connection.accept_bi(),
             ).await??;
 
@@ -72,12 +71,12 @@ impl Handler<NewConnection> for Authenticator {
 
 async fn receive_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; Header::size()];
-    timeout(env().login_timeout, stream.read_exact(&mut header_buf)).await??;
+    timeout(config!(app).login.timeout, stream.read_exact(&mut header_buf)).await??;
 
     let header = Header::decode(&header_buf)?;
 
     let mut body_buf = vec![0u8; header.length];
-    timeout(env().login_timeout, stream.read_exact(&mut body_buf)).await??;
+    timeout(config!(app).login.timeout, stream.read_exact(&mut body_buf)).await??;
 
     Ok(Login::decode(Bytes::from(body_buf))?)
 }

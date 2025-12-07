@@ -1,0 +1,18 @@
+[data]
+dir = "../data/inner/src"
+
+[cheat]
+enabled = true
+
+[login]
+timeout_seconds = 5
+
+[ingress]
+
+[ingress.protocols_rate_limit]
+rate = 64.0
+capacity = 256.0
+
+[ingress.bytes_rate_limit]
+rate = 10240.0
+capacity = 20480.0

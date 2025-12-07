@@ -17,6 +17,7 @@ config = { workspace = true }
 crossbeam-channel = "0.5"
 diesel = { workspace = true }
 diesel-async = { workspace = true }
+dotenvy = { workspace = true }
 futures = { workspace = true }
 jsonwebtoken = { workspace = true }
 mimalloc = { workspace = true }

@@ -1,13 +1,11 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
-
+use crate::config;
+use crate::net::authenticator::{Authenticator, NewConnection};
 use actix::prelude::*;
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Endpoint, ServerConfig};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use tracing::{error, info};
-
-use crate::config::{Config, config};
-use crate::net::authenticator::{Authenticator, NewConnection};
 
 pub struct GameListener {
     port: u16,
@@ -15,13 +13,13 @@ pub struct GameListener {
 
 impl GameListener {
     fn load_server_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
-        let cert_chain = Config::get_tls_cert_chain()?;
-        let private_key = Config::get_tls_key()?;
+        let tls_cert_chain = config::get_tls_cert_chain()?;
+        let tls_key = config::get_tls_key()?;
 
         let mut tls_config = rustls::ServerConfig::builder()
             .with_no_client_auth()
-            .with_single_cert(cert_chain, private_key)?;
-        tls_config.alpn_protocols = vec![config().application_protocol.as_bytes().to_vec()];
+            .with_single_cert(tls_cert_chain, tls_key)?;
+        tls_config.alpn_protocols = vec![config!(net).application_protocol.as_bytes().to_vec()];
 
         let mut server_config =
             ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
@@ -36,7 +34,7 @@ impl GameListener {
 impl Default for GameListener {
     fn default() -> Self {
         Self {
-            port: config().port,
+            port: config!(net).port,
         }
     }
 }
@@ -51,20 +49,23 @@ impl Actor for GameListener {
 
         info!("Listening on {}", endpoint.local_addr().unwrap());
 
-        ctx.spawn(async move {
-            while let Some(incoming) = endpoint.accept().await {
-                let connection = match incoming.await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        error!("Failed to accept: {}", e);
-                        continue;
-                    }
-                };
+        ctx.spawn(
+            async move {
+                while let Some(incoming) = endpoint.accept().await {
+                    let connection = match incoming.await {
+                        Ok(c) => c,
+                        Err(e) => {
+                            error!("Failed to accept: {}", e);
+                            continue;
+                        }
+                    };
 
-                info!("Accepted from {}", connection.remote_address());
-                Authenticator::from_registry().do_send(NewConnection { connection });
+                    info!("Accepted from {}", connection.remote_address());
+                    Authenticator::from_registry().do_send(NewConnection { connection });
+                }
             }
-        }.into_actor(self));
+            .into_actor(self),
+        );
     }
 
     fn stopped(&mut self, _: &mut Self::Context) {

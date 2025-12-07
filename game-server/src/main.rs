@@ -1,7 +1,6 @@
 mod calc;
 mod character;
 mod config;
-mod env;
 mod handler;
 mod net;
 mod physics;
@@ -9,8 +8,6 @@ mod player;
 mod transaction;
 mod world;
 
-use crate::config::{config, Config};
-use crate::env::{env, Env};
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
@@ -19,31 +16,39 @@ use actix::prelude::*;
 use clap::Parser;
 use mimalloc::MiMalloc;
 use rustls::crypto::aws_lc_rs;
+use std::path::PathBuf;
 use std::process::exit;
 use tracing::{error, info};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-#[derive(Parser, Debug)]
-struct Options {
-    #[arg(long)]
+/// A game server
+#[derive(clap::Parser, Debug)]
+struct Args {
+    /// Initialize only and exit
+    #[arg(long, default_value_t = false)]
     dry_run: bool,
+
+    /// Use local environment file
+    #[arg(long)]
+    local_env: Option<PathBuf>,
 }
 
 #[actix::main]
 async fn main() {
-    let options = Options::parse();
-
-    match init().await {
-        Ok(_) => {}
-        Err(e) => {
-            error!("Failed to initialize: {}", e);
-            exit(1);
-        }
+    if let Ok(path) = std::env::current_dir() {
+        println!("Running on \"{}\"", path.display());
     }
 
-    if options.dry_run {
+    let args = Args::parse();
+    
+    if let Err(e) = init(&args).await {
+        error!("Failed to initialize: {}", e);
+        exit(1);
+    }
+
+    if args.dry_run {
         info!("Dry running done");
         exit(0);
     }
@@ -53,7 +58,7 @@ async fn main() {
     tokio::signal::ctrl_c().await.unwrap();
 }
 
-async fn init() -> Result<(), Box<dyn std::error::Error>> {
+async fn init(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     aws_lc_rs::default_provider()
@@ -65,28 +70,25 @@ async fn init() -> Result<(), Box<dyn std::error::Error>> {
             )
         })?;
 
-    Config::init()?;
-    Env::init()?;
-
-    common::id::init(config().node_id);
-
+    config::init(&args.local_env)?;
+    common::id::init(config!(net).node_id);
     db::init(
-        &config().db_user,
-        &config().db_password,
-        &config().db_host,
-        config().db_port,
-        &config().db_name,
+        &config!(db).user,
+        &config!(db).password,
+        &config!(db).host,
+        config!(db).port,
+        &config!(db).name,
     ).await?;
 
-    data::load_all(&env().data_dir).await?;
+    data::load_all(&config!(app).data.dir).await?;
 
     Ok(())
 }
 
 fn start() {
-    let _ = Authenticator::from_registry();
-    let _ = GameListener::from_registry();
-    let _ = Gateway::from_registry();
+    _ = Authenticator::from_registry();
+    _ = GameListener::from_registry();
+    _ = Gateway::from_registry();
 
     let default_zone = Zone::new(0).start();
     Gateway::from_registry().do_send(NewZone {

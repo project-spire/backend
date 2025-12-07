@@ -2,10 +2,10 @@ mod new_connection;
 
 pub use new_connection::NewConnection;
 
+use crate::config;
+use crate::net::session::Entry;
 use actix::prelude::*;
 use common::token;
-use crate::config::config;
-use crate::net::session::Entry;
 use jsonwebtoken::DecodingKey;
 use protocol::game::auth::*;
 
@@ -15,7 +15,7 @@ pub struct Authenticator {
 
 impl Default for Authenticator {
     fn default() -> Self {
-        let decoding_key = DecodingKey::from_secret(&config().token_key);
+        let decoding_key = DecodingKey::from_secret(&config!(net).token_key);
 
         Self { decoding_key }
     }
