@@ -2,25 +2,26 @@ mod new_player;
 
 pub use new_player::NewPlayer;
 
-use crate::character;
+use crate::{character, config};
 use crate::net::session::Session;
 use crate::task::{Task, TaskQueue};
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
+use common::interval_counter::IntervalCounter;
+use protocol::game::{encode, Protocol};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::{Duration, Instant};
-use protocol::game::{encode, Protocol};
-
-const TICK_INTERVAL: Duration = Duration::from_millis(100);
+use tracing::info;
 
 pub struct Zone {
     pub id: i64,
 
     pub world: World,
     pub schedule: Schedule,
+    fps: IntervalCounter,
 
     pub characters: HashMap<i64, Entity>,
 }
@@ -32,6 +33,7 @@ impl Zone {
             world: new_world(),
             schedule: new_schedule(),
             characters: HashMap::new(),
+            fps: IntervalCounter::new(128),
         }
     }
 
@@ -78,12 +80,12 @@ impl Zone {
             .entity(entity)
             .queue(command);
     }
-    
+
     pub fn dispatch_entity_task(&mut self, entity: Entity, task: Task) {
         let Ok(mut entity) = self.world.get_entity_mut(entity) else {
             return;
         };
-        
+
         if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
             task_queue.dispatch(task);
             return;
@@ -105,7 +107,7 @@ impl Zone {
         _ = session.egress_protocol_sender.send(bytes);
     }
 
-    fn tick(&mut self, _: &mut <Self as Actor>::Context) {
+    fn tick(&mut self) {
         self.handle_protocols();
 
         self.schedule.run(&mut self.world);
@@ -113,6 +115,12 @@ impl Zone {
         let mut time = self.world.get_resource_mut::<Time>().unwrap();
         time.last_tick = Instant::now();
         time.ticks += 1;
+        self.fps.tick();
+
+        if time.ticks % 100 == 0 {
+            let ticks = time.ticks;
+            info!("{} ticks={}, FPS={:.2}", self, ticks, self.fps.reversed());
+        }
     }
 
     fn handle_protocols(&mut self) {
@@ -135,8 +143,8 @@ impl Actor for Zone {
     type Context = Context<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        ctx.run_interval(TICK_INTERVAL, |act, ctx| {
-            act.tick(ctx);
+        ctx.run_interval(config!(app).zone.tick_interval, |act, _| {
+            act.tick();
         });
     }
 }

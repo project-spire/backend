@@ -16,3 +16,6 @@ capacity = 256.0
 [ingress.bytes_rate_limit]
 rate = 10240.0
 capacity = 20480.0
+
+[zone]
+tick_interval_milliseconds = 50 # 20 FPS 

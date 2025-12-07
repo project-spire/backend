@@ -49,6 +49,7 @@ pub struct ApplicationConfig {
     pub cheat: app::Cheat,
     pub login: app::Login,
     pub ingress: app::Ingress,
+    pub zone: app::Zone,
 }
 
 pub mod app {
@@ -80,9 +81,24 @@ pub mod app {
         pub bytes_rate_limit: Option<common::rate_limiter::Params>,
     }
 
+    fn tick_interval_milliseconds_default() -> u8 { 50 }
+    #[derive(Debug, Deserialize)]
+    pub struct Zone {
+        #[serde(default = "tick_interval_milliseconds_default")]
+        tick_interval_milliseconds: u8,
+        #[serde(skip_deserializing)]
+        pub tick_interval: Duration,
+    }
+
     impl Login {
         pub fn init(&mut self) {
             self.timeout = Duration::from_secs(self.timeout_seconds as u64);
+        }
+    }
+
+    impl Zone {
+        pub fn init(&mut self) {
+            self.tick_interval = Duration::from_millis(self.tick_interval_milliseconds as u64);
         }
     }
 }
@@ -134,6 +150,7 @@ fn load_application_config() -> Result<ApplicationConfig, Box<dyn std::error::Er
         .try_deserialize()?;
 
     config.login.init();
+    config.zone.init();
 
     Ok(config)
 }
