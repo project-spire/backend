@@ -2,11 +2,10 @@ pub mod error;
 
 pub use error::Error;
 
-use std::sync::OnceLock;
-
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::pooled_connection::deadpool::{BuildError, Object, Pool, PoolError};
+use diesel_async::pooled_connection::deadpool::{BuildError, Object, Pool};
 use diesel_async::AsyncPgConnection;
+use std::sync::OnceLock;
 
 pub type Connection = Object<AsyncPgConnection>;
 
@@ -35,7 +34,10 @@ pub async fn init(
     Ok(())
 }
 
-pub async fn get() -> Result<Connection, PoolError> {
-    let conn = POOL.get().expect("Pool is not initialized").get().await?;
-    Ok(conn)
+pub async fn conn() -> Result<Connection, Error> {
+    POOL.get()
+        .unwrap()
+        .get()
+        .await
+        .map_err(|e| Error::from(e))
 }

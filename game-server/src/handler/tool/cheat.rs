@@ -8,10 +8,12 @@ use protocol::game::tool::cheat::Kind;
 
 impl ProtocolLocalHandler for Cheat {
     fn handle(self, entity: Entity, zone: &mut Zone) {
-        let (result, message) = match self.kind() {
+        let handle_result = match self.kind() {
             Kind::Item => item::handle(entity, zone, &self.arguments),
         };
-
-        zone.send(entity, &CheatResult { result: result.into(), message });
+        
+        if let Some((result, message)) = handle_result {
+            zone.send(entity, &CheatResult { result: result.into(), message });
+        }
     }
 }

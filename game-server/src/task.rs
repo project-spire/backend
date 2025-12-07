@@ -117,15 +117,13 @@ impl Task {
 
 impl EntityCommand for Task {
     fn apply(self, mut entity: EntityWorldMut) {
-        let mut task_queue = match entity.get_mut::<TaskQueue>() {
-            Some(task_queue) => task_queue,
-            None => {
-                entity.insert(TaskQueue::default());
-                entity.get_mut::<TaskQueue>().unwrap()
-            }
-        };
+        if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
+            task_queue.dispatch(self);
+            return;
+        }
 
-        task_queue.dispatch(self);
+        entity.insert(TaskQueue::default());
+        entity.get_mut::<TaskQueue>().unwrap().dispatch(self);
     }
 }
 

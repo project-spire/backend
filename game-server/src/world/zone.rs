@@ -4,6 +4,7 @@ pub use new_player::NewPlayer;
 
 use crate::character;
 use crate::net::session::Session;
+use crate::task::{Task, TaskQueue};
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
@@ -12,7 +13,6 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::time::{Duration, Instant};
 use protocol::game::{encode, Protocol};
-use protocol::game::tool::CheatResult;
 
 const TICK_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -67,6 +67,30 @@ impl Zone {
         F: FnMut(Mut<C>) -> R,
     {
         self.get_component_mut::<C>(character_id).map(function)
+    }
+
+    pub fn add_entity_command<T>(&mut self, entity: Entity, command: T)
+    where
+        T: EntityCommand,
+    {
+        self.world
+            .commands()
+            .entity(entity)
+            .queue(command);
+    }
+    
+    pub fn dispatch_entity_task(&mut self, entity: Entity, task: Task) {
+        let Ok(mut entity) = self.world.get_entity_mut(entity) else {
+            return;
+        };
+        
+        if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
+            task_queue.dispatch(task);
+            return;
+        }
+
+        entity.insert(TaskQueue::default());
+        entity.get_mut::<TaskQueue>().unwrap().dispatch(task);
     }
 
     pub fn send(&self, entity: Entity, protocol: &(impl prost::Message + Protocol)) {
@@ -134,6 +158,7 @@ fn new_world() -> World {
 fn new_schedule() -> Schedule {
     let mut schedule = Schedule::default();
 
+    crate::task::register(&mut schedule);
     character::status::movement::register(&mut schedule);
 
     schedule

@@ -23,7 +23,7 @@ pub struct PlayerData {
 
 impl PlayerData {
     pub async fn load(session: Session) -> Result<Self, db::Error> {
-        let mut conn = db::get().await?;
+        let mut conn = db::conn().await?;
         
         let character_id = session.character_id();
         let character = Character::load(&mut conn, character_id).await?;
