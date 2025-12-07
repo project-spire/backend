@@ -49,18 +49,6 @@ pub struct ApplicationConfig {
     pub cheat: app::Cheat,
     pub login: app::Login,
     pub ingress: app::Ingress,
-
-    // #[serde(default)]
-    // pub ingress_protocols_rate_limit: Option<common::rate_limiter::Params>,
-    // #[serde(default)]
-    // pub ingress_bytes_rate_limit: Option<common::rate_limiter::Params>,
-    //
-    // #[serde(skip_deserializing)]
-    // pub login_timeout: Duration,
-    // login_timeout_seconds: u8,
-    //
-    // pub log_level: String,
-    // pub data_dir: PathBuf,
 }
 
 pub mod app {
