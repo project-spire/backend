@@ -1,18 +1,18 @@
 pub mod schema;
 pub mod data;
-
-pub use crate::data::*;
-use std::cmp::Ordering;
-
 mod error;
 mod parse;
 
+pub use crate::data::*;
+
+use crate::error::{Error, LinkError};
+use std::cell::UnsafeCell;
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 
-use crate::error::{Error, LinkError};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct DataId(u32);
@@ -20,7 +20,7 @@ pub struct DataId(u32);
 #[derive(Debug)]
 pub struct Link<T: Linkable + 'static> {
     id: DataId,
-    target: MaybeUninit<&'static T>,
+    target: UnsafeCell<MaybeUninit<&'static T>>,
 }
 
 pub trait Linkable: Sized {
@@ -68,7 +68,7 @@ impl<T: Linkable> Clone for Link<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
-            target: self.target,
+            target: unsafe { (*self.target.get()).clone() },
         }
     }
 }
@@ -83,7 +83,7 @@ impl<T: Linkable> Deref for Link<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.target.assume_init_ref() }
+        unsafe { (*self.target.get()).assume_init_ref() }
     }
 }
 
@@ -100,7 +100,7 @@ impl<T: Linkable> PartialOrd<u32> for Link<T> {
 }
 
 impl<T: Linkable + 'static> Link<T> {
-    pub(crate) fn init(&mut self) -> Result<(), LinkError> {
+    pub(crate) fn init(&self) -> Result<(), LinkError> {
         let target = match T::get(&self.id) {
             Some(target) => target,
             None => {
@@ -111,7 +111,7 @@ impl<T: Linkable + 'static> Link<T> {
             }
         };
 
-        self.target.write(target);
+        self.target.borrow_mut().write(target);
         Ok(())
     }
 }

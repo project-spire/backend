@@ -1,12 +1,13 @@
 // This is a generated file. DO NOT MODIFY.
-#![allow(static_mut_refs)]
-
+use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use tracing::info;
-use crate::{DataId, Link, error::*, parse::*};
 
-static mut WEAPON_DATA: MaybeUninit<WeaponData> = MaybeUninit::uninit();
+const WORKBOOK: &str = "weapon.ods";
+const SHEET: &str = "Weapon";
+
+static WEAPON_DATA: MaybeUninit<WeaponData> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct Weapon {
@@ -66,8 +67,8 @@ impl crate::Loadable for WeaponData {
         for row in rows {
             let (id, object) = Weapon::parse(row)
                 .map_err(|(column, error)| Error::Parse {
-                    workbook: "weapon.ods",
-                    sheet: "Weapon",
+                    workbook: WORKBOOK,
+                    sheet: SHEET,
                     row: index + 1,
                     column,
                     error,

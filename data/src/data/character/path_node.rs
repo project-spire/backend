@@ -1,12 +1,13 @@
 // This is a generated file. DO NOT MODIFY.
-#![allow(static_mut_refs)]
-
+use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use tracing::info;
-use crate::{DataId, Link, error::*, parse::*};
 
-static mut PATH_NODE_DATA: MaybeUninit<PathNodeData> = MaybeUninit::uninit();
+const WORKBOOK: &str = "path_node.ods";
+const SHEET: &str = "PathNode";
+
+static PATH_NODE_DATA: MaybeUninit<PathNodeData> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct PathNode {
@@ -57,8 +58,8 @@ impl crate::Loadable for PathNodeData {
         for row in rows {
             let (id, object) = PathNode::parse(row)
                 .map_err(|(column, error)| Error::Parse {
-                    workbook: "path_node.ods",
-                    sheet: "PathNode",
+                    workbook: WORKBOOK,
+                    sheet: SHEET,
                     row: index + 1,
                     column,
                     error,

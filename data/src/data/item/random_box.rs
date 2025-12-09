@@ -1,12 +1,13 @@
 // This is a generated file. DO NOT MODIFY.
-#![allow(static_mut_refs)]
-
+use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use tracing::info;
-use crate::{DataId, Link, error::*, parse::*};
 
-static mut RANDOM_BOX_DATA: MaybeUninit<RandomBoxData> = MaybeUninit::uninit();
+const WORKBOOK: &str = "random_box.ods";
+const SHEET: &str = "RandomBox";
+
+static RANDOM_BOX_DATA: MaybeUninit<RandomBoxData> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct RandomBox {
@@ -63,8 +64,8 @@ impl crate::Loadable for RandomBoxData {
         for row in rows {
             let (id, object) = RandomBox::parse(row)
                 .map_err(|(column, error)| Error::Parse {
-                    workbook: "random_box.ods",
-                    sheet: "RandomBox",
+                    workbook: WORKBOOK,
+                    sheet: SHEET,
                     row: index + 1,
                     column,
                     error,
@@ -105,8 +106,8 @@ impl crate::Loadable for RandomBoxData {
 
             Ok(())
         })().map_err(|(id, error)| Error::Link {
-            workbook: "random_box.ods",
-            sheet: "RandomBox",
+            workbook: WORKBOOK,
+            sheet: SHEET,
             id,
             error,
         })?;

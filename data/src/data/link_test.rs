@@ -1,12 +1,13 @@
 // This is a generated file. DO NOT MODIFY.
-#![allow(static_mut_refs)]
-
+use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use tracing::info;
-use crate::{DataId, Link, error::*, parse::*};
 
-static mut LINK_TEST_DATA: MaybeUninit<LinkTestData> = MaybeUninit::uninit();
+const WORKBOOK: &str = "link_test.ods";
+const SHEET: &str = "LinkTest";
+
+static LINK_TEST_DATA: MaybeUninit<LinkTestData> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct LinkTest {
@@ -90,8 +91,8 @@ impl crate::Loadable for LinkTestData {
         for row in rows {
             let (id, object) = LinkTest::parse(row)
                 .map_err(|(column, error)| Error::Parse {
-                    workbook: "link_test.ods",
-                    sheet: "LinkTest",
+                    workbook: WORKBOOK,
+                    sheet: SHEET,
                     row: index + 1,
                     column,
                     error,
@@ -108,8 +109,8 @@ impl crate::Loadable for LinkTestData {
 
             check_constraint(&object)
                 .map_err(|(column, error)| Error::Constraint {
-                    workbook: "link_test.ods",
-                    sheet: "LinkTest",
+                    workbook: WORKBOOK,
+                    sheet: SHEET,
                     row: index + 1,
                     column,
                     error,
@@ -145,8 +146,8 @@ impl crate::Loadable for LinkTestData {
 
             Ok(())
         })().map_err(|(id, error)| Error::Link {
-            workbook: "link_test.ods",
-            sheet: "LinkTest",
+            workbook: WORKBOOK,
+            sheet: SHEET,
             id,
             error,
         })?;

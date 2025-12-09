@@ -3,14 +3,13 @@ pub(crate) mod enumeration;
 pub(crate) mod module;
 pub(crate) mod table;
 
-use std::collections::{HashMap, HashSet};
-use std::fs;
-
 use crate::*;
 use self::constant::ConstantEntry;
 use self::enumeration::EnumerationEntry;
 use self::module::ModuleEntry;
 use self::table::TableEntry;
+use std::collections::{HashMap, HashSet};
+use std::fs;
 
 #[derive(Debug)]
 pub struct Generator {

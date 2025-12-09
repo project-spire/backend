@@ -1,12 +1,10 @@
 // This is a generated file. DO NOT MODIFY.
-#![allow(static_mut_refs)]
-
-use std::collections::HashMap;
-use std::mem::MaybeUninit;
-use tokio::sync::Mutex;
 use crate::{DataId, error::Error};
+use std::collections::HashMap;
+use std::sync::OnceLock;
+use tokio::sync::Mutex;
 
-static mut ITEM_DATA: MaybeUninit<ItemData> = MaybeUninit::uninit();
+static ITEM_DATA: OnceLock<ItemData> = OnceLcok::uninit();
 
 #[derive(Debug)]
 pub enum Item {
