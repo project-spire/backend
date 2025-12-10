@@ -109,7 +109,7 @@ r#"{GENERATED_FILE_WARNING}
 
             abstract_table_inits.push(
                 format!(
-                    "{TAB}{}Data::init();",
+                    "{TAB}{}Table::init();",
                     table.name.as_type(true),
                 )
             );
@@ -133,7 +133,7 @@ r#"{GENERATED_FILE_WARNING}
             concrete_table_loads.push(
                 format!(
                     "{TAB}load::<{}>({}, \"{}\", &mut tasks);",
-                    table.name.as_data_type(true),
+                    table.name.as_table_type(true),
                     format!("data_dir.join(\"{}\")", file),
                     schema.sheet,
                 )
@@ -150,7 +150,7 @@ r#"{GENERATED_FILE_WARNING}
             concrete_table_inits.push(
                 format!(
                     "{TAB}init::<{}>(&mut tasks);",
-                    table.name.as_data_type(true),
+                    table.name.as_table_type(true),
                 )
             );
         }

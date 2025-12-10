@@ -1,4 +1,6 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -7,15 +9,15 @@ use tracing::info;
 const WORKBOOK: &str = "path_node.ods";
 const SHEET: &str = "PathNode";
 
-static PATH_NODE_DATA: MaybeUninit<PathNodeData> = MaybeUninit::uninit();
+static mut PATH_NODE_TABLE: MaybeUninit<PathNodeTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct PathNode {
     pub id: DataId,
 }
 
-pub struct PathNodeData {
-    data: HashMap<DataId, PathNode>,
+pub struct PathNodeTable {
+    rows: HashMap<DataId, PathNode>,
 }
 
 impl PathNode {
@@ -36,27 +38,27 @@ impl PathNode {
 
 impl crate::Linkable for PathNode {
     fn get(id: &DataId) -> Option<&'static Self> {
-        PathNodeData::get(id)
+        PathNodeTable::get(id)
     }
 }
 
-impl PathNodeData {
+impl PathNodeTable {
     pub fn get(id: &DataId) -> Option<&'static PathNode> {
-        unsafe { PATH_NODE_DATA.assume_init_ref() }.data.get(&id)
+        unsafe { PATH_NODE_TABLE.assume_init_ref() }.rows.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static PathNode)> {
-        unsafe { PATH_NODE_DATA.assume_init_ref() }.data.iter()
+        unsafe { PATH_NODE_TABLE.assume_init_ref() }.rows.iter()
     }
 }
 
-impl crate::Loadable for PathNodeData {
+impl crate::Loadable for PathNodeTable {
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {
-        let mut objects = HashMap::new();
+        let mut parsed_rows = HashMap::new();
         let mut index = 2;
 
         for row in rows {
-            let (id, object) = PathNode::parse(row)
+            let (id, parsed_row) = PathNode::parse(row)
                 .map_err(|(column, error)| Error::Parse {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -65,24 +67,24 @@ impl crate::Loadable for PathNodeData {
                     error,
                 })?;
 
-            if objects.contains_key(&id) {
+            if parsed_rows.contains_key(&id) {
                 return Err(Error::DuplicateId {
                     type_name: std::any::type_name::<PathNode>(),
                     id,
-                    a: format!("{:?}", objects[&id]),
-                    b: format!("{:?}", object),
+                    a: format!("{:?}", parsed_rows[&id]),
+                    b: format!("{:?}", parsed_rows),
                 });
             }
 
-            objects.insert(id, object);
+            parsed_rows.insert(id, parsed_row);
 
             index += 1;
         }
 
-        let data = Self { data: objects };
-        unsafe { PATH_NODE_DATA.write(data); }
+        let table = Self { rows: parsed_rows };
+        info!("Loaded {} rows", table.rows.len());
 
-        info!("Loaded {} rows", rows.len());
+        unsafe { PATH_NODE_TABLE.write(table); }
         Ok(())
     }
 

@@ -1,4 +1,6 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -7,7 +9,7 @@ use tracing::info;
 const WORKBOOK: &str = "link_test.ods";
 const SHEET: &str = "LinkTest";
 
-static LINK_TEST_DATA: MaybeUninit<LinkTestData> = MaybeUninit::uninit();
+static mut LINK_TEST_TABLE: MaybeUninit<LinkTestTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct LinkTest {
@@ -18,8 +20,8 @@ pub struct LinkTest {
     pub exclusive_max5_item_link: Link<crate::item::Item>,
 }
 
-pub struct LinkTestData {
-    data: HashMap<DataId, LinkTest>,
+pub struct LinkTestTable {
+    rows: HashMap<DataId, LinkTest>,
 }
 
 impl LinkTest {
@@ -48,40 +50,40 @@ impl LinkTest {
 
 impl crate::Linkable for LinkTest {
     fn get(id: &DataId) -> Option<&'static Self> {
-        LinkTestData::get(id)
+        LinkTestTable::get(id)
     }
 }
 
-impl LinkTestData {
+impl LinkTestTable {
     pub fn get(id: &DataId) -> Option<&'static LinkTest> {
-        unsafe { LINK_TEST_DATA.assume_init_ref() }.data.get(&id)
+        unsafe { LINK_TEST_TABLE.assume_init_ref() }.rows.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static LinkTest)> {
-        unsafe { LINK_TEST_DATA.assume_init_ref() }.data.iter()
+        unsafe { LINK_TEST_TABLE.assume_init_ref() }.rows.iter()
     }
 }
 
-impl crate::Loadable for LinkTestData {
+impl crate::Loadable for LinkTestTable {
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {
-        let mut objects = HashMap::new();
+        let mut parsed_rows = HashMap::new();
         let mut index = 2;
 
         let mut exclusive_max5_item_link_set = std::collections::HashSet::<Link<crate::item::Item>>::new();
 
-        let mut check_constraint = |object: &LinkTest| -> Result<(), (&'static str, ConstraintError)> {
-            if !exclusive_max5_item_link_set.insert(object.exclusive_max5_item_link.clone()) {
+        let mut check_constraint = |row: &LinkTest| -> Result<(), (&'static str, ConstraintError)> {
+            if !exclusive_max5_item_link_set.insert(row.exclusive_max5_item_link.clone()) {
                 return Err(("exclusive_max5_item_link", ConstraintError::Unique {
                     type_name: std::any::type_name::<Link<crate::item::Item>>(),
-                    value: object.exclusive_max5_item_link.to_string(),
+                    value: row.exclusive_max5_item_link.to_string(),
                 }));
             }
 
-            if object.exclusive_max5_item_link > 5 {
+            if row.exclusive_max5_item_link > 5 {
                 return Err(("exclusive_max5_item_link", ConstraintError::Max {
                     type_name: std::any::type_name::<Link<crate::item::Item>>(),
                     expected: 5.to_string(),
-                    actual: object.exclusive_max5_item_link.to_string(),
+                    actual: row.exclusive_max5_item_link.to_string(),
                 }));
             }
 
@@ -89,7 +91,7 @@ impl crate::Loadable for LinkTestData {
         };
 
         for row in rows {
-            let (id, object) = LinkTest::parse(row)
+            let (id, parsed_row) = LinkTest::parse(row)
                 .map_err(|(column, error)| Error::Parse {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -98,16 +100,16 @@ impl crate::Loadable for LinkTestData {
                     error,
                 })?;
 
-            if objects.contains_key(&id) {
+            if parsed_rows.contains_key(&id) {
                 return Err(Error::DuplicateId {
                     type_name: std::any::type_name::<LinkTest>(),
                     id,
-                    a: format!("{:?}", objects[&id]),
-                    b: format!("{:?}", object),
+                    a: format!("{:?}", parsed_rows[&id]),
+                    b: format!("{:?}", parsed_rows),
                 });
             }
 
-            check_constraint(&object)
+            check_constraint(&parsed_row)
                 .map_err(|(column, error)| Error::Constraint {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -116,21 +118,21 @@ impl crate::Loadable for LinkTestData {
                     error,
                 })?;
 
-            objects.insert(id, object);
+            parsed_rows.insert(id, parsed_row);
 
             index += 1;
         }
 
-        let data = Self { data: objects };
-        unsafe { LINK_TEST_DATA.write(data); }
+        let table = Self { rows: parsed_rows };
+        info!("Loaded {} rows", table.rows.len());
 
-        info!("Loaded {} rows", rows.len());
+        unsafe { LINK_TEST_TABLE.write(table); }
         Ok(())
     }
 
     fn init() -> Result<(), Error> {
         (|| {
-            for (id, row) in &mut unsafe { LINK_TEST_DATA.assume_init_mut() }.data {
+            for (id, row) in &mut unsafe { LINK_TEST_TABLE.assume_init_mut() }.rows {
                 row.item_link.init().map_err(|e| (*id, e))?;
 
                 if let Some(optional_item_link) = row.optional_item_link.as_mut() {

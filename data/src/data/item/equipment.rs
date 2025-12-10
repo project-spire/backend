@@ -1,10 +1,12 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, error::Error};
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::mem::MaybeUninit;
 use tokio::sync::Mutex;
 
-static EQUIPMENT_DATA: OnceLock<EquipmentData> = OnceLcok::uninit();
+static mut EQUIPMENT_TABLE: MaybeUninit<EquipmentTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub enum Equipment {
@@ -12,8 +14,8 @@ pub enum Equipment {
 }
 
 #[derive(Debug)]
-pub struct EquipmentData {
-    data: HashMap<DataId, Equipment>,
+pub struct EquipmentTable {
+    rows: HashMap<DataId, Equipment>,
 }
 
 impl Equipment {
@@ -26,43 +28,41 @@ impl Equipment {
 
 impl crate::Linkable for Equipment {
     fn get(id: &DataId) -> Option<&'static Self> {
-        EquipmentData::get(id)
+        EquipmentTable::get(id)
     }
 }
 
-impl EquipmentData {
+impl EquipmentTable {
     pub fn get(id: &DataId) -> Option<&'static Equipment> {
-        let data = unsafe { &EQUIPMENT_DATA.assume_init_ref().data };
-        data.get(&id)
+        unsafe { &EQUIPMENT_TABLE.assume_init_ref().rows }.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static Equipment)> {
-        let data = unsafe { &EQUIPMENT_DATA.assume_init_ref().data };
-        data.iter()
+        unsafe { &EQUIPMENT_TABLE.assume_init_ref().rows }.iter()
     }
 
     pub(crate) fn init() {
-        let data = Self { data: HashMap::new() };
-        unsafe { EQUIPMENT_DATA.write(data); }
+        let table = Self { rows: HashMap::new() };
+        unsafe { EQUIPMENT_TABLE.write(table); }
     }
 
     pub(crate) async fn insert(id: &DataId, row: Equipment) -> Result<(), Error> {
         static LOCK: Mutex<()> = Mutex::const_new(());
 
-        let data = unsafe { &mut EQUIPMENT_DATA.assume_init_mut().data };
+        let rows = unsafe { &mut EQUIPMENT_TABLE.assume_init_mut().rows };
         let _ = LOCK.lock().await;
 
-        if data.contains_key(id) {
+        if rows.contains_key(id) {
             return Err(Error::DuplicateId {
                 type_name: std::any::type_name::<Equipment>(),
                 id: *id,
-                a: format!("{:?}", data[id]),
+                a: format!("{:?}", rows[id]),
                 b: format!("{:?}", row)
             });
         }
-        data.insert(*id, row);
+        rows.insert(*id, row);
 
-        crate::item::ItemData::insert(id, crate::item::Item::Equipment(&data[id])).await?;
+        crate::item::ItemTable::insert(id, crate::item::Item::Equipment(&rows[id])).await?;
 
         Ok(())
     }

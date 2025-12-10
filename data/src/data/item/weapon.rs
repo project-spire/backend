@@ -1,4 +1,6 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -7,7 +9,7 @@ use tracing::info;
 const WORKBOOK: &str = "weapon.ods";
 const SHEET: &str = "Weapon";
 
-static WEAPON_DATA: MaybeUninit<WeaponData> = MaybeUninit::uninit();
+static mut WEAPON_TABLE: MaybeUninit<WeaponTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct Weapon {
@@ -17,8 +19,8 @@ pub struct Weapon {
     pub damage: u32,
 }
 
-pub struct WeaponData {
-    data: HashMap<DataId, Weapon>,
+pub struct WeaponTable {
+    rows: HashMap<DataId, Weapon>,
 }
 
 impl Weapon {
@@ -45,27 +47,27 @@ impl Weapon {
 
 impl crate::Linkable for Weapon {
     fn get(id: &DataId) -> Option<&'static Self> {
-        WeaponData::get(id)
+        WeaponTable::get(id)
     }
 }
 
-impl WeaponData {
+impl WeaponTable {
     pub fn get(id: &DataId) -> Option<&'static Weapon> {
-        unsafe { WEAPON_DATA.assume_init_ref() }.data.get(&id)
+        unsafe { WEAPON_TABLE.assume_init_ref() }.rows.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static Weapon)> {
-        unsafe { WEAPON_DATA.assume_init_ref() }.data.iter()
+        unsafe { WEAPON_TABLE.assume_init_ref() }.rows.iter()
     }
 }
 
-impl crate::Loadable for WeaponData {
+impl crate::Loadable for WeaponTable {
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {
-        let mut objects = HashMap::new();
+        let mut parsed_rows = HashMap::new();
         let mut index = 2;
 
         for row in rows {
-            let (id, object) = Weapon::parse(row)
+            let (id, parsed_row) = Weapon::parse(row)
                 .map_err(|(column, error)| Error::Parse {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -74,28 +76,28 @@ impl crate::Loadable for WeaponData {
                     error,
                 })?;
 
-            if objects.contains_key(&id) {
+            if parsed_rows.contains_key(&id) {
                 return Err(Error::DuplicateId {
                     type_name: std::any::type_name::<Weapon>(),
                     id,
-                    a: format!("{:?}", objects[&id]),
-                    b: format!("{:?}", object),
+                    a: format!("{:?}", parsed_rows[&id]),
+                    b: format!("{:?}", parsed_rows),
                 });
             }
 
-            objects.insert(id, object);
+            parsed_rows.insert(id, parsed_row);
 
             index += 1;
         }
 
-        let data = Self { data: objects };
-        unsafe { WEAPON_DATA.write(data); }
+        let table = Self { rows: parsed_rows };
+        info!("Loaded {} rows", table.rows.len());
 
-        for (id, row) in unsafe { WEAPON_DATA.assume_init_ref() }.data.iter() {
-            crate::item::EquipmentData::insert(&id, crate::item::Equipment::Weapon(row)).await?;
+        unsafe { WEAPON_TABLE.write(table); }
+
+        for (id, row) in unsafe { WEAPON_TABLE.assume_init_ref() }.rows.iter() {
+            crate::item::EquipmentTable::insert(&id, crate::item::Equipment::Weapon(row)).await?;
         }
-
-        info!("Loaded {} rows", rows.len());
         Ok(())
     }
 

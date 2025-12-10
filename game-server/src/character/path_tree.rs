@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy_ecs::prelude::*;
-use data::character::PathNodeData;
+use data::character::PathNodeTable;
 use data::DataId;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -52,7 +52,7 @@ impl PathTree {
             .await?;
 
         for node in nodes.drain(..) {
-            let Some(data) = PathNodeData::get(&node.data_id.into()) else {
+            let Some(data) = PathNodeTable::get(&node.data_id.into()) else {
                 // warn!("");
                 continue;
             };

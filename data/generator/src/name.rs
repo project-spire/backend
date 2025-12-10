@@ -56,12 +56,4 @@ impl Name {
             self.name.to_upper_camel_case()
         }
     }
-
-    pub fn as_data_type(&self, with_namespace: bool) -> String {
-        format!("{}Data", self.as_type(with_namespace))
-    }
-
-    pub fn as_data_type_cell(&self) -> String {
-        format!("{}_DATA", self.name.to_snake_case().to_uppercase())
-    }
 }

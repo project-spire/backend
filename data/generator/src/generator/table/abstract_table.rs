@@ -20,9 +20,9 @@ impl Generator {
         name: &Name,
         schema: &AbstractTableSchema,
     ) -> Result<String, Error> {
-        let data_cell_name = name.as_data_type_cell();
-        let data_type_name = name.as_data_type(false);
-        let table_type_name = name.as_type(false);
+        let table_cell_name = name.as_table_type_cell();
+        let table_type_name = name.as_table_type(false);
+        let row_type_name = name.as_type(false);
 
         let mut child_types = Vec::new();
         let mut child_id_matches = Vec::new();
@@ -52,7 +52,7 @@ impl Generator {
             format!(
                 r#"
 
-        {CRATE_PREFIX}::{parent_full_name}Data::insert(id, {CRATE_PREFIX}::{parent_full_name}::{table_type_name}(&data[id])).await?;"#
+        {CRATE_PREFIX}::{parent_full_name}Table::insert(id, {CRATE_PREFIX}::{parent_full_name}::{row_type_name}(&rows[id])).await?;"#
             )
         } else {
             String::new()
@@ -62,24 +62,26 @@ impl Generator {
 
         Ok(format!(
             r#"{GENERATED_FILE_WARNING}
+#![allow(static_mut_refs)]
+
 use {CRATE_PREFIX}::{{DataId, error::Error}};
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::mem::MaybeUninit;
 use tokio::sync::Mutex;
 
-static {data_cell_name}: OnceLock<{data_type_name}> = OnceLcok::uninit();
+static mut {table_cell_name}: MaybeUninit<{table_type_name}> = MaybeUninit::uninit();
 
 #[derive(Debug)]
-pub enum {table_type_name} {{
+pub enum {row_type_name} {{
 {child_types_code}
 }}
 
 #[derive(Debug)]
-pub struct {data_type_name} {{
-    data: HashMap<DataId, {table_type_name}>,
+pub struct {table_type_name} {{
+    rows: HashMap<DataId, {row_type_name}>,
 }}
 
-impl {table_type_name} {{
+impl {row_type_name} {{
     pub fn id(&self) -> &DataId {{
         match self {{
 {child_id_matches_code}
@@ -87,43 +89,41 @@ impl {table_type_name} {{
     }}
 }}
 
-impl {CRATE_PREFIX}::Linkable for {table_type_name} {{
+impl {CRATE_PREFIX}::Linkable for {row_type_name} {{
     fn get(id: &DataId) -> Option<&'static Self> {{
-        {data_type_name}::get(id)
+        {table_type_name}::get(id)
     }}
 }}
 
-impl {data_type_name} {{
-    pub fn get(id: &DataId) -> Option<&'static {table_type_name}> {{
-        let data = unsafe {{ &{data_cell_name}.assume_init_ref().data }};
-        data.get(&id)
+impl {table_type_name} {{
+    pub fn get(id: &DataId) -> Option<&'static {row_type_name}> {{
+        unsafe {{ &{table_cell_name}.assume_init_ref().rows }}.get(&id)
     }}
 
-    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static {table_type_name})> {{
-        let data = unsafe {{ &{data_cell_name}.assume_init_ref().data }};
-        data.iter()
+    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static {row_type_name})> {{
+        unsafe {{ &{table_cell_name}.assume_init_ref().rows }}.iter()
     }}
 
     pub(crate) fn init() {{
-        let data = Self {{ data: HashMap::new() }};
-        unsafe {{ {data_cell_name}.write(data); }}
+        let table = Self {{ rows: HashMap::new() }};
+        unsafe {{ {table_cell_name}.write(table); }}
     }}
 
-    pub(crate) async fn insert(id: &DataId, row: {table_type_name}) -> Result<(), Error> {{
+    pub(crate) async fn insert(id: &DataId, row: {row_type_name}) -> Result<(), Error> {{
         static LOCK: Mutex<()> = Mutex::const_new(());
 
-        let data = unsafe {{ &mut {data_cell_name}.assume_init_mut().data }};
+        let rows = unsafe {{ &mut {table_cell_name}.assume_init_mut().rows }};
         let _ = LOCK.lock().await;
 
-        if data.contains_key(id) {{
+        if rows.contains_key(id) {{
             return Err(Error::DuplicateId {{
-                type_name: std::any::type_name::<{table_type_name}>(),
+                type_name: std::any::type_name::<{row_type_name}>(),
                 id: *id,
-                a: format!("{{:?}}", data[id]),
+                a: format!("{{:?}}", rows[id]),
                 b: format!("{{:?}}", row)
             }});
         }}
-        data.insert(*id, row);{parent_insert_code}
+        rows.insert(*id, row);{parent_insert_code}
 
         Ok(())
     }}

@@ -1,4 +1,6 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, Link, error::*, parse::*};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -7,7 +9,7 @@ use tracing::info;
 const WORKBOOK: &str = "random_box.ods";
 const SHEET: &str = "RandomBox";
 
-static RANDOM_BOX_DATA: MaybeUninit<RandomBoxData> = MaybeUninit::uninit();
+static mut RANDOM_BOX_TABLE: MaybeUninit<RandomBoxTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub struct RandomBox {
@@ -16,8 +18,8 @@ pub struct RandomBox {
     pub items: Vec<(Link<crate::item::Item>, u16)>,
 }
 
-pub struct RandomBoxData {
-    data: HashMap<DataId, RandomBox>,
+pub struct RandomBoxTable {
+    rows: HashMap<DataId, RandomBox>,
 }
 
 impl RandomBox {
@@ -42,27 +44,27 @@ impl RandomBox {
 
 impl crate::Linkable for RandomBox {
     fn get(id: &DataId) -> Option<&'static Self> {
-        RandomBoxData::get(id)
+        RandomBoxTable::get(id)
     }
 }
 
-impl RandomBoxData {
+impl RandomBoxTable {
     pub fn get(id: &DataId) -> Option<&'static RandomBox> {
-        unsafe { RANDOM_BOX_DATA.assume_init_ref() }.data.get(&id)
+        unsafe { RANDOM_BOX_TABLE.assume_init_ref() }.rows.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static RandomBox)> {
-        unsafe { RANDOM_BOX_DATA.assume_init_ref() }.data.iter()
+        unsafe { RANDOM_BOX_TABLE.assume_init_ref() }.rows.iter()
     }
 }
 
-impl crate::Loadable for RandomBoxData {
+impl crate::Loadable for RandomBoxTable {
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {
-        let mut objects = HashMap::new();
+        let mut parsed_rows = HashMap::new();
         let mut index = 2;
 
         for row in rows {
-            let (id, object) = RandomBox::parse(row)
+            let (id, parsed_row) = RandomBox::parse(row)
                 .map_err(|(column, error)| Error::Parse {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -71,34 +73,34 @@ impl crate::Loadable for RandomBoxData {
                     error,
                 })?;
 
-            if objects.contains_key(&id) {
+            if parsed_rows.contains_key(&id) {
                 return Err(Error::DuplicateId {
                     type_name: std::any::type_name::<RandomBox>(),
                     id,
-                    a: format!("{:?}", objects[&id]),
-                    b: format!("{:?}", object),
+                    a: format!("{:?}", parsed_rows[&id]),
+                    b: format!("{:?}", parsed_rows),
                 });
             }
 
-            objects.insert(id, object);
+            parsed_rows.insert(id, parsed_row);
 
             index += 1;
         }
 
-        let data = Self { data: objects };
-        unsafe { RANDOM_BOX_DATA.write(data); }
+        let table = Self { rows: parsed_rows };
+        info!("Loaded {} rows", table.rows.len());
 
-        for (id, row) in unsafe { RANDOM_BOX_DATA.assume_init_ref() }.data.iter() {
-            crate::item::ItemData::insert(&id, crate::item::Item::RandomBox(row)).await?;
+        unsafe { RANDOM_BOX_TABLE.write(table); }
+
+        for (id, row) in unsafe { RANDOM_BOX_TABLE.assume_init_ref() }.rows.iter() {
+            crate::item::ItemTable::insert(&id, crate::item::Item::RandomBox(row)).await?;
         }
-
-        info!("Loaded {} rows", rows.len());
         Ok(())
     }
 
     fn init() -> Result<(), Error> {
         (|| {
-            for (id, row) in &mut unsafe { RANDOM_BOX_DATA.assume_init_mut() }.data {
+            for (id, row) in &mut unsafe { RANDOM_BOX_TABLE.assume_init_mut() }.rows {
                 for x in &mut row.items {
                     x.0.init().map_err(|e| (*id, e))?;
                 }

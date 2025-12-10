@@ -1,10 +1,12 @@
 // This is a generated file. DO NOT MODIFY.
+#![allow(static_mut_refs)]
+
 use crate::{DataId, error::Error};
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::mem::MaybeUninit;
 use tokio::sync::Mutex;
 
-static ITEM_DATA: OnceLock<ItemData> = OnceLcok::uninit();
+static mut ITEM_TABLE: MaybeUninit<ItemTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
 pub enum Item {
@@ -13,8 +15,8 @@ pub enum Item {
 }
 
 #[derive(Debug)]
-pub struct ItemData {
-    data: HashMap<DataId, Item>,
+pub struct ItemTable {
+    rows: HashMap<DataId, Item>,
 }
 
 impl Item {
@@ -28,41 +30,39 @@ impl Item {
 
 impl crate::Linkable for Item {
     fn get(id: &DataId) -> Option<&'static Self> {
-        ItemData::get(id)
+        ItemTable::get(id)
     }
 }
 
-impl ItemData {
+impl ItemTable {
     pub fn get(id: &DataId) -> Option<&'static Item> {
-        let data = unsafe { &ITEM_DATA.assume_init_ref().data };
-        data.get(&id)
+        unsafe { &ITEM_TABLE.assume_init_ref().rows }.get(&id)
     }
 
     pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static Item)> {
-        let data = unsafe { &ITEM_DATA.assume_init_ref().data };
-        data.iter()
+        unsafe { &ITEM_TABLE.assume_init_ref().rows }.iter()
     }
 
     pub(crate) fn init() {
-        let data = Self { data: HashMap::new() };
-        unsafe { ITEM_DATA.write(data); }
+        let table = Self { rows: HashMap::new() };
+        unsafe { ITEM_TABLE.write(table); }
     }
 
     pub(crate) async fn insert(id: &DataId, row: Item) -> Result<(), Error> {
         static LOCK: Mutex<()> = Mutex::const_new(());
 
-        let data = unsafe { &mut ITEM_DATA.assume_init_mut().data };
+        let rows = unsafe { &mut ITEM_TABLE.assume_init_mut().rows };
         let _ = LOCK.lock().await;
 
-        if data.contains_key(id) {
+        if rows.contains_key(id) {
             return Err(Error::DuplicateId {
                 type_name: std::any::type_name::<Item>(),
                 id: *id,
-                a: format!("{:?}", data[id]),
+                a: format!("{:?}", rows[id]),
                 b: format!("{:?}", row)
             });
         }
-        data.insert(*id, row);
+        rows.insert(*id, row);
 
         Ok(())
     }

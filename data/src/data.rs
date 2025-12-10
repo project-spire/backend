@@ -17,8 +17,8 @@ pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), Error> {
 }
 
 fn init_abstract_tables() {
-    item::EquipmentData::init();
-    item::ItemData::init();
+    item::EquipmentTable::init();
+    item::ItemTable::init();
 }
 
 async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error> {
@@ -51,10 +51,10 @@ async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error
 
     let mut tasks = Vec::new();
 
-    load::<LinkTestData>(data_dir.join("link_test.ods"), "LinkTest", &mut tasks);
-    load::<item::RandomBoxData>(data_dir.join("item/random_box.ods"), "RandomBox", &mut tasks);
-    load::<item::WeaponData>(data_dir.join("item/weapon.ods"), "Weapon", &mut tasks);
-    load::<character::PathNodeData>(data_dir.join("character/path_node.ods"), "PathNode", &mut tasks);
+    load::<LinkTestTable>(data_dir.join("link_test.ods"), "LinkTest", &mut tasks);
+    load::<item::RandomBoxTable>(data_dir.join("item/random_box.ods"), "RandomBox", &mut tasks);
+    load::<item::WeaponTable>(data_dir.join("item/weapon.ods"), "Weapon", &mut tasks);
+    load::<character::PathNodeTable>(data_dir.join("character/path_node.ods"), "PathNode", &mut tasks);
 
     for task in tasks {
         match task.await {
@@ -77,10 +77,10 @@ async fn init_concrete_tables() -> Result<(), Error> {
 
     let mut tasks = Vec::new();
 
-    init::<LinkTestData>(&mut tasks);
-    init::<item::RandomBoxData>(&mut tasks);
-    init::<item::WeaponData>(&mut tasks);
-    init::<character::PathNodeData>(&mut tasks);
+    init::<LinkTestTable>(&mut tasks);
+    init::<item::RandomBoxTable>(&mut tasks);
+    init::<item::WeaponTable>(&mut tasks);
+    init::<character::PathNodeTable>(&mut tasks);
 
     for task in tasks {
         match task.await {

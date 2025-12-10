@@ -3,6 +3,7 @@ mod concrete_table;
 
 use crate::generator::*;
 use crate::*;
+use heck::ToSnakeCase;
 use std::collections::VecDeque;
 use std::fs;
 
@@ -235,4 +236,14 @@ fn to_tuple_type_strings(fields: &[FieldKind]) -> Vec<String> {
     }
 
     type_strings
+}
+
+impl Name {
+    pub fn as_table_type(&self, with_namespace: bool) -> String {
+        format!("{}Table", self.as_type(with_namespace))
+    }
+
+    pub fn as_table_type_cell(&self) -> String {
+        format!("{}_TABLE", self.name.to_snake_case().to_uppercase())
+    }
 }

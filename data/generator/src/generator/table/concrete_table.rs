@@ -57,10 +57,10 @@ impl Generator {
                                 field.kind.to_rust_type(),
                             ));
                             constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if !{set_name}.insert(object.{field_name}.clone()) {{
+                                r#"{TAB}{TAB}{TAB}if !{set_name}.insert(row.{field_name}.clone()) {{
                 return Err(("{field_name}", ConstraintError::Unique {{
                     type_name: std::any::type_name::<{field_type}>(),
-                    value: object.{field_name}.to_string(),
+                    value: row.{field_name}.to_string(),
                 }}));
             }}"#,
                                 field_type = field.kind.to_rust_type(),
@@ -69,11 +69,11 @@ impl Generator {
                         }
                         Constraint::Max(value) => {
                             constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if object.{field_name} > {value} {{
+                                r#"{TAB}{TAB}{TAB}if row.{field_name} > {value} {{
                 return Err(("{field_name}", ConstraintError::Max {{
                     type_name: std::any::type_name::<{field_type}>(),
                     expected: {value}.to_string(),
-                    actual: object.{field_name}.to_string(),
+                    actual: row.{field_name}.to_string(),
                 }}));
             }}"#,
                                 field_type = field.kind.to_rust_type(),
@@ -81,11 +81,11 @@ impl Generator {
                         }
                         Constraint::Min(value) => {
                             constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if object.{field_name} < {value} {{
+                                r#"{TAB}{TAB}{TAB}if row.{field_name} < {value} {{
                 return Err(("{field_name}", ConstraintError::Min {{
                     type_name: std::any::type_name::<{field_type}>(),
                     expected: {value}.to_string(),
-                    actual: object.{field_name}.to_string(),
+                    actual: row.{field_name}.to_string(),
                 }}));
             }}"#,
                                 field_type = field.kind.to_rust_type(),
@@ -218,9 +218,9 @@ impl Generator {
         }
 
         // Generate codes
-        let data_cell_name = name.as_data_type_cell();
-        let data_type_name = name.as_data_type(false);
-        let table_type_name = name.as_type(false);
+        let table_cell_name = name.as_table_type_cell();
+        let table_type_name = name.as_table_type(false);
+        let row_type_name = name.as_type(false);
 
         let field_definitions_code = field_definitions.join("\n");
         let field_parses_code = field_parses.join("\n");
@@ -236,8 +236,8 @@ impl Generator {
             format!(
                 r#"
 
-        for (id, row) in unsafe {{ {data_cell_name}.assume_init_ref() }}.data.iter() {{
-            {CRATE_PREFIX}::{parent_full_name}Data::insert(&id, {CRATE_PREFIX}::{parent_full_name}::{table_type_name}(row)).await?;
+        for (id, row) in unsafe {{ {table_cell_name}.assume_init_ref() }}.rows.iter() {{
+            {CRATE_PREFIX}::{parent_full_name}Table::insert(&id, {CRATE_PREFIX}::{parent_full_name}::{row_type_name}(row)).await?;
         }}"#
             )
         } else {
@@ -250,7 +250,7 @@ impl Generator {
             format!(
                 r#"
         (|| {{
-            for (id, row) in &mut unsafe {{ {data_cell_name}.assume_init_mut() }}.data {{
+            for (id, row) in &mut unsafe {{ {table_cell_name}.assume_init_mut() }}.rows {{
 {inits_code}
             }}
 
@@ -273,7 +273,7 @@ impl Generator {
                 r#"
 {constraint_inits_code}
 
-        let mut check_constraint = |object: &{table_type_name}| -> Result<(), (&'static str, ConstraintError)> {{
+        let mut check_constraint = |row: &{row_type_name}| -> Result<(), (&'static str, ConstraintError)> {{
 {constraint_checks_code}
 
             Ok(())
@@ -289,7 +289,7 @@ impl Generator {
         } else {
             r#"
 
-            check_constraint(&object)
+            check_constraint(&parsed_row)
                 .map_err(|(column, error)| Error::Constraint {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -301,6 +301,8 @@ impl Generator {
 
         Ok(format!(
             r#"{GENERATED_FILE_WARNING}
+#![allow(static_mut_refs)]
+
 use {CRATE_PREFIX}::{{DataId, Link, error::*, parse::*}};
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -309,18 +311,18 @@ use tracing::info;
 const WORKBOOK: &str = "{workbook}";
 const SHEET: &str = "{sheet}";
 
-static {data_cell_name}: MaybeUninit<{data_type_name}> = MaybeUninit::uninit();
+static mut {table_cell_name}: MaybeUninit<{table_type_name}> = MaybeUninit::uninit();
 
 #[derive(Debug)]
-pub struct {table_type_name} {{
+pub struct {row_type_name} {{
 {field_definitions_code}
 }}
 
-pub struct {data_type_name} {{
-    data: HashMap<DataId, {table_type_name}>,
+pub struct {table_type_name} {{
+    rows: HashMap<DataId, {row_type_name}>,
 }}
 
-impl {table_type_name} {{
+impl {row_type_name} {{
     fn parse(row: &[calamine::Data]) -> Result<(DataId, Self), (&'static str, ParseError)> {{
         const FIELDS_COUNT: usize = {fields_count};
 
@@ -336,29 +338,29 @@ impl {table_type_name} {{
     }}
 }}
 
-impl {CRATE_PREFIX}::Linkable for {table_type_name} {{
+impl {CRATE_PREFIX}::Linkable for {row_type_name} {{
     fn get(id: &DataId) -> Option<&'static Self> {{
-        {data_type_name}::get(id)
+        {table_type_name}::get(id)
     }}
 }}
 
-impl {data_type_name} {{
-    pub fn get(id: &DataId) -> Option<&'static {table_type_name}> {{
-        unsafe {{ {data_cell_name}.assume_init_ref() }}.data.get(&id)
+impl {table_type_name} {{
+    pub fn get(id: &DataId) -> Option<&'static {row_type_name}> {{
+        unsafe {{ {table_cell_name}.assume_init_ref() }}.rows.get(&id)
     }}
 
-    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static {table_type_name})> {{
-        unsafe {{ {data_cell_name}.assume_init_ref() }}.data.iter()
+    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static {row_type_name})> {{
+        unsafe {{ {table_cell_name}.assume_init_ref() }}.rows.iter()
     }}
 }}
 
-impl {CRATE_PREFIX}::Loadable for {data_type_name} {{
+impl {CRATE_PREFIX}::Loadable for {table_type_name} {{
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {{
-        let mut objects = HashMap::new();
+        let mut parsed_rows = HashMap::new();
         let mut index = {HEADER_ROWS};
 {constraint_function_code}
         for row in rows {{
-            let (id, object) = {table_type_name}::parse(row)
+            let (id, parsed_row) = {row_type_name}::parse(row)
                 .map_err(|(column, error)| Error::Parse {{
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -367,24 +369,24 @@ impl {CRATE_PREFIX}::Loadable for {data_type_name} {{
                     error,
                 }})?;
 
-            if objects.contains_key(&id) {{
+            if parsed_rows.contains_key(&id) {{
                 return Err(Error::DuplicateId {{
-                    type_name: std::any::type_name::<{table_type_name}>(),
+                    type_name: std::any::type_name::<{row_type_name}>(),
                     id,
-                    a: format!("{{:?}}", objects[&id]),
-                    b: format!("{{:?}}", object),
+                    a: format!("{{:?}}", parsed_rows[&id]),
+                    b: format!("{{:?}}", parsed_rows),
                 }});
             }}{constraint_call_code}
 
-            objects.insert(id, object);
+            parsed_rows.insert(id, parsed_row);
 
             index += 1;
         }}
 
-        let data = Self {{ data: objects }};
-        unsafe {{ {data_cell_name}.write(data); }}{parent_insert_code}
+        let table = Self {{ rows: parsed_rows }};
+        info!("Loaded {{}} rows", table.rows.len());
 
-        info!("Loaded {{}} rows", rows.len());
+        unsafe {{ {table_cell_name}.write(table); }}{parent_insert_code}
         Ok(())
     }}
 
