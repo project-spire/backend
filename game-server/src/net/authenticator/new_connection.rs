@@ -24,7 +24,7 @@ impl Handler<NewConnection> for Authenticator {
             // Receive login protocol with timeout.
             let connection = msg.connection;
             let (send_stream, mut receive_stream) = timeout(
-                config!(app).login.timeout,
+                config!(auth).login.timeout,
                 connection.accept_bi(),
             ).await??;
 
@@ -71,12 +71,12 @@ impl Handler<NewConnection> for Authenticator {
 
 async fn receive_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error::Error>> {
     let mut header_buf = [0u8; Header::size()];
-    timeout(config!(app).login.timeout, stream.read_exact(&mut header_buf)).await??;
+    timeout(config!(auth).login.timeout, stream.read_exact(&mut header_buf)).await??;
 
     let header = Header::decode(&header_buf)?;
 
     let mut body_buf = vec![0u8; header.length];
-    timeout(config!(app).login.timeout, stream.read_exact(&mut body_buf)).await??;
+    timeout(config!(auth).login.timeout, stream.read_exact(&mut body_buf)).await??;
 
     Ok(Login::decode(Bytes::from(body_buf))?)
 }

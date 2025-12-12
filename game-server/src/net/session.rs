@@ -80,9 +80,9 @@ impl Session {
         ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
         entry: Entry,
     ) -> tokio::task::JoinHandle<Result<(), Error>> {
-        let mut ingress_protocols_limiter = config!(app).ingress.protocols_rate_limit
+        let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
             .map(|params| RateLimiter::new(params));
-        let mut ingress_bytes_limiter = config!(app).ingress.bytes_rate_limit
+        let mut ingress_bytes_limiter = config!(net).ingress.bytes_rate_limit
             .map(|params| RateLimiter::new(params));
 
         tokio::spawn(async move {

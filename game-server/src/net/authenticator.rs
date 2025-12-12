@@ -15,7 +15,7 @@ pub struct Authenticator {
 
 impl Default for Authenticator {
     fn default() -> Self {
-        let decoding_key = DecodingKey::from_secret(&config!(net).token_key);
+        let decoding_key = DecodingKey::from_secret(&config!(auth).token_key);
 
         Self { decoding_key }
     }
