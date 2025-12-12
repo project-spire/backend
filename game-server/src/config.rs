@@ -125,8 +125,8 @@ pub mod net {
 
     #[derive(Debug, Deserialize)]
     pub struct Ingress {
-        pub protocols_rate_limit: Option<common::rate_limiter::Params>,
-        pub bytes_rate_limit: Option<common::rate_limiter::Params>,
+        pub protocols_rate_limit: Option<util::rate_limiter::Params>,
+        pub bytes_rate_limit: Option<util::rate_limiter::Params>,
     }
 }
 
@@ -173,7 +173,7 @@ fn load_auth_config() -> Result<AuthConfig, Box<dyn std::error::Error>> {
         .try_deserialize()?;
 
     config.login.init();
-    config.token_key = common::io::read_file(&config.token_key_file)?.into_bytes();
+    config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
 
     Ok(config)
 }
@@ -183,7 +183,7 @@ fn load_database_config() -> Result<DatabaseConfig, Box<dyn std::error::Error>> 
         .add_source(config::Environment::with_prefix("SPIRE_DB"))
         .build()?
         .try_deserialize()?;
-    config.password = common::io::read_file(&config.password_file)?;
+    config.password = util::io::read_file(&config.password_file)?;
 
     Ok(config)
 }

@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-use common::id::Id;
+use util::id::Id;
 
 #[derive(Component)]
 pub struct Equipment {

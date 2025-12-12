@@ -71,7 +71,7 @@ async fn init(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         })?;
 
     config::init(&args.local_env)?;
-    common::id::init(config!(net).node_id);
+    util::id::init(config!(net).node_id);
     db::init(
         &config!(db).user,
         &config!(db).password,

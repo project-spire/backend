@@ -5,9 +5,9 @@ pub use new_connection::NewConnection;
 use crate::config;
 use crate::net::session::Entry;
 use actix::prelude::*;
-use common::token;
 use jsonwebtoken::DecodingKey;
 use protocol::game::auth::*;
+use util::token;
 
 pub struct Authenticator {
     decoding_key: DecodingKey,

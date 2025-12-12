@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-common = { path = "../common" }
 data = { path = "../data" }
 db = { path = "../db" }
 protocol = { path = "../protocol" }
+util = { path = "../util" }
 
 config = { workspace = true }
 jsonwebtoken = { workspace = true }

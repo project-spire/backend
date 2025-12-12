@@ -1,12 +1,12 @@
 use crate::config;
 use bevy_ecs::component::Component;
 use bytes::Bytes;
-use common::rate_limiter::RateLimiter;
 use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
 use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc;
 use tracing::error;
+use util::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
 
@@ -40,10 +40,10 @@ pub enum Error {
     Write(#[from] WriteError),
 
     #[error("Ingress protocols limit error: {0}")]
-    IngressProtocolsLimit(common::rate_limiter::Error),
+    IngressProtocolsLimit(util::rate_limiter::Error),
 
     #[error("Ingress bytes limit error: {0}")]
-    IngressBytesLimit(common::rate_limiter::Error),
+    IngressBytesLimit(util::rate_limiter::Error),
 }
 
 impl Session {

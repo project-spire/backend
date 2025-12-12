@@ -8,13 +8,13 @@ use crate::task::{Task, TaskQueue};
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
-use common::interval_counter::IntervalCounter;
 use protocol::game::{encode, Protocol};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::{Duration, Instant};
 use tracing::info;
+use util::interval_counter::IntervalCounter;
 
 pub struct Zone {
     pub id: i64,
