@@ -188,6 +188,7 @@ fn sync_movement_states(
     let mut sync = MovementSync::default();
     sync.timestamp = util::timestamp::now();
 
+    // TODO: Batch the protocol not to exceed QUIC datagram maximum.
     for (entity, movement, transform) in query.iter() {
         if !movement.is_changed() && transform.is_changed() {
             continue;
@@ -211,7 +212,6 @@ fn sync_movement_states(
         return;
     };
     for session in sessions.iter() {
-        // TODO: Send as datagram?
-        _ = session.egress_protocol_sender.send(protocol.clone());
+        _ = session.connection.send_datagram(protocol.clone());
     }
 }

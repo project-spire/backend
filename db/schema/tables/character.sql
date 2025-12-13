@@ -13,7 +13,7 @@ create table character (
     karma bigint not null default 0,
 
     -- World
-    "location" location not null,
+    "location" location not null default (0, 0),
     position vector3 not null default row(0, 0, 0),
 
     -- Resource
