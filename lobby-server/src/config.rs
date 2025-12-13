@@ -1,8 +1,10 @@
-use serde::Deserialize;
-use std::path::PathBuf;
-use std::sync::OnceLock;
+#![allow(static_mut_refs)]
 
-static CONFIG: OnceLock<Config> = OnceLock::new();
+use serde::Deserialize;
+use std::mem::MaybeUninit;
+use std::path::PathBuf;
+
+static mut CONFIG: MaybeUninit<Config> = MaybeUninit::uninit();
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -33,22 +35,22 @@ pub struct Config {
     pub node_id: u16,
 }
 
-impl Config {
-    pub fn init() -> Result<(), Box<dyn std::error::Error>> {
-        let config = config::Config::builder()
-            .add_source(config::Environment::with_prefix("SPIRE"))
-            .build()?;
+pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+    let config = config::Config::builder()
+        .add_source(config::Environment::with_prefix("SPIRE"))
+        .build()?;
 
-        let mut config: Config = config.try_deserialize()?;
+    let mut config: Config = config.try_deserialize()?;
 
-        config.db_password = common::io::read_file(&config.db_password_file)?;
-        config.token_key = common::io::read_file(&config.token_key_file)?.into_bytes();
+    config.db_password = util::io::read_file(&config.db_password_file)?;
+    config.token_key = util::io::read_file(&config.token_key_file)?.into_bytes();
 
-        CONFIG.set(config).expect("Config already initialized");
-        Ok(())
+    unsafe {
+        CONFIG.write(config);
     }
+    Ok(())
 }
 
 pub fn config() -> &'static Config {
-    CONFIG.get().expect("Config not initialized yet!")
+    unsafe { CONFIG.assume_init_ref() }
 }

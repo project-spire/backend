@@ -211,6 +211,7 @@ fn sync_movement_states(
         return;
     };
     for session in sessions.iter() {
+        // TODO: Send as datagram?
         _ = session.egress_protocol_sender.send(protocol.clone());
     }
 }

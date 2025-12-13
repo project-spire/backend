@@ -40,8 +40,8 @@ impl Character {
         use data::schema::character::dsl::*;
 
         let c = character
-            .filter(id.eq(character_id))
             .select(Character::as_select())
+            .filter(id.eq(character_id))
             .first(conn)
             .await?;
 

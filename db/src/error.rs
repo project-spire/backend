@@ -9,5 +9,7 @@ pub enum Error {
     Pool(#[from] PoolError),
     
     #[error("Query error: {0}")]
-    Query(#[from] diesel::result::Error),
+    Query(#[from] QueryError),
 }
+
+pub type QueryError = diesel::result::Error;

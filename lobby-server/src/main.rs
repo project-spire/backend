@@ -3,6 +3,13 @@ mod error;
 mod middleware;
 mod service;
 
+use crate::config::config;
+use crate::middleware::authenticator::Authenticator;
+use crate::service::{characters, dev_auth};
+use protocol::lobby::{
+    characters_server::CharactersServer,
+    dev_auth_server::DevAuthServer,
+};
 use tonic::service::InterceptorLayer;
 use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tower::{Layer, ServiceBuilder};
@@ -11,20 +18,13 @@ use tower_http::{
 };
 use tracing::info;
 
-use crate::config::{config, Config};
-use crate::middleware::authenticator::Authenticator;
-use protocol::lobby::{
-    characters_server::CharactersServer,
-    dev_auth_server::DevAuthServer,
-};
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     
     info!("Initializing...");
-    Config::init()?;
-    common::id::init(config().node_id);
+    config::init()?;
+    util::id::init(config().node_id);
 
     db::init(
         &config().db_user,
@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let authenticated_service = ServiceBuilder::new()
         .layer(InterceptorLayer::new(authenticator))
-        .service(CharactersServer::new());
+        .service(CharactersServer::new(characters::Server::new()));
 
     let addr = format!("[::]:{}", config().port).parse()?;
     info!("Serving on {}", addr);
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .tls_config(load_tls_config()?)?
         .layer(TraceLayer::new_for_grpc())
-        .add_service(DevAuthServer::new())
+        .add_service(DevAuthServer::new(dev_auth::Server::new()))
         // .add_service(SteamAuthServer::new())
         .add_service(authenticated_service)
         .serve(addr)

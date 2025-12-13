@@ -2,8 +2,11 @@ use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Database error: {0}")]
-    Database(#[from] db::Error),
+    #[error("Database connection error: {0}")]
+    DatabaseConnection(#[from] db::Error),
+    
+    #[error("Database query error: {0}")]
+    DatabaseQuery(#[from] diesel::result::Error),
 
     #[error("Validation error: {0}")]
     Validation(String),
@@ -18,9 +21,13 @@ pub enum Error {
 impl From<Error> for tonic::Status {
     fn from(value: Error) -> Self {
         match value {
-            Error::Database(e) => {
-                error!("Database error: {:?}", e);
-                tonic::Status::internal("Database error")
+            Error::DatabaseConnection(e) => {
+                error!("Database connection error: {:?}", e);
+                tonic::Status::internal("Database connection error")
+            },
+            Error::DatabaseQuery(e) => {
+                error!("Database query error: {:?}", e);
+                tonic::Status::internal("Database query error")
             },
             Error::Validation(msg) => tonic::Status::unauthenticated(msg),
             Error::NotFound(msg) => tonic::Status::not_found(msg),

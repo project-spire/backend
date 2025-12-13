@@ -1,6 +1,6 @@
 pub mod error;
 
-pub use error::Error;
+pub use error::{Error, QueryError};
 
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use diesel_async::pooled_connection::deadpool::{Object, Pool};

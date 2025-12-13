@@ -10,6 +10,8 @@ protocol = { path = "../protocol" }
 util = { path = "../util" }
 
 config = { workspace = true }
+diesel = { workspace = true }
+diesel-async = { workspace = true }
 jsonwebtoken = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }

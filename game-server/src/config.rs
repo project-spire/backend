@@ -97,7 +97,6 @@ pub struct DatabaseConfig {
     password_file: PathBuf,
 }
 
-
 #[derive(Debug, Deserialize)]
 pub struct NetworkConfig {
     #[serde(alias = "game_server_node_id")]
