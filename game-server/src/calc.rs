@@ -1,7 +1,11 @@
 use std::ops::Deref;
 use std::time::{Duration, Instant};
 
-pub struct BasedValue<T> {
+#[derive(Default)]
+pub struct BasedValue<T>
+where
+    T: Default,
+{
     pub base: T,
     pub current: T,
 }
@@ -13,7 +17,7 @@ pub struct Ticker {
 
 impl<T> BasedValue<T>
 where
-    T: Copy,
+    T: Copy + Default,
 {
     pub fn new(base: T) -> Self {
         Self {
@@ -27,7 +31,10 @@ where
     }
 }
 
-impl<T> Deref for BasedValue<T> {
+impl<T> Deref for BasedValue<T>
+where
+    T: Default,
+{
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

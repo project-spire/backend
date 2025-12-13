@@ -97,7 +97,7 @@ fn new_schedule() -> Schedule {
     let mut schedule = Schedule::default();
 
     task::register(&mut schedule);
-    character::movement::register(&mut schedule);
+    character::status::movement::register(&mut schedule);
 
     schedule
 }

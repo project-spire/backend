@@ -1,7 +1,9 @@
 pub mod combat;
 pub mod crafting;
 pub mod growth;
-pub mod health;
-pub mod mana;
-pub mod shield;
-pub mod stamina;
+pub mod movement;
+
+pub use combat::Combat;
+pub use crafting::Crafting;
+pub use growth::Growth;
+pub use movement::Movement;

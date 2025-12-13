@@ -1,8 +1,8 @@
 use bevy_ecs::message::MessageRegistry;
 use bevy_ecs::prelude::*;
 
-use crate::character::status::health::Health;
-use crate::character::status::shield::Shield;
+use crate::character::resource::health::Health;
+use crate::character::resource::shield::Shield;
 
 #[derive(Message)]
 pub struct Damage {

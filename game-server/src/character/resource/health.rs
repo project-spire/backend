@@ -1,7 +1,6 @@
+use crate::calc::{BasedValue, Ticker};
 use bevy_ecs::prelude::*;
 use nalgebra::clamp;
-
-use crate::calc::{BasedValue, Ticker};
 
 #[derive(Component)]
 pub struct Health {
