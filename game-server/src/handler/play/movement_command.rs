@@ -2,17 +2,16 @@ use bevy_ecs::prelude::*;
 
 use crate::character::status::movement::{Motion, Movement};
 use crate::handler::ProtocolLocalHandler;
-use crate::world::zone::Zone;
 use protocol::game::play::movement_command::{*, Command};
 use protocol::game::play::MovementCommand;
 
 impl ProtocolLocalHandler for MovementCommand {
-    fn handle(self, entity: Entity, zone: &mut Zone) {
+    fn handle(self, world: &mut World, entity: Entity) {
         let Some(command) = self.command else {
             return;
         };
 
-        let Some(mut movement) = zone.world.get_mut::<Movement>(entity) else {
+        let Some(mut movement) = world.get_mut::<Movement>(entity) else {
             return;
         };
 

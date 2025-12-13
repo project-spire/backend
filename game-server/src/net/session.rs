@@ -1,11 +1,10 @@
 use crate::config;
-use bevy_ecs::component::Component;
+use bevy_ecs::prelude::*;
 use bytes::Bytes;
-use protocol::game::{Header, IngressLocalProtocol, ProtocolHandler, ProtocolId};
+use protocol::game::{encode, Header, IngressLocalProtocol, Protocol, ProtocolHandler, ProtocolId};
 use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc;
-use tracing::error;
 use util::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
@@ -44,6 +43,9 @@ pub enum Error {
 
     #[error("Ingress bytes limit error: {0}")]
     IngressBytesLimit(util::rate_limiter::Error),
+    
+    #[error("Session not found for entity {0}")]
+    SessionNotFound(Entity),
 }
 
 impl Session {
@@ -105,7 +107,7 @@ impl Session {
                     }
                     ProtocolHandler::Global => {
                         let protocol = protocol::game::decode_global(id, data)?;
-                        crate::handler::handle_global(protocol, entry);
+                        crate::handler::handle_global(entry, protocol);
                     }
                 }
             }
@@ -164,4 +166,19 @@ impl Display for Session {
             self.entry.account_id, self.entry.character_id,
         )
     }
+}
+
+pub fn send(
+    world: &mut World,
+    entity: Entity,
+    protocol: &(impl prost::Message + Protocol)
+) -> Result<(), Error> {
+    let bytes = encode(protocol)?;
+    
+    let session = world
+        .get::<Session>(entity)
+        .ok_or(Error::SessionNotFound(entity))?;
+    _ = session.egress_protocol_sender.send(bytes);
+    
+    Ok(())
 }

@@ -1,9 +1,8 @@
-use crate::task::Task;
-use crate::world::zone::Zone;
-use bevy_ecs::entity::Entity;
+use crate::task::{dispatch, Task};
+use bevy_ecs::prelude::*;
 use protocol::game::tool::cheat_result::Result;
 
-pub fn handle(entity: Entity, zone: &mut Zone, args: &[String]) -> Option<(Result, String)> {
+pub fn handle(world: &mut World, entity: Entity, args: &[String]) -> Option<(Result, String)> {
     let task = Task::serial(async {
         let mut conn = db::conn().await?;
 
@@ -16,7 +15,8 @@ pub fn handle(entity: Entity, zone: &mut Zone, args: &[String]) -> Option<(Resul
             return;
         }
     });
-    zone.dispatch_entity_task(entity, task);
+    
+    dispatch(world, entity, task);
 
     None
 }

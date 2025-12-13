@@ -109,15 +109,6 @@ pub struct NetworkConfig {
     pub application_protocol: String,
 
     pub ingress: net::Ingress,
-
-    // #[serde(alias = "game_server_tls_cert_file")]
-    // tls_cert_file: PathBuf,
-    // #[serde(alias = "game_server_tls_key_file")]
-    // tls_key_file: PathBuf,
-    //
-    // #[serde(skip_deserializing)]
-    // pub token_key: Vec<u8>,
-    // token_key_file: PathBuf,
 }
 
 pub mod net {

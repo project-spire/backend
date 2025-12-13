@@ -1,6 +1,6 @@
 use crate::net::session::Entry;
-use crate::world::zone::Zone;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::world::World;
 
 include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.handle.rs"));
 
@@ -9,7 +9,7 @@ mod play;
 mod tool;
 
 pub trait ProtocolLocalHandler {
-    fn handle(self, entity: Entity, zone: &mut Zone);
+    fn handle(self, world: &mut World, entity: Entity);
 }
 
 pub trait ProtocolGlobalHandler {

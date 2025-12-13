@@ -187,3 +187,17 @@ fn poll(world: &mut World) -> Vec<(Option<Error>, Entity, CallbackFn)> {
 
     callbacks
 }
+
+pub fn dispatch(world: &mut World, entity: Entity, task: Task) {
+    let Ok(mut entity) = world.get_entity_mut(entity) else {
+        return;
+    };
+
+    if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
+        task_queue.dispatch(task);
+        return;
+    }
+
+    entity.insert(TaskQueue::default());
+    entity.get_mut::<TaskQueue>().unwrap().dispatch(task);
+}

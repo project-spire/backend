@@ -1,29 +1,29 @@
 mod new_player;
 
+use std::collections::VecDeque;
 pub use new_player::NewPlayer;
 
 use crate::{character, config};
 use crate::net::session::Session;
-use crate::task::{Task, TaskQueue};
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
-use protocol::game::{encode, Protocol};
-use std::collections::HashMap;
+use protocol::game::IngressLocalProtocol;
 use std::fmt;
 use std::fmt::Formatter;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::info;
+use util::id::Id;
 use util::interval_counter::IntervalCounter;
 
 pub struct Zone {
-    pub id: i64,
+    pub id: Id,
 
     pub world: World,
     pub schedule: Schedule,
     fps: IntervalCounter,
 
-    pub characters: HashMap<i64, Entity>,
+    protocols_buffer: VecDeque<(Entity, IngressLocalProtocol)>
 }
 
 impl Zone {
@@ -32,79 +32,9 @@ impl Zone {
             id,
             world: new_world(),
             schedule: new_schedule(),
-            characters: HashMap::new(),
             fps: IntervalCounter::new(128),
+            protocols_buffer: VecDeque::with_capacity(128),
         }
-    }
-
-    pub fn get_component<T>(&mut self, character_id: i64) -> Option<&T>
-    where
-        T: Component,
-    {
-        self.characters
-            .get(&character_id)
-            .and_then(|entity| self.world.get::<T>(*entity))
-    }
-
-    pub fn get_component_mut<T>(&mut self, character_id: i64) -> Option<Mut<'_, T>>
-    where
-        T: Component<Mutability = bevy_ecs::component::Mutable>,
-    {
-        self.characters
-            .get(&character_id)
-            .and_then(|entity| self.world.get_mut::<T>(*entity))
-    }
-
-    pub fn with_component<C, F, R>(&mut self, character_id: i64, function: F) -> Option<R>
-    where
-        C: Component,
-        F: Fn(&C) -> R,
-    {
-        self.get_component::<C>(character_id).map(function)
-    }
-
-    pub fn with_component_mut<C, F, R>(&mut self, character_id: i64, function: F) -> Option<R>
-    where
-        C: Component<Mutability = bevy_ecs::component::Mutable>,
-        F: FnMut(Mut<C>) -> R,
-    {
-        self.get_component_mut::<C>(character_id).map(function)
-    }
-
-    pub fn add_entity_command<T>(&mut self, entity: Entity, command: T)
-    where
-        T: EntityCommand,
-    {
-        self.world
-            .commands()
-            .entity(entity)
-            .queue(command);
-    }
-
-    pub fn dispatch_entity_task(&mut self, entity: Entity, task: Task) {
-        let Ok(mut entity) = self.world.get_entity_mut(entity) else {
-            return;
-        };
-
-        if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
-            task_queue.dispatch(task);
-            return;
-        }
-
-        entity.insert(TaskQueue::default());
-        entity.get_mut::<TaskQueue>().unwrap().dispatch(task);
-    }
-
-    pub fn send(&self, entity: Entity, protocol: &(impl prost::Message + Protocol)) {
-        let Ok(bytes) = encode(protocol) else {
-            return;
-        };
-
-        let Some(session) = self.world.get::<Session>(entity) else {
-            return;
-        };
-
-        _ = session.egress_protocol_sender.send(bytes);
     }
 
     fn tick(&mut self) {
@@ -125,16 +55,15 @@ impl Zone {
 
     fn handle_protocols(&mut self) {
         let mut query = self.world.query::<(Entity, &Session)>();
-        let mut protocols = Vec::with_capacity(self.characters.len() * 2); //TODO: Optimize here not to allocate vector everytime.
 
         for (entity, session) in query.iter(&mut self.world) {
             for protocol in session.ingress_protocol_receiver.try_iter() {
-                protocols.push((entity, protocol));
+                self.protocols_buffer.push_back((entity, protocol));
             }
         }
 
-        for (entity, protocol) in protocols {
-            crate::handler::handle_local(protocol, entity, self);
+        for (entity, protocol) in self.protocols_buffer.drain(..) {
+            crate::handler::handle_local(&mut self.world, entity, protocol);
         }
     }
 }
@@ -159,6 +88,7 @@ fn new_world() -> World {
     let mut world = World::new();
 
     world.insert_resource(Time::new());
+    world.insert_resource(character::Characters::default());
 
     world
 }

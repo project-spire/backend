@@ -253,7 +253,7 @@ pub fn decode_global(
         let mut protocol_global_handles = Vec::new();
 
         for entry in &self.protocol_entries {
-            let protocol_full_name = format!("protocol::game::{}::{}", entry.category, entry.protocol.protocol);
+            // let protocol_full_name = format!("protocol::game::{}::{}", entry.category, entry.protocol.protocol);
 
             if !entry.protocol.handle {
                 continue;
@@ -267,7 +267,7 @@ pub fn decode_global(
             match entry.protocol.handler {
                 ProtocolHandler::Local => {
                     protocol_local_handles.push(format!(
-                        "{TAB}{TAB}{}(p) => p.handle(entity, zone),",
+                        "{TAB}{TAB}{}(p) => p.handle(world, entity),",
                         entry.protocol.protocol,
                     ));
                 }
@@ -283,9 +283,9 @@ pub fn decode_global(
         let code = format!(r#"use protocol::game::{{IngressGlobalProtocol, IngressLocalProtocol}};
 
 pub fn handle_local(
-    protocol: IngressLocalProtocol,
+    world: &mut bevy_ecs::world::World,
     entity: bevy_ecs::entity::Entity,
-    zone: &mut Zone,
+    protocol: IngressLocalProtocol,
 ) {{
     use IngressLocalProtocol::*;
 
@@ -295,8 +295,8 @@ pub fn handle_local(
 }}
 
 pub fn handle_global(
-    protocol: IngressGlobalProtocol,
     entry: Entry,
+    protocol: IngressGlobalProtocol,
 ) {{
     use IngressGlobalProtocol::*;
 

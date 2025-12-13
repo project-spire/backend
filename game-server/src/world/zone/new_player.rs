@@ -1,8 +1,8 @@
+use super::Zone;
+use crate::character::Characters;
+use crate::player::PlayerData;
 use actix::prelude::*;
 use tracing::info;
-
-use super::Zone;
-use crate::player::PlayerData;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
@@ -20,7 +20,12 @@ impl Handler<NewPlayer> for Zone {
         let character_id = player_data.character.id;
         let entity = self.world.spawn(player_data).id();
 
-        self.characters.insert(character_id, entity);
+        self.world
+            .get_resource_mut::<Characters>()
+            .unwrap()
+            .map
+            .insert(character_id, entity);
+
         info!("{}: New player added", self);
     }
 }
