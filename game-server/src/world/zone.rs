@@ -1,14 +1,14 @@
 mod new_player;
 
-use std::collections::VecDeque;
 pub use new_player::NewPlayer;
 
-use crate::{character, config};
+use crate::{character, config, task};
 use crate::net::session::Session;
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
 use protocol::game::IngressLocalProtocol;
+use std::collections::VecDeque;
 use std::fmt;
 use std::fmt::Formatter;
 use std::time::Instant;
@@ -96,8 +96,8 @@ fn new_world() -> World {
 fn new_schedule() -> Schedule {
     let mut schedule = Schedule::default();
 
-    crate::task::register(&mut schedule);
-    character::status::movement::register(&mut schedule);
+    task::register(&mut schedule);
+    character::movement::register(&mut schedule);
 
     schedule
 }
