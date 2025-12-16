@@ -46,11 +46,6 @@ impl Zone {
         time.last_tick = Instant::now();
         time.ticks += 1;
         self.fps.tick();
-
-        if time.ticks % 100 == 0 {
-            let ticks = time.ticks;
-            info!("{} ticks={}, FPS={:.2}", self, ticks, self.fps.reversed());
-        }
     }
 
     fn handle_protocols(&mut self) {

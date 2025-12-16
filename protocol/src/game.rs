@@ -35,9 +35,7 @@ pub enum ProtocolHandler {
 }
 
 impl Header {
-    pub const fn size() -> usize {
-        4
-    }
+    pub const fn size() -> usize { 4 }
 
     pub fn encode(buf: &mut BytesMut, length: usize, id: ProtocolId) -> Result<(), Error> {
         if buf.remaining_mut() < Self::size() {

@@ -6,11 +6,14 @@ const ALGORITHM: Algorithm = Algorithm::HS256;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Claims {
-    #[serde(rename = "aid")]
-    pub account_id: i64,
+    #[serde(rename = "iat")]
+    pub issue: i64,
 
     #[serde(rename = "exp")]
     pub expire: i64,
+
+    #[serde(rename = "aid")]
+    pub account_id: i64,
 }
 
 pub fn generate(
@@ -18,11 +21,14 @@ pub fn generate(
     encoding_key: &EncodingKey,
     expiration: std::time::Duration,
 ) -> Result<String, jsonwebtoken::errors::Error> {
-    let expire = (Utc::now() + expiration).timestamp();
+    let now = Utc::now();
+    let issue = now.timestamp();
+    let expire = (now + expiration).timestamp();
 
     let claims = Claims {
-        account_id,
+        issue,
         expire,
+        account_id,
     };
 
     jsonwebtoken::encode(
@@ -35,7 +41,7 @@ pub fn generate(
 pub fn verify(
     token: &str,
     decoding_key: &DecodingKey
-) -> Result<Claims, Box<dyn std::error::Error>> {
+) -> Result<Claims, jsonwebtoken::errors::Error> {
     let validation = Validation::new(ALGORITHM);
     let claims = jsonwebtoken::decode::<Claims>(
         token,

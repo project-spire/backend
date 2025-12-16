@@ -5,7 +5,7 @@ use actix::prelude::*;
 use bytes::Bytes;
 use prost::Message;
 use protocol::game::auth::Login;
-use protocol::game::Header;
+use protocol::game::{Header, Protocol};
 use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
 use tracing::{error, info};
@@ -50,7 +50,7 @@ impl Handler<NewConnection> for Authenticator {
             let (entry, login_kind) = match act.validate_login(&login) {
                 Ok(o) => o,
                 Err(e) => {
-                    error!("Failed to validate login: {}", e);
+                    error!("Failed to validate login: {}, {}", e, &login.token);
                     return fut::ready(());
                 }
             };
@@ -77,6 +77,11 @@ async fn receive_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::er
 
     let mut body_buf = vec![0u8; header.length];
     timeout(config!(auth).login.timeout, stream.read_exact(&mut body_buf)).await??;
+    
+    let login = Login::decode(Bytes::from(body_buf))?;
+    // if login.protocol_id() != header.id {
+    //     return Err();
+    // }
 
-    Ok(Login::decode(Bytes::from(body_buf))?)
+    Ok(login)
 }
