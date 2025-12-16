@@ -15,3 +15,12 @@ impl Default for Transform {
         }
     }
 }
+
+impl Into<protocol::Transform> for &Transform {
+    fn into(self) -> protocol::Transform {
+        protocol::Transform {
+            position: Some(self.position.into()),
+            direction: Some(self.direction.into()),
+        }
+    }
+}

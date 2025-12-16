@@ -9,7 +9,6 @@ use protocol::game::play::movement_command::{self, Command::*};
 use protocol::game::play::{MovementCommand, MovementState, MovementSync};
 use protocol::game::play::movement_state::Motion;
 use tracing::warn;
-use util::timestamp::Timestamp;
 
 #[derive(Component, Default)]
 #[require(Transform)]
@@ -25,7 +24,7 @@ pub struct Movement {
 #[require(Movement)]
 pub struct MovementCommands {
     pub queue: Vec<MovementCommand>,
-    last_timestamp: Timestamp,
+    last_timestamp: i64,
 }
 
 #[derive(Debug, Default)]
@@ -64,7 +63,7 @@ pub fn register(schedule: &mut Schedule) {
 fn process_commands(
     mut query: Query<(&mut MovementCommands, &mut Movement, &mut Transform)>,
 ) {
-    let now = util::timestamp::now();
+    let now = chrono::Utc::now().timestamp_millis();
     let mut commands_buffer = Vec::with_capacity(8);
 
     for (mut commands, mut movement, mut transform) in query.iter_mut() {
@@ -182,23 +181,22 @@ fn handle_jump(
 }
 
 fn sync_movement_states(
-    query: Query<(Entity, Ref<Movement>, Ref<Transform>)>,
+    query: Query<(Entity, &Movement, &Transform)>,
     sessions: Query<&Session>,
 ) {
     let mut sync = MovementSync::default();
-    sync.timestamp = util::timestamp::now();
+    sync.timestamp = chrono::Utc::now().timestamp_millis();
 
     // TODO: Batch the protocol not to exceed QUIC datagram maximum.
     for (entity, movement, transform) in query.iter() {
-        if !movement.is_changed() && transform.is_changed() {
-            continue;
-        }
+        // if !movement.is_changed() && transform.is_changed() {
+        //     continue;
+        // }
 
         let state = MovementState {
             entity: entity.to_bits(),
             motion: movement.motion.into(),
-            position: Some(transform.position.into()),
-            direction: Some(transform.direction.into()),
+            transform: Some(transform.into()),
         };
         sync.states.push(state);
     }

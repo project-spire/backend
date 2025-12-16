@@ -1,7 +1,9 @@
 use crate::config;
+use crate::world::time::Time;
 use bevy_ecs::prelude::*;
 use bytes::Bytes;
 use protocol::game::{encode, Header, IngressLocalProtocol, Protocol, ProtocolHandler, ProtocolId};
+use protocol::game::net::Ping;
 use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc;
@@ -181,4 +183,22 @@ pub fn send(
     _ = session.egress_protocol_sender.send(bytes);
     
     Ok(())
+}
+
+pub fn register(schedule: &mut Schedule) {
+    schedule.add_systems(ping);
+}
+
+fn ping(query: Query<&Session>, time: Res<Time>) {
+    if time.ticks % 10 != 0 {
+        return;
+    }
+    
+    let Ok(protocol) = encode(&Ping { timestamp: chrono::Utc::now().timestamp() }) else {
+        return;
+    };
+
+    for session in query.iter() {
+        _ = session.connection.send_datagram(protocol.clone());
+    }
 }

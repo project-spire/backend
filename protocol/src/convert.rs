@@ -12,6 +12,12 @@ impl From<Vector2<f32>> for crate::Vector2 {
     }
 }
 
+impl From<&Vector2<f32>> for crate::Vector2 {
+    fn from(value: &Vector2<f32>) -> Self {
+        crate::Vector2 { x: value.x, y: value.y }
+    }
+}
+
 impl TryFrom<crate::Vector2> for UnitVector2<f32> {
     type Error = ();
 
@@ -50,6 +56,12 @@ impl From<crate::Vector3> for Vector3<f32> {
 
 impl From<Vector3<f32>> for crate::Vector3 {
     fn from(value: Vector3<f32>) -> Self {
+        crate::Vector3 { x: value.x, y: value.y, z: value.z }
+    }
+}
+
+impl From<&Vector3<f32>> for crate::Vector3 {
+    fn from(value: &Vector3<f32>) -> Self {
         crate::Vector3 { x: value.x, y: value.y, z: value.z }
     }
 }

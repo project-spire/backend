@@ -2,7 +2,7 @@ mod new_player;
 
 pub use new_player::NewPlayer;
 
-use crate::{character, config, task};
+use crate::config;
 use crate::net::session::Session;
 use crate::world::time::Time;
 use actix::prelude::*;
@@ -83,7 +83,7 @@ fn new_world() -> World {
     let mut world = World::new();
 
     world.insert_resource(Time::new());
-    world.insert_resource(character::Characters::default());
+    world.insert_resource(crate::character::Characters::default());
 
     world
 }
@@ -91,8 +91,9 @@ fn new_world() -> World {
 fn new_schedule() -> Schedule {
     let mut schedule = Schedule::default();
 
-    task::register(&mut schedule);
-    character::status::movement::register(&mut schedule);
+    crate::character::status::movement::register(&mut schedule);
+    crate::net::session::register(&mut schedule);
+    crate::task::register(&mut schedule);
 
     schedule
 }

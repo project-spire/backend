@@ -12,6 +12,7 @@ util = { path = "../util" }
 actix = "0.13"
 bevy_ecs = "0.17"
 bytes = { workspace = true }
+chrono = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 config = { workspace = true }
 crossbeam-channel = "0.5"
