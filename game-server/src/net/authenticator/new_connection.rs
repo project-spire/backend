@@ -70,15 +70,15 @@ impl Handler<NewConnection> for Authenticator {
 }
 
 async fn receive_login(stream: &mut RecvStream) -> Result<Login, Box<dyn std::error::Error>> {
-    let mut header_buf = [0u8; Header::size()];
-    timeout(config!(auth).login.timeout, stream.read_exact(&mut header_buf)).await??;
+    let mut header_buffer = [0u8; Header::size()];
+    timeout(config!(auth).login.timeout, stream.read_exact(&mut header_buffer)).await??;
 
-    let header = Header::decode(&header_buf)?;
+    let header = Header::decode(&header_buffer)?;
 
-    let mut body_buf = vec![0u8; header.length];
-    timeout(config!(auth).login.timeout, stream.read_exact(&mut body_buf)).await??;
+    let mut body_buffer = vec![0u8; header.length as usize];
+    timeout(config!(auth).login.timeout, stream.read_exact(&mut body_buffer)).await??;
     
-    let login = Login::decode(Bytes::from(body_buf))?;
+    let login = Login::decode(Bytes::from(body_buffer))?;
     // if login.protocol_id() != header.id {
     //     return Err();
     // }

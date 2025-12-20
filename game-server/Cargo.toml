@@ -32,7 +32,6 @@ serde = { workspace = true }
 #strum = { version = "0.27", features = ["derive"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tokio-util = { version = "0.7", features = ["codec"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 

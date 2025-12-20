@@ -26,6 +26,7 @@ impl GameListener {
 
         let transport_config = Arc::get_mut(&mut server_config.transport).unwrap();
         transport_config.max_idle_timeout(Some(std::time::Duration::from_secs(30).try_into()?));
+        // transport_config.keep_alive_interval(Some(std::time::Duration::from_secs(5)));
 
         Ok(server_config)
     }
