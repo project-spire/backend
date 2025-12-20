@@ -62,7 +62,7 @@ impl Characters for Server {
             .await
             .map_err(Error::DatabaseQuery)?;
 
-        let characters: Vec<protocol::Character> =
+        let characters: Vec<protocol::CharacterData> =
             characters.into_iter().map(|c| c.into()).collect();
         let response = ListCharactersResponse { characters };
 
@@ -98,7 +98,7 @@ impl Characters for Server {
                 .map_err(Error::DatabaseQuery)?;
         }
 
-        let character = Some(protocol::Character {
+        let character = Some(protocol::CharacterData {
             id: character_id,
             name: request.name,
             race: request.race,
@@ -120,11 +120,11 @@ impl Characters for Server {
     }
 }
 
-impl Into<protocol::Character> for Character {
-    fn into(self) -> protocol::Character {
+impl Into<protocol::CharacterData> for Character {
+    fn into(self) -> protocol::CharacterData {
         let race: protocol::Race = self.race.into();
 
-        protocol::Character {
+        protocol::CharacterData {
             id: self.id,
             name: self.name,
             race: race.into(),

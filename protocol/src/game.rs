@@ -52,12 +52,17 @@ impl Header {
 
     pub fn decode(buf: &[u8; Self::size()]) -> Result<Self, Error> {
         let length = ((buf[0] as usize) << 8) | (buf[1] as usize);
-        let protocol = ((buf[2] as u16) << 8) | (buf[3] as u16);
+        let id = ((buf[2] as u16) << 8) | (buf[3] as u16);
 
         Ok(Self {
             length,
-            id: protocol,
+            id,
         })
+    }
+
+    pub fn decode_id(buf: &[u8; 2]) -> Result<ProtocolId, Error> {
+        let id = ((buf[0] as u16) << 8) | (buf[1] as u16);
+        Ok(id)
     }
 }
 

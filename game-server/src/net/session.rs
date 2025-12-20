@@ -1,12 +1,14 @@
 use crate::config;
 use crate::world::time::Time;
 use bevy_ecs::prelude::*;
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use protocol::game::{encode, Header, IngressLocalProtocol, Protocol, ProtocolHandler, ProtocolId};
 use protocol::game::net::Ping;
 use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
+use futures::StreamExt;
 use tokio::sync::mpsc;
+use tokio_util::codec::LengthDelimitedCodec;
 use util::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
@@ -34,8 +36,11 @@ pub enum Error {
     #[error(transparent)]
     Protocol(#[from] protocol::game::Error),
 
+    // #[error(transparent)]
+    // Read(#[from] ReadExactError),
+
     #[error(transparent)]
-    Read(#[from] ReadExactError),
+    IO(#[from] std::io::Error),
 
     #[error(transparent)]
     Write(#[from] WriteError),
@@ -46,8 +51,8 @@ pub enum Error {
     #[error("Ingress bytes limit error: {0}")]
     IngressBytesLimit(util::rate_limiter::Error),
     
-    #[error("Session not found for entity {0}")]
-    SessionNotFound(Entity),
+    // #[error("Session not found for entity {0}")]
+    // SessionNotFound(Entity),
 }
 
 impl Session {
@@ -80,39 +85,63 @@ impl Session {
     }
 
     fn start_receive(
-        mut stream: RecvStream,
+        stream: RecvStream,
         ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
         entry: Entry,
     ) -> tokio::task::JoinHandle<Result<(), Error>> {
+        let mut reader = LengthDelimitedCodec::builder()
+            .length_field_length(size_of::<u16>())
+            .length_field_type::<u16>()
+            .length_adjustment(2)
+            .new_read(stream);
+
         let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
             .map(|params| RateLimiter::new(params));
         let mut ingress_bytes_limiter = config!(net).ingress.bytes_rate_limit
             .map(|params| RateLimiter::new(params));
 
         tokio::spawn(async move {
-            loop {
-                let (id, data) = receive_protocol(&mut stream).await?;
+            while let Some(frame) = reader.next().await {
+                let (id, body) = match frame {
+                    Ok(mut frame) => {
+                        if frame.len() < 2 {
+                            return Err(Error::IO(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "Invalid header size"
+                            )))
+                        }
+
+                        let id = frame.split_to(2).get_u16_ne();
+                        (id, frame.freeze())
+                    },
+                    Err(e) => return Err(e.into()),
+                };
 
                 if let Some(limiter) = ingress_protocols_limiter.as_mut() {
                     limiter.check().map_err(Error::IngressProtocolsLimit)?;
                 }
                 if let Some(limiter) = ingress_bytes_limiter.as_mut() {
-                    limiter.check_with_value(data.len() as f32).map_err(Error::IngressBytesLimit)?;
+                    limiter.check_with_value(body.len() as f32).map_err(Error::IngressBytesLimit)?;
                 }
 
                 match protocol::game::protocol_handler(id)? {
                     ProtocolHandler::Local => {
-                        let protocol = protocol::game::decode_local(id, data)?;
+                        let protocol = protocol::game::decode_local(id, body)?;
                         if let Err(crossbeam_channel::TrySendError::Disconnected(_)) = ingress_protocol_sender.try_send(protocol) {
                             break;
                         }
                     }
                     ProtocolHandler::Global => {
-                        let protocol = protocol::game::decode_global(id, data)?;
+                        let protocol = protocol::game::decode_global(id, body)?;
                         crate::handler::handle_global(entry, protocol);
                     }
                 }
             }
+
+            // loop {
+            //     let (id, data) = receive_protocol(&mut stream).await?;
+            //
+            // }
 
             Ok(())
         })
@@ -144,16 +173,16 @@ impl Session {
     }
 }
 
-async fn receive_protocol(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes), Error> {
-    let mut header_buf = [0u8; Header::size()];
-    stream.read_exact(&mut header_buf).await?;
-    let header = Header::decode(&header_buf)?;
-
-    let mut body_buf = vec![0u8; header.length];
-    stream.read_exact(&mut body_buf).await?;
-
-    Ok((header.id, body_buf.into()))
-}
+// async fn receive_protocol(stream: &mut RecvStream) -> Result<(ProtocolId, Bytes), Error> {
+//     let mut header_buf = [0u8; Header::size()];
+//     stream.read_exact(&mut header_buf).await?;
+//     let header = Header::decode(&header_buf)?;
+//
+//     let mut body_buf = vec![0u8; header.length];
+//     stream.read_exact(&mut body_buf).await?;
+//
+//     Ok((header.id, body_buf.into()))
+// }
 
 async fn send_protocol(stream: &mut SendStream, data: Bytes) -> Result<(), Error> {
     stream.write_all(&data[..]).await?;
@@ -173,16 +202,16 @@ impl Display for Session {
 pub fn send(
     world: &mut World,
     entity: Entity,
-    protocol: &(impl prost::Message + Protocol)
-) -> Result<(), Error> {
-    let bytes = encode(protocol)?;
+    protocol: &(impl prost::Message + Protocol),
+) {
+    let Ok(bytes) = encode(protocol) else {
+        return;
+    };
     
-    let session = world
-        .get::<Session>(entity)
-        .ok_or(Error::SessionNotFound(entity))?;
+    let Some(session) = world.get::<Session>(entity) else {
+        return;
+    };
     _ = session.egress_protocol_sender.send(bytes);
-    
-    Ok(())
 }
 
 pub fn register(schedule: &mut Schedule) {
