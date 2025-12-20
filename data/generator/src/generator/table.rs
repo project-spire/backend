@@ -8,6 +8,7 @@ use std::collections::VecDeque;
 use std::fs;
 
 const TUPLE_TYPES_MAX_COUNT: usize = 4;
+const fn generate_default() -> bool { true }
 
 #[derive(Debug)]
 pub struct TableEntry {
@@ -24,6 +25,8 @@ pub enum TableSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct ConcreteTableSchema {
+    #[serde(default = "generate_default")]
+    pub enabled: bool,
     pub name: String,
     pub workbook: String,
     pub sheet: String,
@@ -33,6 +36,8 @@ pub struct ConcreteTableSchema {
 
 #[derive(Debug, Deserialize)]
 pub struct AbstractTableSchema {
+    #[serde(default = "generate_default")]
+    pub enabled: bool,
     pub name: String,
     pub fields: Vec<Field>,
     pub extend: Option<String>,
@@ -51,11 +56,11 @@ pub struct Field {
     #[serde(flatten)]
     pub kind: FieldKind,
     #[serde(default)]
-    pub optional: Option<bool>,
+    pub optional: bool,
     #[serde(default)]
-    pub multi: Option<bool>,
+    pub multi: bool,
     #[serde(default)]
-    pub constraints: Option<Vec<Constraint>>,
+    pub constraints: Vec<Constraint>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -75,6 +80,10 @@ pub enum FieldKind {
     },
     Tuple {
         types: Vec<FieldKind>,
+    },
+    Union {
+        #[serde(rename = "type")]
+        union_type: String
     },
 }
 
@@ -96,6 +105,7 @@ pub enum ScalarAllType {
     String,
     Datetime,
     Duration,
+    Json,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -175,8 +185,8 @@ impl FieldKind {
                 ScalarAllType::String => "String",
                 ScalarAllType::Datetime => "chrono::DateTime",
                 ScalarAllType::Duration => "chrono::Duration",
-            }
-            .to_string(),
+                ScalarAllType::Json => "serde_json::Value",
+            }.to_string(),
             FieldKind::Enum { enum_type } => {
                 format!("{CRATE_PREFIX}::{enum_type}")
             }
@@ -186,6 +196,9 @@ impl FieldKind {
             FieldKind::Tuple { types } => {
                 let type_strings = to_tuple_type_strings(types);
                 format!("({})", type_strings.join(", "))
+            }
+            FieldKind::Union { union_type } => {
+                format!("{CRATE_PREFIX}::{union_type}")
             }
         }
     }
@@ -206,11 +219,13 @@ impl FieldKind {
                             break;
                         }
                         FieldKind::Tuple { .. } => panic!("Nested tuples are not supported"),
+                        FieldKind::Union { .. } => continue,
                     }
                 }
 
                 has_link
-            }
+            },
+            FieldKind::Union { .. } => false,
         }
     }
 }

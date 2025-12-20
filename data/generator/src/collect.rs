@@ -102,6 +102,12 @@ impl Generator {
         self.register_type(&type_name)?;
 
         let schema: TableSchema = serde_json::from_str(&fs::read_to_string(file)?)?;
+        if !match &schema {
+            TableSchema::Concrete(schema) => schema.enabled,
+            TableSchema::Abstract(schema) => schema.enabled,
+        } {
+            return Ok(());
+        }
 
         self.tables.push(TableEntry { name, schema });
         module

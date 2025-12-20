@@ -73,19 +73,19 @@ impl crate::Loadable for LinkTestTable {
 
         let mut check_constraint = |row: &LinkTest| -> Result<(), (&'static str, ConstraintError)> {
             if !exclusive_max5_item_link_set.insert(row.exclusive_max5_item_link.clone()) {
-                return Err(("exclusive_max5_item_link", ConstraintError::Unique {
-                    type_name: std::any::type_name::<Link<crate::item::Item>>(),
-                    value: row.exclusive_max5_item_link.to_string(),
-                }));
-            }
+            return Err(("exclusive_max5_item_link", ConstraintError::Unique {
+                type_name: std::any::type_name::<Link<crate::item::Item>>(),
+                value: row.exclusive_max5_item_link.to_string(),
+            }));
+        }
 
             if row.exclusive_max5_item_link > 5 {
-                return Err(("exclusive_max5_item_link", ConstraintError::Max {
-                    type_name: std::any::type_name::<Link<crate::item::Item>>(),
-                    expected: 5.to_string(),
-                    actual: row.exclusive_max5_item_link.to_string(),
-                }));
-            }
+            return Err(("exclusive_max5_item_link", ConstraintError::Max {
+                type_name: std::any::type_name::<Link<crate::item::Item>>(),
+                expected: 5.to_string(),
+                actual: row.exclusive_max5_item_link.to_string(),
+            }));
+        }
 
             Ok(())
         };

@@ -1,5 +1,6 @@
 // This is a generated file. DO NOT MODIFY.
 pub mod link_test;
+pub mod skill;
 pub mod item;
 pub mod character;
 

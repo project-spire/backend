@@ -33,10 +33,7 @@ impl Generator {
                 continue;
             }
 
-            let is_optional = field.optional.unwrap_or(false);
-            let is_multi = field.multi.unwrap_or(false);
-
-            if is_optional && is_multi {
+            if field.optional && field.multi {
                 return Err(Error::InvalidAttribute(
                     "Optional and multi cannot be both true".to_string(),
                 ));
@@ -46,56 +43,54 @@ impl Generator {
             field_names.push(field_name.clone());
 
             let mut is_unique = false;
-            if let Some(constraints) = &field.constraints {
-                for constraint in constraints {
-                    match constraint {
-                        Constraint::Unique => {
-                            let set_name = format!("{field_name}_set");
+            for constraint in &field.constraints {
+                match constraint {
+                    Constraint::Unique => {
+                        let set_name = format!("{field_name}_set");
 
-                            constraint_inits.push(format!(
-                                "{TAB}{TAB}let mut {set_name} = std::collections::HashSet::<{}>::new();",
-                                field.kind.to_rust_type(),
-                            ));
-                            constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if !{set_name}.insert(row.{field_name}.clone()) {{
-                return Err(("{field_name}", ConstraintError::Unique {{
-                    type_name: std::any::type_name::<{field_type}>(),
-                    value: row.{field_name}.to_string(),
-                }}));
-            }}"#,
-                                field_type = field.kind.to_rust_type(),
-                            ));
-                            is_unique = true;
-                        }
-                        Constraint::Max(value) => {
-                            constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if row.{field_name} > {value} {{
-                return Err(("{field_name}", ConstraintError::Max {{
-                    type_name: std::any::type_name::<{field_type}>(),
-                    expected: {value}.to_string(),
-                    actual: row.{field_name}.to_string(),
-                }}));
-            }}"#,
-                                field_type = field.kind.to_rust_type(),
-                            ));
-                        }
-                        Constraint::Min(value) => {
-                            constraint_checks.push(format!(
-                                r#"{TAB}{TAB}{TAB}if row.{field_name} < {value} {{
-                return Err(("{field_name}", ConstraintError::Min {{
-                    type_name: std::any::type_name::<{field_type}>(),
-                    expected: {value}.to_string(),
-                    actual: row.{field_name}.to_string(),
-                }}));
-            }}"#,
-                                field_type = field.kind.to_rust_type(),
-                            ));
-                        }
+                        constraint_inits.push(format!(
+                            "{TAB}{TAB}let mut {set_name} = std::collections::HashSet::<{}>::new();",
+                            field.kind.to_rust_type(),
+                        ));
+                        constraint_checks.push(format!(
+                            r#"{TAB}{TAB}{TAB}if !{set_name}.insert(row.{field_name}.clone()) {{
+            return Err(("{field_name}", ConstraintError::Unique {{
+                type_name: std::any::type_name::<{field_type}>(),
+                value: row.{field_name}.to_string(),
+            }}));
+        }}"#,
+                            field_type = field.kind.to_rust_type(),
+                        ));
+                        is_unique = true;
+                    }
+                    Constraint::Max(value) => {
+                        constraint_checks.push(format!(
+                            r#"{TAB}{TAB}{TAB}if row.{field_name} > {value} {{
+            return Err(("{field_name}", ConstraintError::Max {{
+                type_name: std::any::type_name::<{field_type}>(),
+                expected: {value}.to_string(),
+                actual: row.{field_name}.to_string(),
+            }}));
+        }}"#,
+                            field_type = field.kind.to_rust_type(),
+                        ));
+                    }
+                    Constraint::Min(value) => {
+                        constraint_checks.push(format!(
+                            r#"{TAB}{TAB}{TAB}if row.{field_name} < {value} {{
+            return Err(("{field_name}", ConstraintError::Min {{
+                type_name: std::any::type_name::<{field_type}>(),
+                expected: {value}.to_string(),
+                actual: row.{field_name}.to_string(),
+            }}));
+        }}"#,
+                            field_type = field.kind.to_rust_type(),
+                        ));
                     }
                 }
             }
 
-            if is_multi && is_unique {
+            if field.multi && is_unique {
                 return Err(Error::InvalidAttribute(
                     "Multi field cannot have unique constraint".to_string(),
                 ));
@@ -103,23 +98,23 @@ impl Generator {
 
             field_definitions.push(format!("{TAB}pub {}: {},", field.name, {
                 let base_type = field.kind.to_rust_type();
-                let multi_type = if is_multi {
+                let multi_type = if field.multi {
                     format!("Vec<{}>", base_type)
                 } else {
                     base_type
                 };
-                if is_optional {
+                if field.optional {
                     format!("Option<{}>", multi_type)
                 } else {
                     multi_type
                 }
             },));
 
-            let field_parse = if is_optional {
+            let field_parse = if field.optional {
                 format!(
                     "{TAB}{TAB}let {field_name} = parse_optional(&row[{index}]).map_err(|e| (\"{field_name}\", e))?;"
                 )
-            } else if is_multi {
+            } else if field.multi {
                 format!(
                     "{TAB}{TAB}let {field_name} = parse_multi(&row[{index}]).map_err(|e| (\"{field_name}\", e))?;"
                 )
@@ -135,7 +130,7 @@ impl Generator {
                 continue;
             }
 
-            let link_init = if is_optional {
+            let link_init = if field.optional {
                 let link_init = match &field.kind {
                     FieldKind::Link { .. } => {
                         format!(
@@ -162,7 +157,7 @@ impl Generator {
 {link_init}
                 }}"#
                 )
-            } else if is_multi {
+            } else if field.multi {
                 let link_init = match &field.kind {
                     FieldKind::Link { .. } => {
                         format!("{TAB}{TAB}{TAB}{TAB}{TAB}x.init().map_err(|e| (*id, e))?;")
