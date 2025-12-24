@@ -89,12 +89,6 @@ impl Session {
         ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
         entry: Entry,
     ) -> tokio::task::JoinHandle<Result<(), Error>> {
-        // let mut reader = LengthDelimitedCodec::builder()
-        //     .length_field_length(size_of::<u16>())
-        //     .length_field_type::<u16>()
-        //     .length_adjustment(2)
-        //     .new_read(stream);
-
         let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
             .map(|params| RateLimiter::new(params));
         let mut ingress_bytes_limiter = config!(net).ingress.bytes_rate_limit
@@ -108,7 +102,7 @@ impl Session {
                 stream.read_exact(&mut header_buffer).await?;
                 let header = Header::decode(&header_buffer)?;
 
-                body_buffer.reserve(header.length as usize);
+                body_buffer.resize(header.length as usize, 0);
                 stream.read_exact(&mut body_buffer[..header.length as usize]).await?;
                 let body = body_buffer.split_to(header.length as usize).freeze();
 
@@ -133,6 +127,8 @@ impl Session {
                 }
             }
 
+            info!("receiving end");
+
             Ok(())
         })
     }
@@ -151,6 +147,8 @@ impl Session {
                     stream.write_all(&data[..]).await?;
                 }
             }
+
+            info!("sending end");
         })
     }
 
@@ -190,7 +188,7 @@ pub fn send(
 
 pub fn register(schedule: &mut Schedule) {
     schedule.add_systems((
-        ping,
+        // ping,
         cleanup,
     ));
 }
@@ -236,6 +234,8 @@ fn cleanup(
                 }
             }
         }
+        
+        info!("{} is cleaned up", *session);
 
         session.stop();
         commands.entity(entity).despawn();
