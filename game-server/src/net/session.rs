@@ -83,6 +83,13 @@ impl Session {
 
         self.connection.close(0u32.into(), b"Session closed manually");
     }
+    
+    pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
+        let Ok(bytes) = encode(protocol) else {
+            return;
+        };
+        _ = self.egress_protocol_sender.send(bytes);
+    }
 
     fn start_receive(
         mut stream: RecvStream,

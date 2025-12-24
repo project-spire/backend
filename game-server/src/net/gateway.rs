@@ -4,7 +4,7 @@ mod new_zone;
 pub use new_player::NewPlayer;
 pub use new_zone::NewZone;
 
-use crate::world::zone::Zone;
+use crate::net::zone::Zone;
 use actix::prelude::*;
 use std::collections::HashMap;
 

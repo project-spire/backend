@@ -1,11 +1,12 @@
 use crate::config;
 use crate::net::authenticator::Authenticator;
 use crate::net::gateway::{Gateway, NewPlayer};
+use crate::net::session::Session;
 use actix::prelude::*;
 use bytes::Bytes;
 use prost::Message;
 use protocol::game::auth::Login;
-use protocol::game::{Header, Protocol};
+use protocol::game::Header;
 use quinn::{Connection, RecvStream, SendStream};
 use tokio::time::timeout;
 use tracing::{error, info};
@@ -56,12 +57,11 @@ impl Handler<NewConnection> for Authenticator {
             };
 
             info!("Authenticated: {:?}", entry);
+
+            let session = Session::start(entry, connection, receive_stream, send_stream);
             Gateway::from_registry().do_send(NewPlayer {
-                connection,
-                receive_stream,
-                send_stream,
                 login_kind,
-                entry,
+                session,
             });
 
             fut::ready(())

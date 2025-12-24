@@ -11,7 +11,7 @@ mod world;
 use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
-use crate::world::zone::Zone;
+use crate::net::zone::Zone;
 use actix::prelude::*;
 use clap::Parser;
 use mimalloc::MiMalloc;

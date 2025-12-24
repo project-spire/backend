@@ -1,21 +1,17 @@
 use actix::{ActorFutureExt, AsyncContext, Handler, WrapFuture};
-use quinn::{Connection, RecvStream, SendStream};
 use tracing::{error, info};
 
 use super::Gateway;
-use crate::net::session::{Entry, Session};
+use crate::net::session::Session;
+use crate::net::zone;
 use crate::player::PlayerData;
-use crate::world::zone;
 use protocol::game::auth::login;
 
 #[derive(actix::Message)]
 #[rtype(result = "()")]
 pub struct NewPlayer {
-    pub connection: Connection,
-    pub receive_stream: RecvStream,
-    pub send_stream: SendStream,
     pub login_kind: login::Kind,
-    pub entry: Entry,
+    pub session: Session,
 }
 
 impl Handler<NewPlayer> for Gateway {
@@ -23,18 +19,17 @@ impl Handler<NewPlayer> for Gateway {
 
     fn handle(&mut self, msg: NewPlayer, ctx: &mut Self::Context) -> Self::Result {
         ctx.spawn(async move {
-            let session = Session::start(msg.entry, msg.connection, msg.receive_stream, msg.send_stream);
-
+            let session = msg.session;
             let player_data = match msg.login_kind {
-                login::Kind::Enter => PlayerData::load(session).await?,
+                login::Kind::Enter => PlayerData::load(&session.entry).await?,
                 login::Kind::Transfer => todo!(),
             };
 
-            Ok::<PlayerData, Box<dyn std::error::Error>>(player_data)
+            Ok::<(Session, PlayerData), db::Error>((session, player_data))
         }
         .into_actor(self)
         .then(|res, act, _| {
-            let player_data = match res {
+            let (session, player_data) = match res {
                 Ok(data) => data,
                 Err(e) => {
                     error!("Failed to load player data: {}", e);
@@ -48,7 +43,7 @@ impl Handler<NewPlayer> for Gateway {
 
             //TODO: Find the player's last zone
             let default_zone = act.zones.get(&0).unwrap();
-            default_zone.do_send(zone::NewPlayer { player_data });
+            default_zone.do_send(zone::PlayerTransfer { session, player_data });
 
             actix::fut::ready(())
         }));

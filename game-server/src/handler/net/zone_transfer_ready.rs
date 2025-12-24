@@ -1,9 +1,29 @@
-use crate::handler::ProtocolGlobalHandler;
-use crate::net::session::Entry;
+use crate::character::Characters;
+use crate::handler::ProtocolLocalHandler;
+use crate::net::session::Session;
+use crate::net::zone::player_transfer::PlayerTransferProcess;
+use bevy_ecs::prelude::*;
 use protocol::game::net::ZoneTransferReady;
 
-impl ProtocolGlobalHandler for ZoneTransferReady {
-    fn handle(self, entry: Entry) {
-        todo!()
+impl ProtocolLocalHandler for ZoneTransferReady {
+    fn handle(self, world: &mut World, entity: Entity) {
+        let character_id = {
+            let Ok(mut entity) = world.get_entity_mut(entity) else {
+                return;
+            };
+
+            let Some(process) = entity.take::<PlayerTransferProcess>() else {
+                return;
+            };
+
+            entity.insert(process.player_data);
+
+            match entity.get::<Session>() {
+                Some(session) => session.character_id(),
+                None => return,
+            }
+        };
+
+        world.resource_mut::<Characters>().map.insert(character_id, entity);
     }
 }

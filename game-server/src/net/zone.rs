@@ -1,6 +1,6 @@
-mod new_player;
+pub mod player_transfer;
 
-pub use new_player::NewPlayer;
+pub use player_transfer::PlayerTransfer;
 
 use crate::config;
 use crate::net::session::Session;
