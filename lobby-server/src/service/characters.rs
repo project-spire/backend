@@ -32,6 +32,9 @@ pub struct Character {
     pub id: Id,
     pub name: String,
     pub race: Race,
+    pub level: i16,
+    pub exp: i64,
+    pub karma: i64,
 }
 
 #[derive(Insertable)]
@@ -102,6 +105,7 @@ impl Characters for Server {
             id: character_id,
             name: request.name,
             race: request.race,
+            ..Default::default()
         });
 
         let response = CreateCharacterResponse {
@@ -128,6 +132,10 @@ impl Into<protocol::CharacterData> for Character {
             id: self.id,
             name: self.name,
             race: race.into(),
+            level: self.level as u32,
+            exp: self.exp as u64,
+            karma: self.karma,
+            ..Default::default()
         }
     }
 }

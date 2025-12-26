@@ -58,21 +58,24 @@ impl DevAuth for Server {
         &self,
         request: Request<GetDevTokenRequest>
     ) -> Result<Response<GetDevTokenResponse>, Status> {
-        use data::schema::dev_account::dsl::*;
-
         check_dev_mode()?;
         let request = request.into_inner();
 
-        let mut conn = db::conn().await.map_err(Error::DatabaseConnection)?;
+        // Check if the requested dev account exists.
+        {
+            use data::schema::dev_account::dsl::*;
 
-        let dev_account_exists = select(exists(
-            dev_account.filter(account_id.eq(request.account_id))
-        )).get_result::<bool>(&mut conn)
-            .await
-            .map_err(Error::DatabaseQuery)?;
+            let mut conn = db::conn().await.map_err(Error::DatabaseConnection)?;
 
-        if !dev_account_exists {
-            return Err(Status::invalid_argument("No such dev account"));
+            let dev_account_exists = select(exists(
+                dev_account.filter(account_id.eq(request.account_id))
+            )).get_result::<bool>(&mut conn)
+                .await
+                .map_err(Error::DatabaseQuery)?;
+
+            if !dev_account_exists {
+                return Err(Status::invalid_argument("No such dev account"));
+            }
         }
 
         let expiration = Duration::from_secs(config().token_expiration_seconds);
