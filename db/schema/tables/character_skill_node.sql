@@ -1,4 +1,4 @@
-create table character_path_node (
+create table character_skill_node (
     character_id bigint not null,
     data_id integer not null,
     is_active boolean not null default true,

@@ -10,4 +10,4 @@ url="postgres://${SPIRE_DB_USER}:${password}@${SPIRE_DB_HOST}:${SPIRE_DB_PORT}/$
 
 diesel print-schema \
     --database-url "$url" \
-    > ../data/lib/rs/src/schema.rs
+    > ../data/src/schema.rs

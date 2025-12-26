@@ -83,7 +83,7 @@ impl Session {
 
         self.connection.close(0u32.into(), b"Session closed manually");
     }
-    
+
     pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
         let Ok(bytes) = encode(protocol) else {
             return;
@@ -241,7 +241,7 @@ fn cleanup(
                 }
             }
         }
-        
+
         info!("{} is cleaned up", *session);
 
         session.stop();
