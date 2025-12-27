@@ -5,6 +5,10 @@ mod parse;
 
 pub use crate::data::*;
 
+pub mod prelude {
+    pub use crate::{DataId, Link};
+}
+
 use crate::error::{Error, LinkError};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};

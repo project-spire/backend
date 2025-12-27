@@ -9,6 +9,7 @@ pub mod resource;
 pub mod sense;
 pub mod status;
 pub mod skill_set;
+pub mod talent_tree;
 // pub mod vision;
 
 use bevy_ecs::prelude::*;

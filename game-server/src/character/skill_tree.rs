@@ -1,29 +1,30 @@
 use bevy_ecs::prelude::*;
-use data::character::PathNodeTable;
-use data::DataId;
+use data::character::SkillNodeTable;
+use data::prelude::*;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
+use tracing::warn;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SkillTree {
-    pub active_nodes: HashMap<DataId, SkillNode>,
+    pub nodes: HashMap<DataId, SkillNode>,
 
-    pub path_point_total: u32,
-    pub path_point_remaining: u32,
+    pub skill_point_total: u32,
+    pub skill_point_remaining: u32,
 }
 
 pub struct SkillNode {
-    pub data: &'static data::character::PathNode,
+    pub data: &'static data::character::SkillNode,
     pub is_active: bool,
     pub level: u16,
     pub exp: u32,
 }
 
 #[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = data::schema::character_skill_node)]
+#[diesel(table_name = data::schema::character_skill)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-struct SkillNodeModel {
+struct SkillModel {
     pub data_id: i32,
     pub is_active: bool,
     pub level: i16,
@@ -34,35 +35,36 @@ impl SkillTree {
     pub async fn load(
         conn: &mut db::Connection,
         character_id: i64,
-    ) -> Result<SkillTree, db::Error> {
-        use data::schema::character_skill_node::dsl::*;
+    ) -> Result<Self, db::Error> {
+        let mut tree = Self::default();
 
-        let mut path_tree = SkillTree {
-            active_nodes: HashMap::new(),
-            path_point_total: 0,
-            path_point_remaining: 0,
+        let mut skills = {
+            use data::schema::character_skill::dsl::*;
+            character_skill
+                .filter(character_id.eq(character_id))
+                .select(SkillModel::as_select())
+                .load(conn)
+                .await?
         };
 
-        let mut nodes = character_skill_node
-            .filter(character_id.eq(character_id))
-            .select(SkillNodeModel::as_select())
-            .load(conn)
-            .await?;
-
-        for node in nodes.drain(..) {
-            let Some(data) = PathNodeTable::get(&node.data_id.into()) else {
-                // warn!("");
+        for skill in skills.drain(..) {
+            let Some(data) = SkillNodeTable::get(&skill.data_id.into()) else {
+                warn!("Invalid {} record: character_id={}, data_id={}",
+                    std::any::type_name::<data::schema::character_skill::table>(),
+                    character_id,
+                    skill.data_id,
+                );
                 continue;
             };
 
-            path_tree.active_nodes.insert(data.id, SkillNode {
+            tree.nodes.insert(data.id, SkillNode {
                 data,
-                is_active: node.is_active,
-                level: node.level as u16,
-                exp: node.exp as u32,
+                is_active: skill.is_active,
+                level: skill.level as u16,
+                exp: skill.exp as u32,
             });
         }
 
-        Ok(path_tree)
+        Ok(tree)
     }
 }

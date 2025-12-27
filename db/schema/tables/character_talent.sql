@@ -1,4 +1,4 @@
-create table character_talent_node (
+create table character_talent (
     character_id bigint not null,
     data_id integer not null,
     is_active boolean not null default true,
