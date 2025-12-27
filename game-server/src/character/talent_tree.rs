@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use data::character::TalentNodeTable;
+use data::character::TalentTable;
 use data::prelude::*;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -12,7 +12,7 @@ pub struct TalentTree {
 }
 
 pub struct TalentNode {
-    pub data: &'static data::character::TalentNode,
+    pub data: &'static data::character::Talent,
     pub level: u16,
     pub exp: u32,
 }
@@ -43,7 +43,7 @@ impl TalentTree {
         };
 
         for talent in talents.drain(..) {
-            let Some(data) = TalentNodeTable::get(&talent.data_id.into()) else {
+            let Some(data) = TalentTable::get(&talent.data_id.into()) else {
                 warn!("Invalid {} record: character_id={}, data_id={}",
                     std::any::type_name::<data::schema::character_talent::table>(),
                     character_id,

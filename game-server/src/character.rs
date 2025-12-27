@@ -4,7 +4,7 @@
 pub mod effect;
 pub mod equipment;
 pub mod inventory;
-pub mod skill_tree;
+pub mod path_tree;
 pub mod resource;
 pub mod sense;
 pub mod status;

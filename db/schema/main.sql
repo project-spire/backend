@@ -6,5 +6,5 @@
 \i tables/account.sql
 \i tables/dev_account.sql
 \i tables/character.sql
-\i tables/character_skill.sql
+\i tables/character_path.sql
 \i tables/character_talent.sql

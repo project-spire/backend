@@ -55,8 +55,8 @@ async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error
     load::<LinkTestTable>(data_dir.join("link_test.ods"), "LinkTest", &mut tasks);
     load::<item::RandomBoxTable>(data_dir.join("item/random_box.ods"), "RandomBox", &mut tasks);
     load::<item::WeaponTable>(data_dir.join("item/weapon.ods"), "Weapon", &mut tasks);
-    load::<character::SkillNodeTable>(data_dir.join("character/skill_node.ods"), "SkillNode", &mut tasks);
-    load::<character::TalentNodeTable>(data_dir.join("character/talent_node.ods"), "TalentNode", &mut tasks);
+    load::<character::PathTable>(data_dir.join("character/path.ods"), "Path", &mut tasks);
+    load::<character::TalentTable>(data_dir.join("character/talent.ods"), "Talent", &mut tasks);
 
     for task in tasks {
         match task.await {
@@ -82,8 +82,8 @@ async fn init_concrete_tables() -> Result<(), Error> {
     init::<LinkTestTable>(&mut tasks);
     init::<item::RandomBoxTable>(&mut tasks);
     init::<item::WeaponTable>(&mut tasks);
-    init::<character::SkillNodeTable>(&mut tasks);
-    init::<character::TalentNodeTable>(&mut tasks);
+    init::<character::PathTable>(&mut tasks);
+    init::<character::TalentTable>(&mut tasks);
 
     for task in tasks {
         match task.await {

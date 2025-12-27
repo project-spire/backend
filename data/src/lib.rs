@@ -16,7 +16,6 @@ use std::hash::{Hash, Hasher};
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct DataId(u32);
 
@@ -71,7 +70,7 @@ impl<T: Linkable> Clone for Link<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
-            target: MaybeUninit::new(unsafe { self.target.assume_init() }.clone()),
+            target: MaybeUninit::new(unsafe { self.target.assume_init() }),
         }
     }
 }

@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 
 use crate::character::*;
-use crate::character::skill_tree::SkillTree;
+use crate::character::path_tree::PathTree;
 use crate::net::session::{Entry, Session};
 use crate::world::transform::Transform;
 // use crate::character::movement::MovementController;
@@ -12,7 +12,7 @@ use crate::world::transform::Transform;
 #[derive(Bundle)]
 pub struct PlayerData {
     pub character: Character,
-    pub path_tree: SkillTree,
+    pub path_tree: PathTree,
     // pub character_stat: CharacterStat,
     // pub mobility_stat: MobilityStat,
 
@@ -26,7 +26,7 @@ impl PlayerData {
         
         let character_id = entry.character_id;
         let character = Character::load(&mut conn, character_id).await?;
-        let path_tree = SkillTree::load(&mut conn, character_id).await?;
+        let path_tree = PathTree::load(&mut conn, character_id).await?;
         
         // let character_stat = CharacterStat::load(entry.character_id, client).await?;
 

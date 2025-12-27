@@ -6,21 +6,21 @@ use std::collections::HashMap;
 use std::mem::MaybeUninit;
 use tracing::info;
 
-const WORKBOOK: &str = "talent_node.ods";
-const SHEET: &str = "TalentNode";
+const WORKBOOK: &str = "talent.ods";
+const SHEET: &str = "Talent";
 
-static mut TALENT_NODE_TABLE: MaybeUninit<TalentNodeTable> = MaybeUninit::uninit();
+static mut TALENT_TABLE: MaybeUninit<TalentTable> = MaybeUninit::uninit();
 
 #[derive(Debug)]
-pub struct TalentNode {
+pub struct Talent {
     pub id: DataId,
 }
 
-pub struct TalentNodeTable {
-    rows: HashMap<DataId, TalentNode>,
+pub struct TalentTable {
+    rows: HashMap<DataId, Talent>,
 }
 
-impl TalentNode {
+impl Talent {
     fn parse(row: &[calamine::Data]) -> Result<(DataId, Self), (&'static str, ParseError)> {
         const FIELDS_COUNT: usize = 2;
 
@@ -36,29 +36,29 @@ impl TalentNode {
     }
 }
 
-impl crate::Linkable for TalentNode {
+impl crate::Linkable for Talent {
     fn get(id: &DataId) -> Option<&'static Self> {
-        TalentNodeTable::get(id)
+        TalentTable::get(id)
     }
 }
 
-impl TalentNodeTable {
-    pub fn get(id: &DataId) -> Option<&'static TalentNode> {
-        unsafe { TALENT_NODE_TABLE.assume_init_ref() }.rows.get(&id)
+impl TalentTable {
+    pub fn get(id: &DataId) -> Option<&'static Talent> {
+        unsafe { TALENT_TABLE.assume_init_ref() }.rows.get(&id)
     }
 
-    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static TalentNode)> {
-        unsafe { TALENT_NODE_TABLE.assume_init_ref() }.rows.iter()
+    pub fn iter() -> impl Iterator<Item = (&'static DataId, &'static Talent)> {
+        unsafe { TALENT_TABLE.assume_init_ref() }.rows.iter()
     }
 }
 
-impl crate::Loadable for TalentNodeTable {
+impl crate::Loadable for TalentTable {
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {
         let mut parsed_rows = HashMap::new();
         let mut index = 2;
 
         for row in rows {
-            let (id, parsed_row) = TalentNode::parse(row)
+            let (id, parsed_row) = Talent::parse(row)
                 .map_err(|(column, error)| Error::Parse {
                     workbook: WORKBOOK,
                     sheet: SHEET,
@@ -69,7 +69,7 @@ impl crate::Loadable for TalentNodeTable {
 
             if parsed_rows.contains_key(&id) {
                 return Err(Error::DuplicateId {
-                    type_name: std::any::type_name::<TalentNode>(),
+                    type_name: std::any::type_name::<Talent>(),
                     id,
                     a: format!("{:?}", parsed_rows[&id]),
                     b: format!("{:?}", parsed_rows),
@@ -84,7 +84,7 @@ impl crate::Loadable for TalentNodeTable {
         let table = Self { rows: parsed_rows };
         info!("Loaded {} rows", table.rows.len());
 
-        unsafe { TALENT_NODE_TABLE.write(table); }
+        unsafe { TALENT_TABLE.write(table); }
         Ok(())
     }
 

@@ -46,7 +46,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    character_skill (character_id, data_id) {
+    character_path (character_id, data_id) {
         character_id -> Int8,
         data_id -> Int4,
         is_active -> Bool,
@@ -75,14 +75,14 @@ diesel::table! {
 }
 
 diesel::joinable!(character -> account (account_id));
-diesel::joinable!(character_skill -> character (character_id));
+diesel::joinable!(character_path -> character (character_id));
 diesel::joinable!(character_talent -> character (character_id));
 diesel::joinable!(dev_account -> account (account_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     account,
     character,
-    character_skill,
+    character_path,
     character_talent,
     dev_account,
 );
