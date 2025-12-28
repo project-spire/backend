@@ -31,7 +31,7 @@ impl DevAuth for Server {
         &self,
         request: Request<GetDevAccountRequest>
     ) -> Result<Response<GetDevAccountResponse>, Status> {
-        use data::schema::dev_account::dsl::*;
+        use db::schema::dev_account::dsl::*;
 
         check_dev_mode()?;
         let request = request.into_inner();
@@ -63,7 +63,7 @@ impl DevAuth for Server {
 
         // Check if the requested dev account exists.
         {
-            use data::schema::dev_account::dsl::*;
+            use db::schema::dev_account::dsl::*;
 
             let mut conn = db::conn().await.map_err(Error::DatabaseConnection)?;
 
@@ -93,14 +93,14 @@ impl DevAuth for Server {
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = data::schema::account)]
+#[diesel(table_name = db::schema::account)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct NewAccount {
     id: Id,
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = data::schema::dev_account)]
+#[diesel(table_name = db::schema::dev_account)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct NewDevAccount<'a> {
     id: &'a str,
@@ -111,27 +111,32 @@ async fn create_dev_account(conn: &mut db::Connection, dev_id: &str) -> Result<i
     let new_account_id = util::id::global();
 
     conn.transaction::<(), Error, _>(|conn| async move {
-        use data::schema::account::dsl::*;
-        use data::schema::dev_account::dsl::*;
+        {
+            use db::schema::account::dsl::*;
 
-        let new_account = NewAccount {
-            id: new_account_id,
-        };
+            let new_account = NewAccount {
+                id: new_account_id,
+            };
 
-        diesel::insert_into(account)
-            .values(&new_account)
-            .execute(conn)
-            .await?;
+            diesel::insert_into(account)
+                .values(&new_account)
+                .execute(conn)
+                .await?;
+        }
 
-        let new_dev_account = NewDevAccount {
-            id: dev_id,
-            account_id: new_account_id,
-        };
+        {
+            use db::schema::dev_account::dsl::*;
 
-        diesel::insert_into(dev_account)
-            .values(&new_dev_account)
-            .execute(conn)
-            .await?;
+            let new_dev_account = NewDevAccount {
+                id: dev_id,
+                account_id: new_account_id,
+            };
+
+            diesel::insert_into(dev_account)
+                .values(&new_dev_account)
+                .execute(conn)
+                .await?;
+        }
 
         Ok(())
     }.scope_boxed()).await?;

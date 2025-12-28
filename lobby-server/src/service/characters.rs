@@ -26,7 +26,7 @@ impl Server {
 }
 
 #[derive(Queryable, Selectable, Insertable)]
-#[diesel(table_name = data::schema::character)]
+#[diesel(table_name = db::schema::character)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Character {
     pub id: Id,
@@ -38,7 +38,7 @@ pub struct Character {
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = data::schema::character)]
+#[diesel(table_name = db::schema::character)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewCharacter {
     pub id: Id,
@@ -53,7 +53,7 @@ impl Characters for Server {
         &self,
         request: Request<()>,
     ) -> Result<Response<ListCharactersResponse>, Status> {
-        use data::schema::character::dsl::*;
+        use db::schema::character::dsl::*;
 
         let claims = request.extensions().get::<Claims>().unwrap();
 
@@ -91,7 +91,7 @@ impl Characters for Server {
         };
 
         {
-            use data::schema::character::dsl::*;
+            use db::schema::character::dsl::*;
 
             let mut conn = db::conn().await.map_err(Error::DatabaseConnection)?;
             diesel::insert_into(character)
