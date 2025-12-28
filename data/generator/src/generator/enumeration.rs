@@ -111,7 +111,7 @@ impl Generator {
         if schema.queryable {
             attributes.push("#[derive(diesel::FromSqlRow, diesel::AsExpression)]".into());
             attributes.push(format!(
-                "#[diesel(sql_type = crate::schema::sql_types::{})]",
+                "#[diesel(sql_type = db::schema::sql_types::{})]",
                 schema.name,
             ));
         }
@@ -271,7 +271,7 @@ create type {} as enum (
 
         write!(writer,
 r#"
-impl diesel::serialize::ToSql<crate::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
+impl diesel::serialize::ToSql<db::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
     fn to_sql<'b>(
         &'b self,
         out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
@@ -283,7 +283,7 @@ impl diesel::serialize::ToSql<crate::schema::sql_types::{enum_type_name}, diesel
     }}
 }}
 
-impl diesel::deserialize::FromSql<crate::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
+impl diesel::deserialize::FromSql<db::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
     fn from_sql(
         bytes: diesel::pg::PgValue<'_>,
     ) -> diesel::deserialize::Result<Self> {{

@@ -1,7 +1,5 @@
 #![allow(static_mut_refs)]
 
-pub mod schema;
-
 mod error;
 mod link;
 mod parse;

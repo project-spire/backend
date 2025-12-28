@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+db = { path = "../db" }
 protocol = { path = "../protocol" }
 
 calamine = "0.32.0"

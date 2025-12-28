@@ -22,7 +22,7 @@ pub struct PathNode {
 }
 
 #[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = data::schema::character_path)]
+#[diesel(table_name = db::schema::character_path)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct SkillModel {
     pub data_id: i32,
@@ -39,7 +39,7 @@ impl PathTree {
         let mut tree = Self::default();
 
         let mut skills = {
-            use data::schema::character_path::dsl::*;
+            use db::schema::character_path::dsl::*;
             character_path
                 .filter(character_id.eq(character_id))
                 .select(SkillModel::as_select())
@@ -50,7 +50,7 @@ impl PathTree {
         for skill in skills.drain(..) {
             let Some(data) = PathTable::get(&skill.data_id.into()) else {
                 warn!("Invalid {} record: character_id={}, data_id={}",
-                    std::any::type_name::<data::schema::character_path::table>(),
+                    std::any::type_name::<db::schema::character_path::table>(),
                     character_id,
                     skill.data_id,
                 );

@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use util::id::Id;
 
 #[derive(Debug, Component, Queryable, Selectable)]
-#[diesel(table_name = data::schema::character)]
+#[diesel(table_name = db::schema::character)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Character {
     pub id: Id,
@@ -38,7 +38,7 @@ impl Character {
         conn: &mut db::Connection,
         character_id: Id,
     ) -> Result<Character, db::Error> {
-        use data::schema::character::dsl::*;
+        use db::schema::character::dsl::*;
 
         let c = character
             .select(Character::as_select())

@@ -1,7 +1,6 @@
 mod error;
 mod generator;
 mod name;
-mod schema;
 
 use crate::error::Error;
 use crate::generator::Generator;

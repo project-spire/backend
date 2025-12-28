@@ -18,7 +18,7 @@ pub struct TalentNode {
 }
 
 #[derive(Debug, Queryable, Selectable)]
-#[diesel(table_name = data::schema::character_talent)]
+#[diesel(table_name = db::schema::character_talent)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 struct TalentModel {
     pub data_id: i32,
@@ -34,7 +34,7 @@ impl TalentTree {
         let mut tree = Self::default();
 
         let mut talents = {
-            use data::schema::character_talent::dsl::*;
+            use db::schema::character_talent::dsl::*;
             character_talent
                 .filter(character_id.eq(character_id))
                 .select(TalentModel::as_select())
@@ -45,7 +45,7 @@ impl TalentTree {
         for talent in talents.drain(..) {
             let Some(data) = TalentTable::get(&talent.data_id.into()) else {
                 warn!("Invalid {} record: character_id={}, data_id={}",
-                    std::any::type_name::<data::schema::character_talent::table>(),
+                    std::any::type_name::<db::schema::character_talent::table>(),
                     character_id,
                     talent.data_id,
                 );
