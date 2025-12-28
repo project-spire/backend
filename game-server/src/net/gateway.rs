@@ -7,17 +7,12 @@ pub use new_zone::NewZone;
 use crate::net::zone::Zone;
 use actix::prelude::*;
 use std::collections::HashMap;
+use util::id::Id;
 
+#[derive(Default)]
 pub struct Gateway {
-    zones: HashMap<i64, Addr<Zone>>,
-}
-
-impl Default for Gateway {
-    fn default() -> Self {
-        Self {
-            zones: HashMap::new(),
-        }
-    }
+    zones: HashMap<Id, Addr<Zone>>,
+    character_zones: HashMap<Id, Id>,
 }
 
 impl Actor for Gateway {

@@ -16,6 +16,10 @@ pub mod play {
     include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.play.rs"));
 }
 
+pub mod social {
+    include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.social.rs"));
+}
+
 use bytes::{BufMut, Bytes, BytesMut};
 
 pub type ProtocolId = u16;

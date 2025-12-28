@@ -5,6 +5,7 @@ mod handler;
 mod net;
 mod physics;
 mod player;
+mod social;
 mod task;
 mod world;
 
@@ -12,6 +13,8 @@ use crate::net::authenticator::Authenticator;
 use crate::net::game_listener::GameListener;
 use crate::net::gateway::{Gateway, NewZone};
 use crate::net::zone::Zone;
+use crate::social::guild::GuildManager;
+use crate::social::party::PartyManager;
 use actix::prelude::*;
 use clap::Parser;
 use mimalloc::MiMalloc;
@@ -82,14 +85,16 @@ async fn init(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 
     data::init(&config!(app).data.dir).await?;
 
+    _ = Authenticator::from_registry();
+    _ = GameListener::from_registry();
+    _ = Gateway::from_registry();
+    _ = PartyManager::from_registry();
+    _ = GuildManager::from_registry();
+
     Ok(())
 }
 
 fn run() {
-    _ = Authenticator::from_registry();
-    _ = GameListener::from_registry();
-    _ = Gateway::from_registry();
-
     let default_zone = Zone::new(0).start();
     Gateway::from_registry().do_send(NewZone {
         id: 0,

@@ -71,6 +71,9 @@ impl Generator {
         let category_files: Vec<PathBuf> = glob(self.config.schema_dir.join("game/*.json").to_str().unwrap())
             .unwrap()
             .filter_map(Result::ok)
+            .filter(|path| {
+                !path.to_string_lossy().ends_with(".schema.json")
+            })
             .collect();
 
         for category_file in &category_files {

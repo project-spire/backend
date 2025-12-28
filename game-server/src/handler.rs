@@ -6,6 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/spire.protocol.game.handle.rs"));
 
 mod net;
 mod play;
+mod social;
 mod tool;
 
 pub trait ProtocolLocalHandler {
