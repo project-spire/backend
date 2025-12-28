@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tracing::warn;
 
-type CallbackFn = Box<dyn FnOnce(Option<Error>, Entity, &mut World) + Send + Sync>;
+type CallbackFn = Box<dyn FnOnce(Option<Error>, &mut World, Entity) + Send + Sync>;
 
 #[derive(Component, Default)]
 pub struct TaskQueue {
@@ -42,6 +42,9 @@ pub enum Error {
 
     #[error("Task execution panicked or failed")]
     Join,
+
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl TaskQueue {
@@ -66,11 +69,56 @@ impl Task {
         }
     }
 
+    pub fn new_with_result<F, T, E, C>(policy: Policy, future: F, callback: C) -> Self
+    where
+        F: Future<Output = Result<T, E>> + Send + 'static,
+        T: Send + 'static,
+        E: std::error::Error + Send + Sync + 'static,
+        C: FnOnce(Result<T, Error>, &mut World, Entity) + Send + Sync + 'static,
+    {
+        let (tx, mut rx) = tokio::sync::oneshot::channel::<Result<T, Error>>();
+
+        let wrapped_future = async move {
+            let result = future.await.map_err(|e| Error::Other(Box::new(e)));
+
+            let _ = tx.send(result);
+            Ok(())
+        };
+
+        let task = Task::new(policy, wrapped_future);
+
+        task.on_complete(move |error, world, entity| {
+            if let Some(e) = error {
+                callback(Err(e), world, entity);
+                return;
+            }
+
+            match rx.try_recv() {
+                Ok(result) => {
+                    callback(result, world, entity);
+                }
+                Err(_) => {
+                    callback(Err(Error::Join), world, entity);
+                }
+            }
+        })
+    }
+
     pub fn serial<F>(future: F) -> Self
     where
         F: Future<Output = Result<(), Error>> + Send + 'static,
     {
         Self::new(Policy::Serial, future)
+    }
+
+    pub fn serial_with_result<F, T, E, C>(future: F, callback: C) -> Self
+    where
+        F: Future<Output = Result<T, E>> + Send + 'static,
+        T: Send + 'static,
+        E: std::error::Error + Send + Sync + 'static,
+        C: FnOnce(Result<T, Error>, &mut World, Entity) + Send + Sync + 'static,
+    {
+        Self::new_with_result(Policy::Serial, future, callback)
     }
 
     pub fn parallel<F>(future: F) -> Self
@@ -80,9 +128,19 @@ impl Task {
         Self::new(Policy::Parallel, future)
     }
 
+    pub fn parallel_with_result<F, T, E, C>(future: F, callback: C) -> Self
+    where
+        F: Future<Output = Result<T, E>> + Send + 'static,
+        T: Send + 'static,
+        E: std::error::Error + Send + Sync + 'static,
+        C: FnOnce(Result<T, Error>, &mut World, Entity) + Send + Sync + 'static,
+    {
+        Self::new_with_result(Policy::Parallel, future, callback)
+    }
+
     pub fn on_complete<F>(mut self, callback: F) -> Self
     where
-        F: FnOnce(Option<Error>, Entity, &mut World) + Send + Sync + 'static,
+        F: FnOnce(Option<Error>, &mut World, Entity) + Send + Sync + 'static,
     {
         self.callback = Some(Box::new(callback));
         self
@@ -90,11 +148,11 @@ impl Task {
 
     pub fn on_success<F>(mut self, callback: F) -> Self
     where
-        F: FnOnce(Entity, &mut World) + Send + Sync +'static,
+        F: FnOnce(&mut World, Entity) + Send + Sync +'static,
     {
-        self.callback = Some(Box::new(|error, entity, world| {
+        self.callback = Some(Box::new(|error, world, entity| {
             if error.is_none() {
-                callback(entity, world);
+                callback(world, entity);
             }
         }));
         self
@@ -112,6 +170,20 @@ impl Task {
 
         let handle = tokio::spawn(future);
         self.state = State::Running(handle);
+    }
+
+    pub fn dispatch(self, world: &mut World, entity: Entity) {
+        let Ok(mut entity) = world.get_entity_mut(entity) else {
+            return;
+        };
+
+        if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
+            task_queue.dispatch(self);
+            return;
+        }
+
+        entity.insert(TaskQueue::default());
+        entity.get_mut::<TaskQueue>().unwrap().dispatch(self);
     }
 }
 
@@ -146,7 +218,7 @@ fn process(world: &mut World) {
     let callbacks = poll(world);
 
     for (result, entity, callback) in callbacks {
-        callback(result, entity, world);
+        callback(result, world, entity);
     }
 }
 
@@ -186,18 +258,4 @@ fn poll(world: &mut World) -> Vec<(Option<Error>, Entity, CallbackFn)> {
     }
 
     callbacks
-}
-
-pub fn dispatch(world: &mut World, entity: Entity, task: Task) {
-    let Ok(mut entity) = world.get_entity_mut(entity) else {
-        return;
-    };
-
-    if let Some(mut task_queue) = entity.get_mut::<TaskQueue>() {
-        task_queue.dispatch(task);
-        return;
-    }
-
-    entity.insert(TaskQueue::default());
-    entity.get_mut::<TaskQueue>().unwrap().dispatch(task);
 }

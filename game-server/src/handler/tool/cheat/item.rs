@@ -1,4 +1,4 @@
-use crate::task::{dispatch, Task};
+use crate::task::Task;
 use bevy_ecs::prelude::*;
 use protocol::game::tool::cheat_result::Result;
 
@@ -16,7 +16,7 @@ pub fn handle(world: &mut World, entity: Entity, args: &[String]) -> Option<(Res
         }
     });
     
-    dispatch(world, entity, task);
+    task.dispatch(world, entity);
 
     None
 }

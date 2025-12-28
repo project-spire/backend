@@ -14,7 +14,7 @@ use util::id::Id;
 
 pub struct Party {
     pub id: Id,
-    pub name: Option<String>,
+    pub name: String,
     pub master: Id,
     pub members: HashSet<Id>,
     pub invitations: HashMap<Id, PartyInvitation>,
@@ -47,3 +47,12 @@ impl Actor for PartyManager {
 impl Supervised for PartyManager {}
 
 impl SystemService for PartyManager {}
+
+impl From<&Party> for protocol::PartyTinyData {
+    fn from(party: &Party) -> Self {
+        Self {
+            id: party.id,
+            name: party.name.clone(),
+        }
+    }
+}

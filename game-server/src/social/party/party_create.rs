@@ -1,6 +1,7 @@
 use super::{Party, PartyManager};
 use actix::prelude::*;
 use std::collections::{HashMap, HashSet};
+use protocol::PartyTinyData;
 use util::id::Id;
 
 #[derive(Message)]
@@ -12,7 +13,7 @@ pub struct PartyCreate {
 
 #[derive(MessageResponse)]
 pub struct PartyCreateResult {
-    pub party_id: Id,
+    pub party: PartyTinyData,
 }
 
 impl Handler<PartyCreate> for PartyManager {
@@ -24,6 +25,8 @@ impl Handler<PartyCreate> for PartyManager {
         // TODO: Check if already joined a party.
 
         // TODO: Check if can create a party.
+
+        let name = name.unwrap_or_else(|| format!("{requester_id}'s party"));
 
         let party_id = util::id::global();
         let mut party = Party {
@@ -38,10 +41,12 @@ impl Handler<PartyCreate> for PartyManager {
         };
         party.members.insert(msg.requester_id);
 
+        let party_data = PartyTinyData::from(&party);
+
         self.parties.insert(party_id, party);
 
         let result = PartyCreateResult {
-            party_id,
+            party: party_data,
         };
 
         Ok(result)
