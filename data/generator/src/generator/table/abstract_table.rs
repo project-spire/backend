@@ -19,7 +19,8 @@ impl Generator {
         &self,
         name: &Name,
         schema: &AbstractTableSchema,
-    ) -> Result<String, Error> {
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         let table_cell_name = name.as_table_type_cell();
         let table_type_name = name.as_table_type(false);
         let row_type_name = name.as_type(false);
@@ -33,7 +34,7 @@ impl Generator {
             let child_full_name = child_table.name.as_type(true);
 
             child_types.push(format!(
-                "{TAB}{}(&'static {CRATE_PREFIX}::{}),",
+                "{TAB}{}(&'static crate::{}),",
                 child_name, child_full_name,
             ));
 
@@ -52,7 +53,7 @@ impl Generator {
             format!(
                 r#"
 
-        {CRATE_PREFIX}::{parent_full_name}Table::insert(id, {CRATE_PREFIX}::{parent_full_name}::{row_type_name}(&rows[id])).await?;"#
+        crate::{parent_full_name}Table::insert(id, crate::{parent_full_name}::{row_type_name}(&rows[id])).await?;"#
             )
         } else {
             String::new()
@@ -60,15 +61,8 @@ impl Generator {
         let child_types_code = child_types.join("\n");
         let child_id_matches_code = child_id_matches.join("\n");
 
-        Ok(format!(
-            r#"{GENERATED_FILE_WARNING}
-#![allow(static_mut_refs)]
-
-use {CRATE_PREFIX}::{{DataId, error::Error}};
-use std::collections::HashMap;
-use std::mem::MaybeUninit;
-use tokio::sync::Mutex;
-
+        write!(writer,
+r#"
 static mut {table_cell_name}: MaybeUninit<{table_type_name}> = MaybeUninit::uninit();
 
 #[derive(Debug)]
@@ -76,7 +70,6 @@ pub enum {row_type_name} {{
 {child_types_code}
 }}
 
-#[derive(Debug)]
 pub struct {table_type_name} {{
     rows: HashMap<DataId, {row_type_name}>,
 }}
@@ -89,7 +82,7 @@ impl {row_type_name} {{
     }}
 }}
 
-impl {CRATE_PREFIX}::Linkable for {row_type_name} {{
+impl crate::Linkable for {row_type_name} {{
     fn get(id: &DataId) -> Option<&'static Self> {{
         {table_type_name}::get(id)
     }}
@@ -129,6 +122,8 @@ impl {table_type_name} {{
     }}
 }}
 "#
-        ))
+        )?;
+
+        Ok(())
     }
 }

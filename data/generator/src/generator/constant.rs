@@ -1,6 +1,7 @@
-use std::fs;
 use crate::*;
 use crate::generator::*;
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct ConstantEntry {
@@ -67,23 +68,33 @@ pub enum ScalarStringType {
 }
 
 impl Generator {
-    pub fn generate_constant(&self, constant: &ConstantEntry) -> Result<(), Error> {
-        let constant_dir = self.full_gen_dir(&constant.name.namespace);
-        self.log(&format!("Generating constant `{}`", constant_dir.display()));
+    pub fn collect_constant(
+        &mut self,
+        module: &mut ModuleEntry,
+        file: &Path,
+        name: Name,
+    ) -> Result<(), Error> {
+        println!("Collecting constant `{}`", file.display());
 
-        let code = constant.generate()?;
+        self.register_type(&name.as_type(true))?;
 
-        fs::write(
-            constant_dir.join(format!("{}.rs", constant.name.as_entity())),
-            code,
-        )?;
+        let schema: ConstantSchema = serde_json::from_str(&fs::read_to_string(file)?)?;
+
+        self.constants.push(ConstantEntry { name, schema });
+        module
+            .entries
+            .push(EntityEntry::ConstantIndex(self.enumerations.len() - 1));
 
         Ok(())
     }
-}
 
-impl ConstantEntry {
-    fn generate(&self) -> Result<String, Error> {
-        todo!()
+    pub fn generate_constant(
+        &self,
+        constant: &ConstantEntry,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
+        println!("Generating constant `{}`", constant.name.name);
+
+        Ok(())
     }
 }

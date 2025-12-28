@@ -1,7 +1,8 @@
-use std::fs;
 use crate::*;
 use crate::generator::*;
 use heck::ToSnakeCase;
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct EnumerationEntry {
@@ -38,34 +39,56 @@ pub struct EnumerationAttribute {
 }
 
 impl Generator {
-    pub fn generate_enumeration(&self, enumeration: &EnumerationEntry) -> Result<(), Error> {
-        let enumeration_file = self
-            .full_gen_dir(&enumeration.name.parent_namespace())
-            .join(format!("{}.rs", enumeration.name.as_entity()));
-        self.log(&format!("Generating enumeration `{}`", enumeration_file.display()));
+    pub fn collect_enumeration(
+        &mut self,
+        module: &mut ModuleEntry,
+        file: &Path,
+        name: Name,
+    ) -> Result<(), Error> {
+        println!("Collecting enumeration `{}`", file.display());
 
-        let mut code = self.generate_code(&enumeration.schema)?;
+        self.register_type(&name.as_type(true))?;
+
+        let schema: EnumerationSchema = serde_json::from_str(&fs::read_to_string(file)?)?;
+
+        self.enumerations.push(EnumerationEntry { name, schema });
+        module
+            .entries
+            .push(EntityEntry::EnumerationIndex(self.enumerations.len() - 1));
+
+        Ok(())
+    }
+
+    pub fn generate_enumeration(
+        &self,
+        enumeration: &EnumerationEntry,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
+        println!("Generating enumeration `{}`", enumeration.name.name);
+
+        self.generate_source(&enumeration.schema, writer)?;
 
         if enumeration.schema.protocol {
-            code += &self.generate_protocol(&enumeration.name, &enumeration.schema)?;
+            self.generate_protobuf(&enumeration.name, &enumeration.schema, writer)?;
         }
 
         if enumeration.schema.queryable {
-            code += &self.generate_queryable(&enumeration.name, &enumeration.schema)?;
+            self.generate_queryable(&enumeration.name, &enumeration.schema, writer)?;
         }
-        
-        fs::write(enumeration_file, code)?;
         
         Ok(())
     }
 
-    fn generate_code(&self, schema: &EnumerationSchema) -> Result<String, Error> {
+    fn generate_source(
+        &self,
+        schema: &EnumerationSchema,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         let mut enums = Vec::new();
         let mut enum_parses = Vec::new();
         let mut enum_intos = Vec::new();
         let mut enum_froms = Vec::new();
         let mut attributes = Vec::new();
-        let mut imports = Vec::new();
 
         let mut index: u32 = 0;
         for e in &schema.enums {
@@ -79,32 +102,22 @@ impl Generator {
 
         attributes.push("#[derive(Debug, Clone, Copy, PartialEq, Eq)]".into());
         for attribute in &schema.attributes {
-            if !attribute.target.is_target() {
+            if !self.is_target(attribute.target) {
                 continue;
             }
 
             attributes.push(attribute.attribute.clone());
         }
         if schema.queryable {
-            imports.push("use std::io::Write;");
-            imports.push("use diesel::{AsExpression, FromSqlRow};");
-            imports.push("use diesel::deserialize::FromSql;");
-            imports.push("use diesel::pg::{Pg, PgValue};");
-            imports.push("use diesel::serialize::{IsNull, Output, ToSql};");
-
-            attributes.push("#[derive(FromSqlRow, AsExpression)]".into());
+            attributes.push("#[derive(diesel::FromSqlRow, diesel::AsExpression)]".into());
             attributes.push(format!(
                 "#[diesel(sql_type = crate::schema::sql_types::{})]",
                 schema.name,
             ));
         }
 
-        Ok(format!(
-            r#"{GENERATED_FILE_WARNING}
-use crate::error::ParseError;
-use crate::parse::*;
-{imports_code}
-
+        write!(writer,
+r#"
 {attributes_code}
 pub enum {enum_type_name} {{
 {enums_code}
@@ -146,14 +159,19 @@ impl Into<{base_type_name}> for {enum_type_name} {{
             enum_type_name = schema.name,
             base_type_name = schema.base.to_rust_type(),
             attributes_code = attributes.join("\n"),
-            imports_code = imports.join("\n"),
-        ))
+        )?;
+        Ok(())
     }
 
-    fn generate_protocol(&self, name: &Name, schema: &EnumerationSchema) -> Result<String, Error> {
-        let protocol_file = self.config.protocol_gen_dir
+    fn generate_protobuf(
+        &self,
+        name: &Name,
+        schema: &EnumerationSchema,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
+        let protobuf_file = self.config.protobuf_gen_dir
             .join(format!("{}.gen.proto", name.name));
-        self.log(&format!("Generating enumeration protocol `{}`", protocol_file.display()));
+        println!("Generating enumeration protocol `{}`", protobuf_file.display());
 
         let mut enums = Vec::new();
         let mut enum_matches = Vec::new();
@@ -179,9 +197,9 @@ enum {enum_type_name} {{
             enum_type_name = name.as_type(false),
             enums_code = enums.join("\n"),
         );
-        fs::write(protocol_file, code)?;
+        fs::write(protobuf_file, code)?;
 
-        Ok(format!(
+        write!(writer,
 r#"
 impl Into<protocol::{enum_type_name}> for {enum_type_name} {{
     fn into(self) -> protocol::{enum_type_name} {{
@@ -206,10 +224,16 @@ impl Into<{enum_type_name}> for protocol::{enum_type_name} {{
 "#,
             enum_type_name = name.as_type(false),
             enum_matches_code = enum_matches.join("\n"),
-        ))
+        )?;
+        Ok(())
     }
 
-    fn generate_queryable(&self, name: &Name, schema: &EnumerationSchema) -> Result<String, Error> {
+    fn generate_queryable(
+        &self,
+        name: &Name,
+        schema: &EnumerationSchema,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         let mut sql_enums = Vec::new();
         let mut to_sql_matches = Vec::new();
         let mut from_sql_matches = Vec::new();
@@ -232,11 +256,9 @@ impl Into<{enum_type_name}> for protocol::{enum_type_name} {{
 
         let sql_file = self.config.sql_gen_dir
             .join(format!("{}.gen.sql", name.name));
-        self.log(&format!("Generating enumeration sql `{}`", sql_file.display()));
+        println!("Generating enumeration sql `{}`", sql_file.display());
 
-
-
-        let sql = format!(r#"-- THIS IS A GENERATED FILE. DO NOT MODIFY.
+        let sql = format!(r#"-- {GENERATED_FILE_WARNING}
 
 create type {} as enum (
 {enums_code}
@@ -247,18 +269,24 @@ create type {} as enum (
         );
         fs::write(sql_file, sql)?;
 
-        Ok(format!(r#"
-impl ToSql<crate::schema::sql_types::{enum_type_name}, Pg> for {enum_type_name} {{
-    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> diesel::serialize::Result {{
+        write!(writer,
+r#"
+impl diesel::serialize::ToSql<crate::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
+    fn to_sql<'b>(
+        &'b self,
+        out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
+    ) -> diesel::serialize::Result {{
         match *self {{
 {to_sql_matches_code}
         }}
-        Ok(IsNull::No)
+        Ok(diesel::serialize::IsNull::No)
     }}
 }}
 
-impl FromSql<crate::schema::sql_types::{enum_type_name}, Pg> for {enum_type_name} {{
-    fn from_sql(bytes: PgValue<'_>) -> diesel::deserialize::Result<Self> {{
+impl diesel::deserialize::FromSql<crate::schema::sql_types::{enum_type_name}, diesel::pg::Pg> for {enum_type_name} {{
+    fn from_sql(
+        bytes: diesel::pg::PgValue<'_>,
+    ) -> diesel::deserialize::Result<Self> {{
         Ok(match bytes.as_bytes() {{
 {from_sql_matches_code}
              _ => return Err(format!(
@@ -273,7 +301,8 @@ impl FromSql<crate::schema::sql_types::{enum_type_name}, Pg> for {enum_type_name
             to_sql_matches_code = to_sql_matches.join("\n"),
             from_sql_matches_code = from_sql_matches.join("\n"),
 
-        ))
+        )?;
+        Ok(())
     }
 }
 

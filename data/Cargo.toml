@@ -10,7 +10,6 @@ calamine = "0.32.0"
 diesel = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 
 [build-dependencies]
 data-generator = { path = "generator" }

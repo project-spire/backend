@@ -1,4 +1,4 @@
-use crate::DataId;
+use crate::link::DataId;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

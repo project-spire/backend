@@ -1,4 +1,5 @@
-use crate::{DataId, Link, Linkable, error::ParseError};
+use crate::error::ParseError;
+use crate::link::{DataId, Link, Linkable};
 use calamine::DataType;
 use std::mem::MaybeUninit;
 use std::str::FromStr;

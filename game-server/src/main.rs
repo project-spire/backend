@@ -53,7 +53,7 @@ async fn main() {
         exit(0);
     }
 
-    start();
+    run();
 
     tokio::signal::ctrl_c().await.unwrap();
 }
@@ -80,12 +80,12 @@ async fn init(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         &config!(db).name,
     ).await?;
 
-    data::load_all(&config!(app).data.dir).await?;
+    data::init(&config!(app).data.dir).await?;
 
     Ok(())
 }
 
-fn start() {
+fn run() {
     _ = Authenticator::from_registry();
     _ = GameListener::from_registry();
     _ = Gateway::from_registry();

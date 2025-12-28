@@ -1,6 +1,7 @@
 use crate::generator::*;
 use crate::*;
 use super::*;
+use std::io::Write;
 
 impl TableSchematic for ConcreteTableSchema {
     fn name(&self) -> &str {
@@ -19,7 +20,8 @@ impl Generator {
         &self,
         name: &Name,
         schema: &ConcreteTableSchema,
-    ) -> Result<String, Error> {
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
         let mut field_names = Vec::new();
         let mut field_parses = Vec::new();
         let mut field_definitions = Vec::new();
@@ -29,7 +31,7 @@ impl Generator {
 
         let fields = self.get_table_all_fields(schema)?;
         for (index, field) in fields.iter().enumerate() {
-            if !field.target.is_target() {
+            if !self.is_target(field.target) {
                 continue;
             }
 
@@ -232,7 +234,7 @@ impl Generator {
                 r#"
 
         for (id, row) in unsafe {{ {table_cell_name}.assume_init_ref() }}.rows.iter() {{
-            {CRATE_PREFIX}::{parent_full_name}Table::insert(&id, {CRATE_PREFIX}::{parent_full_name}::{row_type_name}(row)).await?;
+            crate::{parent_full_name}Table::insert(&id, crate::{parent_full_name}::{row_type_name}(row)).await?;
         }}"#
             )
         } else {
@@ -251,8 +253,8 @@ impl Generator {
 
             Ok(())
         }})().map_err(|(id, error)| Error::Link {{
-            workbook: WORKBOOK,
-            sheet: SHEET,
+            workbook: Self::workbook(),
+            sheet: Self::sheet(),
             id,
             error,
         }})?;
@@ -286,26 +288,16 @@ impl Generator {
 
             check_constraint(&parsed_row)
                 .map_err(|(column, error)| Error::Constraint {
-                    workbook: WORKBOOK,
-                    sheet: SHEET,
+                    workbook: Self::workbook(),
+                    sheet: Self::sheet(),
                     row: index + 1,
                     column,
                     error,
                 })?;"#.into()
         };
 
-        Ok(format!(
-            r#"{GENERATED_FILE_WARNING}
-#![allow(static_mut_refs)]
-
-use {CRATE_PREFIX}::{{DataId, Link, error::*, parse::*}};
-use std::collections::HashMap;
-use std::mem::MaybeUninit;
-use tracing::info;
-
-const WORKBOOK: &str = "{workbook}";
-const SHEET: &str = "{sheet}";
-
+        write!(writer,
+r#"
 static mut {table_cell_name}: MaybeUninit<{table_type_name}> = MaybeUninit::uninit();
 
 #[derive(Debug)]
@@ -333,7 +325,7 @@ impl {row_type_name} {{
     }}
 }}
 
-impl {CRATE_PREFIX}::Linkable for {row_type_name} {{
+impl crate::Linkable for {row_type_name} {{
     fn get(id: &DataId) -> Option<&'static Self> {{
         {table_type_name}::get(id)
     }}
@@ -349,16 +341,19 @@ impl {table_type_name} {{
     }}
 }}
 
-impl {CRATE_PREFIX}::Loadable for {table_type_name} {{
+impl crate::Loadable for {table_type_name} {{
+    fn workbook() -> &'static str {{ "{workbook}" }}
+    fn sheet() -> &'static str {{ "{sheet}" }}
+
     async fn load(rows: &[&[calamine::Data]]) -> Result<(), Error> {{
         let mut parsed_rows = HashMap::new();
-        let mut index = {HEADER_ROWS};
+        let mut index = {header_rows};
 {constraint_function_code}
         for row in rows {{
             let (id, parsed_row) = {row_type_name}::parse(row)
                 .map_err(|(column, error)| Error::Parse {{
-                    workbook: WORKBOOK,
-                    sheet: SHEET,
+                    workbook: Self::workbook(),
+                    sheet: Self::sheet(),
                     row: index + 1,
                     column,
                     error,
@@ -379,7 +374,6 @@ impl {CRATE_PREFIX}::Loadable for {table_type_name} {{
         }}
 
         let table = Self {{ rows: parsed_rows }};
-        info!("Loaded {{}} rows", table.rows.len());
 
         unsafe {{ {table_cell_name}.write(table); }}{parent_insert_code}
         Ok(())
@@ -390,9 +384,12 @@ impl {CRATE_PREFIX}::Loadable for {table_type_name} {{
     }}
 }}
 "#,
+            header_rows = self.config.header_rows,
             workbook = schema.workbook,
             sheet = schema.sheet,
             fields_count = fields.len(),
-        ))
+        )?;
+
+        Ok(())
     }
 }

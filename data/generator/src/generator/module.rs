@@ -1,4 +1,5 @@
 use std::fs;
+use glob::glob;
 use crate::*;
 use crate::generator::*;
 use crate::generator::table::TableSchema;
@@ -27,79 +28,71 @@ impl ModuleEntry {
 }
 
 impl Generator {
-    pub fn generate_module(
+    pub fn collect_module(
+        &mut self,
+        module: &mut ModuleEntry,
+    ) -> Result<Vec<ModuleEntry>, Error> {
+        let module_dir = module.name.as_full_dir(&self.config.schema_dir);
+        println!("Collecting module `{}`", &module_dir.display());
+
+        // Collect entities
+        let mut entity_files: Vec<PathBuf> = glob(module_dir.join("*.json").to_str().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
+        entity_files.sort();
+
+        println!("Found entity files: {:?}", &entity_files);
+
+        for entity_file in entity_files {
+            let file_name = entity_file.file_name().unwrap().to_str().unwrap();
+            let components = file_name.split('.').collect::<Vec<_>>();
+
+            if components.len() != 3 {
+                return Err(Error::InvalidFileName(file_name.to_owned()));
+            }
+
+            let entity_name = module.name.get_child(components[0]);
+            match components[1] {
+                "table" => {
+                    self.collect_table(module, &entity_file, entity_name)?;
+                }
+                "enum" => {
+                    self.collect_enumeration(module, &entity_file, entity_name)?;
+                }
+                "const" => {
+                    self.collect_constant(module, &entity_file, entity_name)?;
+                }
+                _ => {
+                    return Err(Error::InvalidFileName(file_name.to_owned()));
+                }
+            }
+        }
+
+        // Collect child modules
+        let mut child_modules = Vec::new();
+        for entry in fs::read_dir(&module_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+
+            let dir_name = path.file_name().unwrap().to_str().unwrap();
+            let module_name = module.name.get_child(dir_name);
+
+            println!("Found child directory `{}`", dir_name);
+            child_modules.push(ModuleEntry::new(module_name));
+        }
+        child_modules.sort_by(|a, b| a.name.name.cmp(&b.name.name));
+
+        Ok(child_modules)
+    }
+
+    pub fn generate_initialize(
         &self,
-        module: &ModuleEntry
+        writer: &mut dyn Write,
     ) -> Result<(), Error> {
-        let is_base_module = module.name.name.is_empty() && module.name.namespace.is_empty();
-
-        let module_file = if is_base_module {
-            self.full_gen_dir(&[]).parent().unwrap().join("data.rs")
-        } else {
-            self.full_gen_dir(&module.name.parent_namespace()).join(format!("{}.rs", module.name.as_entity()))
-        };
-        self.log(&format!("Generating module `{}`", module_file.display()));
-
-        let code = if is_base_module {
-            let mut code = self.generate_module_code(&module)?;
-            code += &self.generate_table_load_code()?;
-            code
-        } else {
-            self.generate_module_code(module)?
-        };
-
-        fs::create_dir_all(self.full_gen_dir(&module.name.namespace))?;
-        fs::write(module_file, code)?;
-
-        Ok(())
-    }
-
-    fn generate_module_code(&self, module: &ModuleEntry) -> Result<String, Error> {
-        let mut imports = Vec::new();
-        let mut exports = Vec::new();
-
-        for entry in &module.entries { match entry {
-            EntityEntry::ModuleIndex(index) => {
-                let child = &self.modules[*index];
-                imports.push(format!("pub mod {};", child.name.as_entity()));
-            },
-            EntityEntry::TableIndex(index) => {
-                let child = &self.tables[*index];
-                let name = &child.name;
-
-                imports.push(format!("pub mod {};", name.as_entity()));
-                exports.push(format!("pub use {}::*;", name.as_entity()));
-            },
-            EntityEntry::ConstantIndex(index) => {
-                let child = &self.constants[*index];
-                let name = &child.name;
-
-                imports.push(format!("pub mod {};", name.as_entity()));
-                exports.push(format!("pub use {}::*;", name.as_entity()));
-            },
-            EntityEntry::EnumerationIndex(index) => {
-                let child = &self.enumerations[*index];
-                let name = &child.name;
-
-                imports.push(format!("pub mod {};", name.as_entity()));
-                exports.push(format!("pub use {}::*;", name.as_entity()));
-            },
-        } }
-
-
-
-        Ok(format!(
-r#"{GENERATED_FILE_WARNING}
-{imports_code}
-
-{exports_code}
-"#,
-            imports_code = imports.join("\n"),
-            exports_code = exports.join("\n"),
-        ))
-    }
-
-    fn generate_table_load_code(&self) -> Result<String, Error> {
         let mut abstract_table_inits = Vec::new();
         for table in &self.tables {
             match &table.schema {
@@ -109,7 +102,7 @@ r#"{GENERATED_FILE_WARNING}
 
             abstract_table_inits.push(
                 format!(
-                    "{TAB}{}Table::init();",
+                    "{TAB}crate::{}Table::init();",
                     table.name.as_type(true),
                 )
             );
@@ -132,7 +125,7 @@ r#"{GENERATED_FILE_WARNING}
 
             concrete_table_loads.push(
                 format!(
-                    "{TAB}load::<{}>({}, \"{}\", &mut tasks);",
+                    "{TAB}load::<crate::{}>({}, \"{}\", &mut tasks);",
                     table.name.as_table_type(true),
                     format!("data_dir.join(\"{}\")", file),
                     schema.sheet,
@@ -149,18 +142,15 @@ r#"{GENERATED_FILE_WARNING}
 
             concrete_table_inits.push(
                 format!(
-                    "{TAB}init::<{}>(&mut tasks);",
+                    "{TAB}init::<crate::{}>(&mut tasks);",
                     table.name.as_table_type(true),
                 )
             );
         }
 
-        Ok(format!(
-            r#"
-use calamine::Reader;
-use crate::error::Error;
-
-pub async fn load_all(data_dir: &std::path::PathBuf) -> Result<(), Error> {{
+        write!(writer,
+r#"
+pub async fn init(data_dir: &std::path::PathBuf) -> Result<(), Error> {{
     init_abstract_tables();
     load_concrete_tables(data_dir).await?;
     init_concrete_tables().await?;
@@ -173,11 +163,13 @@ fn init_abstract_tables() {{
 }}
 
 async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error> {{
-    fn load<T: {CRATE_PREFIX}::Loadable>(
+    fn load<T: crate::Loadable>(
         file: std::path::PathBuf,
         sheet: &str,
         tasks: &mut Vec<tokio::task::JoinHandle<Result<(), Error>>>,
     ) {{
+        use calamine::Reader;
+    
         let sheet = sheet.to_owned();
 
         tasks.push(tokio::task::spawn(async move {{
@@ -187,7 +179,7 @@ async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error
                     error,
                 }})?;
             let sheet = workbook
-                .with_header_row(calamine::HeaderRow::Row({HEADER_ROWS}))
+                .with_header_row(calamine::HeaderRow::Row({header_rows}))
                 .worksheet_range(&sheet)
                 .map_err(|error| Error::Sheet {{
                     workbook: file.display().to_string(),
@@ -214,7 +206,7 @@ async fn load_concrete_tables(data_dir: &std::path::PathBuf) -> Result<(), Error
 }}
 
 async fn init_concrete_tables() -> Result<(), Error> {{
-    fn init<T: {CRATE_PREFIX}::Loadable>(
+    fn init<T: crate::Loadable>(
         tasks: &mut Vec<tokio::task::JoinHandle<Result<(), Error>>>,
     ) {{
         tasks.push(tokio::task::spawn(async move {{
@@ -236,9 +228,11 @@ async fn init_concrete_tables() -> Result<(), Error> {{
     Ok(())
 }}
 "#,
+            header_rows = self.config.header_rows,
             abstract_table_inits_code = abstract_table_inits.join("\n"),
             concrete_table_loads_code = concrete_table_loads.join("\n"),
             concrete_table_inits_code = concrete_table_inits.join("\n"),
-        ))
+        )?;
+        Ok(())
     }
 }

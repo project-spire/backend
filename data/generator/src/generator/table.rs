@@ -6,6 +6,7 @@ use crate::*;
 use heck::ToSnakeCase;
 use std::collections::VecDeque;
 use std::fs;
+use std::path::Path;
 
 const TUPLE_TYPES_MAX_COUNT: usize = 4;
 const fn generate_default() -> bool { true }
@@ -117,18 +118,50 @@ pub enum Constraint {
 }
 
 impl Generator {
-    pub fn generate_table(&self, table: &TableEntry) -> Result<(), Error> {
-        let table_file = self
-            .full_gen_dir(&table.name.parent_namespace())
-            .join(format!("{}.rs", table.name.as_entity()));
-        self.log(&format!("Generating table `{}`", table_file.display()));
+    pub fn collect_table(
+        &mut self,
+        module: &mut ModuleEntry,
+        file: &Path,
+        name: Name,
+    ) -> Result<(), Error> {
+        println!("Collecting table `{}`", file.display());
 
-        let code = match &table.schema {
-            TableSchema::Concrete(schema) => self.generate_concrete_table(&table.name, schema)?,
-            TableSchema::Abstract(schema) => self.generate_abstract_table(&table.name, schema)?,
+        let type_name = name.as_type(true);
+        self.register_type(&type_name)?;
+
+        let schema: TableSchema = serde_json::from_str(&fs::read_to_string(file)?)?;
+        if !match &schema {
+            TableSchema::Concrete(schema) => schema.enabled,
+            TableSchema::Abstract(schema) => schema.enabled,
+        } {
+            return Ok(());
+        }
+
+        self.tables.push(TableEntry { name, schema });
+        module
+            .entries
+            .push(EntityEntry::TableIndex(self.tables.len() - 1));
+
+        self.table_indices.insert(type_name, self.tables.len() - 1);
+
+        Ok(())
+    }
+    
+    pub fn generate_table(
+        &self,
+        table: &TableEntry,
+        writer: &mut dyn Write,
+    ) -> Result<(), Error> {
+        println!("Generating table `{}`", table.name.name);
+        
+        match &table.schema {
+            TableSchema::Concrete(schema) => {
+                self.generate_concrete_table(&table.name, schema, writer)?;
+            }
+            TableSchema::Abstract(schema) => {
+                self.generate_abstract_table(&table.name, schema, writer)?;
+            }
         };
-
-        fs::write(table_file, code)?;
 
         Ok(())
     }
@@ -188,17 +221,17 @@ impl FieldKind {
                 ScalarAllType::Json => "serde_json::Value",
             }.to_string(),
             FieldKind::Enum { enum_type } => {
-                format!("{CRATE_PREFIX}::{enum_type}")
+                format!("crate::{enum_type}")
             }
             FieldKind::Link { link_type } => {
-                format!("Link<{CRATE_PREFIX}::{link_type}>")
+                format!("Link<crate::{link_type}>")
             }
             FieldKind::Tuple { types } => {
                 let type_strings = to_tuple_type_strings(types);
                 format!("({})", type_strings.join(", "))
             }
             FieldKind::Union { union_type } => {
-                format!("{CRATE_PREFIX}::{union_type}")
+                format!("crate::{union_type}")
             }
         }
     }
