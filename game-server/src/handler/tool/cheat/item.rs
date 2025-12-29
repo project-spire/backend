@@ -9,13 +9,13 @@ pub fn handle(world: &mut World, entity: Entity, args: &[String]) -> Option<(Res
         //TODO: Insert a item
 
         Ok(())
-    }).on_complete(|error, entity, world| {
+    }).on_complete(|error, world, entity| {
         if let Some(error) = error {
             //TODO: Send fail message
             return;
         }
     });
-    
+
     task.dispatch(world, entity);
 
     None

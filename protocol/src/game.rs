@@ -41,22 +41,22 @@ pub enum ProtocolHandler {
 impl Header {
     pub const fn size() -> usize { 4 }
 
-    pub fn encode(buf: &mut BytesMut, length: usize, id: ProtocolId) -> Result<(), Error> {
-        if buf.remaining_mut() < Self::size() {
-            return Err(Error::NotEnoughBuffer(buf.remaining_mut(), Self::size()));
+    pub fn encode(buffer: &mut BytesMut, length: usize, id: ProtocolId) -> Result<(), Error> {
+        if buffer.remaining_mut() < Self::size() {
+            return Err(Error::NotEnoughBuffer(buffer.remaining_mut(), Self::size()));
         }
 
-        buf.put_u8((length >> 8) as u8);
-        buf.put_u8(length as u8);
-        buf.put_u8((id >> 8) as u8);
-        buf.put_u8(id as u8);
+        buffer.put_u8((length >> 8) as u8);
+        buffer.put_u8(length as u8);
+        buffer.put_u8((id >> 8) as u8);
+        buffer.put_u8(id as u8);
 
         Ok(())
     }
 
-    pub fn decode(buf: &[u8; Self::size()]) -> Result<Self, Error> {
-        let length = ((buf[0] as u16) << 8) | (buf[1] as u16);
-        let id = ((buf[2] as u16) << 8) | (buf[3] as u16);
+    pub fn decode(buffer: &[u8]) -> Result<Self, Error> {
+        let length = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
+        let id = ((buffer[2] as u16) << 8) | (buffer[3] as u16);
 
         Ok(Self {
             length,
@@ -71,12 +71,12 @@ pub fn encode(protocol: &(impl prost::Message + Protocol)) -> Result<Bytes, Erro
         return Err(Error::ProtocolLength(length));
     }
 
-    let mut buf = BytesMut::with_capacity(Header::size() + length);
+    let mut buffer = BytesMut::with_capacity(Header::size() + length);
 
-    Header::encode(&mut buf, length, protocol.protocol_id())?;
-    protocol.encode(&mut buf)?;
+    Header::encode(&mut buffer, length, protocol.protocol_id())?;
+    protocol.encode(&mut buffer)?;
 
-    Ok(buf.freeze())
+    Ok(buffer.freeze())
 }
 
 #[derive(Debug, thiserror::Error)]

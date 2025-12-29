@@ -1,12 +1,11 @@
 use crate::config;
-use crate::world::time::Time;
 use bevy_ecs::prelude::*;
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use protocol::game::{encode, Header, IngressLocalProtocol, Protocol, ProtocolHandler};
-use protocol::game::net::Ping;
-use quinn::{Connection, ReadExactError, RecvStream, SendStream, WriteError};
+use quinn::{Connection, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
 use futures::FutureExt;
+use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc;
 use tracing::{error, info};
 use util::rate_limiter::RateLimiter;
@@ -37,7 +36,7 @@ pub enum Error {
     Protocol(#[from] protocol::game::Error),
 
     #[error(transparent)]
-    Read(#[from] ReadExactError),
+    IO(#[from] std::io::Error),
 
     #[error(transparent)]
     Write(#[from] WriteError),
@@ -102,16 +101,21 @@ impl Session {
             .map(|params| RateLimiter::new(params));
 
         tokio::spawn(async move {
-            let mut header_buffer = [0u8; Header::size()];
-            let mut body_buffer = BytesMut::with_capacity(8 * 1024);
+            let mut buffer = BytesMut::with_capacity(8 * 1024);
 
             loop {
-                stream.read_exact(&mut header_buffer).await?;
-                let header = Header::decode(&header_buffer)?;
+                while buffer.len() < Header::size() {
+                    stream.read_buf(&mut buffer).await?;
+                }
 
-                body_buffer.resize(header.length as usize, 0);
-                stream.read_exact(&mut body_buffer[..header.length as usize]).await?;
-                let body = body_buffer.split_to(header.length as usize).freeze();
+                let header = Header::decode(&mut buffer)?;
+                buffer.advance(Header::size());
+
+                while buffer.len() < header.length as usize {
+                    stream.read_buf(&mut buffer).await?;
+                }
+
+                let body = buffer.split_to(header.length as usize).freeze();
 
                 if let Some(limiter) = ingress_protocols_limiter.as_mut() {
                     limiter.check().map_err(Error::IngressProtocolsLimit)?;
@@ -134,8 +138,6 @@ impl Session {
                 }
             }
 
-            info!("receiving end");
-
             Ok(())
         })
     }
@@ -154,8 +156,6 @@ impl Session {
                     stream.write_all(&data[..]).await?;
                 }
             }
-
-            info!("sending end");
         })
     }
 
@@ -195,23 +195,8 @@ pub fn send(
 
 pub fn register(schedule: &mut Schedule) {
     schedule.add_systems((
-        // ping,
         cleanup,
     ));
-}
-
-fn ping(query: Query<&Session>, time: Res<Time>) {
-    if time.ticks % 10 != 0 {
-        return;
-    }
-    
-    let Ok(protocol) = encode(&Ping { timestamp: chrono::Utc::now().timestamp() }) else {
-        return;
-    };
-
-    for session in query.iter() {
-        _ = session.connection.send_datagram(protocol.clone());
-    }
 }
 
 fn cleanup(
