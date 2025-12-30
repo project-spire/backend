@@ -7,60 +7,60 @@ pub type Id = i64;
 
 
 const CUSTOM_EPOCH: u64 = 1735689600000; // 2025-01-01 00:00:00 UTC;
-const GLOBAL_NODE_BITS: u8 = 10;
-const GLOBAL_SEQUENCE_BITS: u8 = 12;
-const LOCAL_SEQUENCE_BITS: u8 = 22;
+const UNIVERSAL_NODE_BITS: u8 = 10;
+const UNIVERSAL_SEQUENCE_BITS: u8 = 12;
+const GLOBAL_SEQUENCE_BITS: u8 = 22;
 
 
-static GLOBAL_NODE_ID: OnceLock<u16> = OnceLock::new();
+static UNIVERSAL_NODE_ID: OnceLock<u16> = OnceLock::new();
 
 /// High 10 bits: empty, Middle 42 bits: timestamp, Low 12 bits: sequence
-static GLOBAL_LAST_STATE: AtomicU64 = AtomicU64::new(0);
+static UNIVERSAL_LAST_STATE: AtomicU64 = AtomicU64::new(0);
 
 /// High 42 bits: timestamp, Low 22 bits: sequence
-static LOCAL_LAST_STATE: AtomicU64 = AtomicU64::new(0);
+static GLOBAL_LAST_STATE: AtomicU64 = AtomicU64::new(0);
 
 
 /// Initialize the id generator.
 pub fn init(node_id: u16) {
-    let node_id_max = (1 << GLOBAL_NODE_BITS) - 1;
+    let node_id_max = (1 << UNIVERSAL_NODE_BITS) - 1;
     if node_id > node_id_max {
         panic!("Node ID {} exceeds maximum {}", node_id, node_id_max);
     }
 
-    GLOBAL_NODE_ID.set(node_id).expect("Global node ID already initialized");
+    UNIVERSAL_NODE_ID.set(node_id).expect("Universal node ID already initialized");
 }
 
-/// Generate a 64-bit globally unique id.
-pub fn global() -> Id {
-    let node_id = *GLOBAL_NODE_ID.get().expect("Global node ID not initialized");
-    let (timestamp, sequence) = acquire_new_state(&GLOBAL_LAST_STATE, GLOBAL_SEQUENCE_BITS);
+/// Generate a 64-bit universally unique id.
+pub fn universal() -> Id {
+    let node_id = *UNIVERSAL_NODE_ID.get().expect("Universal node ID not initialized");
+    let (timestamp, sequence) = acquire_new_state(&UNIVERSAL_LAST_STATE, UNIVERSAL_SEQUENCE_BITS);
 
-    ((timestamp << (GLOBAL_NODE_BITS + GLOBAL_SEQUENCE_BITS)) |
-        ((node_id as u64) << GLOBAL_SEQUENCE_BITS) |
+    ((timestamp << (UNIVERSAL_NODE_BITS + UNIVERSAL_SEQUENCE_BITS)) |
+        ((node_id as u64) << UNIVERSAL_SEQUENCE_BITS) |
         (sequence as u64)) as i64
 }
 
-/// Decompose a globally unique id into timestamp, node id, and sequence.
-pub fn global_decompose(id: Id) -> (u64, u16, u16) {
-    let timestamp = (id >> (GLOBAL_NODE_BITS + GLOBAL_SEQUENCE_BITS)) as u64 + CUSTOM_EPOCH;
-    let node_id = ((id >> GLOBAL_SEQUENCE_BITS) & ((1 << GLOBAL_NODE_BITS) - 1)) as u16;
-    let sequence = (id & ((1 << GLOBAL_SEQUENCE_BITS) - 1)) as u16;
+/// Decompose a universally unique id into timestamp, node id, and sequence.
+pub fn universal_decompose(id: Id) -> (u64, u16, u16) {
+    let timestamp = (id >> (UNIVERSAL_NODE_BITS + UNIVERSAL_SEQUENCE_BITS)) as u64 + CUSTOM_EPOCH;
+    let node_id = ((id >> UNIVERSAL_SEQUENCE_BITS) & ((1 << UNIVERSAL_NODE_BITS) - 1)) as u16;
+    let sequence = (id & ((1 << UNIVERSAL_SEQUENCE_BITS) - 1)) as u16;
 
     (timestamp, node_id, sequence)
 }
 
-/// Generate a 64-bit locally unique id.
-pub fn local() -> Id {
-    let (timestamp, sequence) = acquire_new_state(&LOCAL_LAST_STATE, LOCAL_SEQUENCE_BITS);
+/// Generate a 64-bit globally unique id.
+pub fn global() -> Id {
+    let (timestamp, sequence) = acquire_new_state(&GLOBAL_LAST_STATE, GLOBAL_SEQUENCE_BITS);
 
-    ((timestamp << LOCAL_SEQUENCE_BITS) | (sequence as u64)) as i64
+    ((timestamp << GLOBAL_SEQUENCE_BITS) | (sequence as u64)) as i64
 }
 
-/// Decompose a locally unique id into timestamp and sequence.
-pub fn local_decompose(id: Id) -> (u64, u32) {
-    let timestamp = (id >> LOCAL_SEQUENCE_BITS) as u64 + CUSTOM_EPOCH;
-    let sequence = (id & ((1 << LOCAL_SEQUENCE_BITS) - 1)) as u32;
+/// Decompose a globally unique id into timestamp and sequence.
+pub fn global_decompose(id: Id) -> (u64, u32) {
+    let timestamp = (id >> GLOBAL_SEQUENCE_BITS) as u64 + CUSTOM_EPOCH;
+    let sequence = (id & ((1 << GLOBAL_SEQUENCE_BITS) - 1)) as u32;
 
     (timestamp, sequence)
 }
@@ -124,7 +124,7 @@ mod tests {
     const TEST_NODE_ID: u16 = 777;
 
     fn test_init() {
-        _ = GLOBAL_NODE_ID.set(TEST_NODE_ID);
+        _ = UNIVERSAL_NODE_ID.set(TEST_NODE_ID);
     }
 
     fn generate_id_concurrent<F>(
@@ -162,6 +162,21 @@ mod tests {
     }
 
     #[test]
+    fn test_universal_id_uniqueness() {
+        test_init();
+
+        let thread_count = 10;
+        let id_count = 4096;
+
+        let all_ids = generate_id_concurrent(
+            thread_count,
+            id_count,
+            || { universal() },
+        );
+        assert_eq!(all_ids.len(), thread_count * id_count);
+    }
+
+    #[test]
     fn test_global_id_uniqueness() {
         test_init();
 
@@ -177,18 +192,15 @@ mod tests {
     }
 
     #[test]
-    fn test_local_id_uniqueness() {
+    fn test_universal_id_components() {
         test_init();
 
-        let thread_count = 10;
-        let id_count = 4096;
+        let id = universal();
+        let (timestamp, node_id, sequence) = universal_decompose(id);
 
-        let all_ids = generate_id_concurrent(
-            thread_count,
-            id_count,
-            || { local() },
-        );
-        assert_eq!(all_ids.len(), thread_count * id_count);
+        assert!(timestamp >= CUSTOM_EPOCH);
+        assert_eq!(node_id, TEST_NODE_ID);
+        assert!(sequence < (1 << UNIVERSAL_SEQUENCE_BITS));
     }
 
     #[test]
@@ -196,22 +208,22 @@ mod tests {
         test_init();
 
         let id = global();
-        let (timestamp, node_id, sequence) = global_decompose(id);
+        let (timestamp, sequence) = global_decompose(id);
 
         assert!(timestamp >= CUSTOM_EPOCH);
-        assert_eq!(node_id, TEST_NODE_ID);
         assert!(sequence < (1 << GLOBAL_SEQUENCE_BITS));
     }
 
     #[test]
-    fn test_local_id_components() {
+    fn test_universal_id_monotonicity() {
         test_init();
 
-        let id = local();
-        let (timestamp, sequence) = local_decompose(id);
-
-        assert!(timestamp >= CUSTOM_EPOCH);
-        assert!(sequence < (1 << LOCAL_SEQUENCE_BITS));
+        let mut previous_id = universal();
+        for _ in 0..1000 {
+            let id = universal();
+            assert!(id > previous_id, "Universal IDs must be strictly increasing");
+            previous_id = id;
+        }
     }
 
     #[test]
@@ -221,18 +233,6 @@ mod tests {
         let mut previous_id = global();
         for _ in 0..1000 {
             let id = global();
-            assert!(id > previous_id, "Global IDs must be strictly increasing");
-            previous_id = id;
-        }
-    }
-
-    #[test]
-    fn test_local_id_monotonicity() {
-        test_init();
-
-        let mut previous_id = local();
-        for _ in 0..1000 {
-            let id = local();
             assert!(id > previous_id, "Local IDs must be strictly increasing");
             previous_id = id;
         }

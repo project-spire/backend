@@ -82,7 +82,7 @@ impl Characters for Server {
             .map_err(|e| Error::UnknownEnumValue(e))?
             .into();
 
-        let character_id = util::id::global();
+        let character_id = util::id::universal();
         let new_character = NewCharacter {
             id: character_id,
             account_id: claims.account_id,

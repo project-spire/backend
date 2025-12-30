@@ -28,7 +28,7 @@ impl Handler<PartyCreate> for PartyManager {
 
         let name = name.unwrap_or_else(|| format!("{requester_id}'s party"));
 
-        let party_id = util::id::global();
+        let party_id = util::id::universal();
         let mut party = Party {
             id: party_id,
             name,

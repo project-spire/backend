@@ -108,7 +108,7 @@ struct NewDevAccount<'a> {
 }
 
 async fn create_dev_account(conn: &mut db::Connection, dev_id: &str) -> Result<i64, Error> {
-    let new_account_id = util::id::global();
+    let new_account_id = util::id::universal();
 
     conn.transaction::<(), Error, _>(|conn| async move {
         {

@@ -5,6 +5,5 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true }
-diesel = { workspace = true }
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }

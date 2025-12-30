@@ -7,3 +7,14 @@ pub struct Region {
     pub id: Id,
     pub zones: HashMap<Id, Addr<Zone>>
 }
+
+impl Region {
+    pub fn generate() -> Self {
+        let region = Self {
+            id: util::id::global(),
+            zones: HashMap::new(),
+        };
+        
+        region
+    }
+}
