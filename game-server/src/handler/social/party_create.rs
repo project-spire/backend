@@ -7,10 +7,10 @@ use bevy_ecs::prelude::*;
 use futures::TryFutureExt;
 use tracing::error;
 use protocol::game::social::{party_create_result, PartyCreate, PartyCreateResult};
-use crate::net::session::Session;
+use crate::net::session::{Session, SessionContext};
 
 impl ProtocolLocalHandler for PartyCreate {
-    fn handle(self, world: &mut World, entity: Entity) {
+    fn handle(self, world: &mut World, entity: Entity, ctx: SessionContext) {
         use party_create_result::Error;
 
         let Some(session) = world.get::<Session>(entity) else {
@@ -31,7 +31,7 @@ impl ProtocolLocalHandler for PartyCreate {
             requester_id: session.character_id(),
             name: self.name,
         });
-        let task = Task::serial_with_result(future, |result, world, entity| {
+        let task = Task::serial_with_result(future, move |result, world, entity| {
             let mut response = PartyCreateResult::default();
 
             let result = match result {
@@ -40,7 +40,7 @@ impl ProtocolLocalHandler for PartyCreate {
                     error!("Failed to create party: {}", e);
 
                     response.error = Some(Error::Internal.into());
-                    session::send(world, entity, &response);
+                    ctx.send(&response);
                     return;
                 }
             };
@@ -52,7 +52,7 @@ impl ProtocolLocalHandler for PartyCreate {
                 Err(_) => {
                     // TODO: Use error type from result
                     response.error = Some(Error::Internal.into());
-                    session::send(world, entity, &response);
+                    ctx.send(&response);
                     return;
                 }
             }

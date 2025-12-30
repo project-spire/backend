@@ -1,10 +1,10 @@
 use crate::handler::ProtocolGlobalHandler;
-use crate::net::session::Entry;
+use crate::net::session::SessionContext;
 use protocol::game::net::Pong;
 use tracing::info;
 
 impl ProtocolGlobalHandler for Pong {
-    fn handle(self, entry: Entry) {
-        info!("[{:?}] Pong: {}", entry, self.timestamp);
+    fn handle(self, ctx: SessionContext) {
+        info!("{} ponged: {}", ctx, self.timestamp);
     }
 }

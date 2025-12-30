@@ -270,13 +270,13 @@ pub fn decode_global(
             match entry.protocol.handler {
                 ProtocolHandler::Local => {
                     protocol_local_handles.push(format!(
-                        "{TAB}{TAB}{}(p) => p.handle(world, entity),",
+                        "{TAB}{TAB}{}(p) => p.handle(world, entity, ctx),",
                         entry.protocol.protocol,
                     ));
                 }
                 ProtocolHandler::Global => {
                     protocol_global_handles.push(format!(
-                        "{TAB}{TAB}{}(p) => p.handle(entry),",
+                        "{TAB}{TAB}{}(p) => p.handle(ctx),",
                         entry.protocol.protocol,
                     ));
                 }
@@ -288,6 +288,7 @@ pub fn decode_global(
 pub fn handle_local(
     world: &mut bevy_ecs::world::World,
     entity: bevy_ecs::entity::Entity,
+    ctx: SessionContext,
     protocol: IngressLocalProtocol,
 ) {{
     use IngressLocalProtocol::*;
@@ -298,7 +299,7 @@ pub fn handle_local(
 }}
 
 pub fn handle_global(
-    entry: Entry,
+    ctx: SessionContext,
     protocol: IngressGlobalProtocol,
 ) {{
     use IngressGlobalProtocol::*;

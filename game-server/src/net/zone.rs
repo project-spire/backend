@@ -3,7 +3,7 @@ pub mod player_transfer;
 pub use player_transfer::PlayerTransfer;
 
 use crate::config;
-use crate::net::session::Session;
+use crate::net::session::{Session, SessionContext};
 use crate::world::time::Time;
 use actix::prelude::*;
 use bevy_ecs::prelude::*;
@@ -23,7 +23,7 @@ pub struct Zone {
     pub schedule: Schedule,
     fps: IntervalCounter,
 
-    protocols_buffer: VecDeque<(Entity, IngressLocalProtocol)>
+    protocols_buffer: VecDeque<(Entity, SessionContext, IngressLocalProtocol)>
 }
 
 impl Zone {
@@ -52,13 +52,13 @@ impl Zone {
         let mut query = self.world.query::<(Entity, &Session)>();
 
         for (entity, session) in query.iter(&mut self.world) {
-            for protocol in session.ingress_protocol_receiver.try_iter() {
-                self.protocols_buffer.push_back((entity, protocol));
+            for (ctx, protocol) in session.ingress_protocol_receiver.try_iter() {
+                self.protocols_buffer.push_back((entity, ctx, protocol));
             }
         }
 
-        for (entity, protocol) in self.protocols_buffer.drain(..) {
-            crate::handler::handle_local(&mut self.world, entity, protocol);
+        for (entity, ctx, protocol) in self.protocols_buffer.drain(..) {
+            crate::handler::handle_local(&mut self.world, entity, ctx, protocol);
         }
     }
 }

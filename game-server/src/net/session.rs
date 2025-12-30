@@ -23,11 +23,17 @@ pub struct Session {
     pub entry: Entry,
 
     pub connection: Connection,
-    pub ingress_protocol_receiver: crossbeam_channel::Receiver<IngressLocalProtocol>,
+    pub ingress_protocol_receiver: crossbeam_channel::Receiver<(SessionContext, IngressLocalProtocol)>,
     pub egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
 
     receive_task: Option<tokio::task::JoinHandle<Result<(), Error>>>,
     send_task: Option<tokio::task::JoinHandle<Result<(), Error>>>,
+}
+
+#[derive(Clone)]
+pub struct SessionContext {
+    pub entry: Entry,
+    pub egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -57,8 +63,12 @@ impl Session {
     ) -> Self {
         let (ingress_protocol_sender, ingress_protocol_receiver) = crossbeam_channel::unbounded();
         let (egress_protocol_sender, egress_protocol_receiver) = mpsc::unbounded_channel();
+        let ctx = SessionContext {
+            entry: entry.clone(),
+            egress_protocol_sender: egress_protocol_sender.clone(),
+        };
 
-        let receive_task = Some(Self::start_receive(receive_stream, ingress_protocol_sender, entry));
+        let receive_task = Some(Self::start_receive(receive_stream, ingress_protocol_sender, ctx));
         let send_task = Some(Self::start_send(send_stream, egress_protocol_receiver));
 
         Self {
@@ -84,16 +94,21 @@ impl Session {
     }
 
     pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
-        let Ok(bytes) = encode(protocol) else {
-            return;
+        let bytes = match encode(protocol) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                error!("{} failed to encode protocol: {}", self, e);
+                return;
+            }
         };
+
         _ = self.egress_protocol_sender.send(bytes);
     }
 
     fn start_receive(
         mut stream: RecvStream,
-        ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
-        entry: Entry,
+        ingress_protocol_sender: crossbeam_channel::Sender<(SessionContext, IngressLocalProtocol)>,
+        ctx: SessionContext,
     ) -> tokio::task::JoinHandle<Result<(), Error>> {
         let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
             .map(|params| RateLimiter::new(params));
@@ -127,13 +142,13 @@ impl Session {
                 match protocol::game::protocol_handler(header.id)? {
                     ProtocolHandler::Local => {
                         let protocol = protocol::game::decode_local(header.id, body)?;
-                        if let Err(crossbeam_channel::TrySendError::Disconnected(_)) = ingress_protocol_sender.try_send(protocol) {
+                        if let Err(crossbeam_channel::TrySendError::Disconnected(_)) = ingress_protocol_sender.try_send((ctx.clone(), protocol)) {
                             break;
                         }
                     }
                     ProtocolHandler::Global => {
                         let protocol = protocol::game::decode_global(header.id, body)?;
-                        crate::handler::handle_global(entry, protocol);
+                        crate::handler::handle_global(ctx.clone(), protocol);
                     }
                 }
             }
@@ -178,20 +193,44 @@ impl Display for Session {
     }
 }
 
-pub fn send(
-    world: &mut World,
-    entity: Entity,
-    protocol: &(impl prost::Message + Protocol),
-) {
-    let Ok(bytes) = encode(protocol) else {
-        return;
-    };
-    
-    let Some(session) = world.get::<Session>(entity) else {
-        return;
-    };
-    _ = session.egress_protocol_sender.send(bytes);
+impl SessionContext {
+    pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
+        let bytes = match encode(protocol) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                error!("{} failed to encode protocol: {}", self, e);
+                return;
+            }
+        };
+
+        _ = self.egress_protocol_sender.send(bytes);
+    }
 }
+
+impl Display for SessionContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SessionContext(account_id: {}, character_id: {})",
+            self.entry.account_id, self.entry.character_id,
+        )
+    }
+}
+
+// pub fn send(
+//     world: &mut World,
+//     entity: Entity,
+//     protocol: &(impl prost::Message + Protocol),
+// ) {
+//     let Ok(bytes) = encode(protocol) else {
+//         return;
+//     };
+//
+//     let Some(session) = world.get::<Session>(entity) else {
+//         return;
+//     };
+//     _ = session.egress_protocol_sender.send(bytes);
+// }
 
 pub fn register(schedule: &mut Schedule) {
     schedule.add_systems((
