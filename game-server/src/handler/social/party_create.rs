@@ -28,7 +28,7 @@ impl ProtocolLocalHandler for PartyCreate {
         }
 
         let future = PartyManager::from_registry().send(crate::social::party::PartyCreate {
-            requester_id: session.character_id(),
+            requester_id: ctx.entry.character_id,
             name: self.name,
         });
         let task = Task::serial_with_result(future, move |result, world, entity| {

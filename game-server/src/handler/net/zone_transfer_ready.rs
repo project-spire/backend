@@ -7,23 +7,18 @@ use protocol::game::net::ZoneTransferReady;
 
 impl ProtocolLocalHandler for ZoneTransferReady {
     fn handle(self, world: &mut World, entity: Entity, ctx: SessionContext) {
-        let character_id = {
-            let Ok(mut entity) = world.get_entity_mut(entity) else {
-                return;
-            };
-
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
             let Some(process) = entity.take::<PlayerTransferProcess>() else {
                 return;
             };
-
+            
             entity.insert(process.player_data);
-
-            match entity.get::<Session>() {
-                Some(session) => session.character_id(),
-                None => return,
-            }
+        } else {
+            return;
         };
-
-        world.resource_mut::<Characters>().map.insert(character_id, entity);
+        
+        world.resource_mut::<Characters>().map.insert(ctx.entry.character_id, entity);
+        
+        todo!("Send result");
     }
 }

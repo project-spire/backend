@@ -42,7 +42,7 @@ impl Handler<NewPlayer> for Gateway {
             // );
 
             //TODO: Find the player's last zone
-            act.character_zones.insert(session.character_id(), 0);
+            act.character_zones.insert(session.entry.character_id, 0);
             let default_zone = act.zones.get(&0).unwrap();
             default_zone.do_send(zone::PlayerTransfer { session, player_data });
 

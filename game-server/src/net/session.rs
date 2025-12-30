@@ -173,14 +173,6 @@ impl Session {
             }
         })
     }
-
-    pub fn account_id(&self) -> i64 {
-        self.entry.account_id
-    }
-
-    pub fn character_id(&self) -> i64 {
-        self.entry.character_id
-    }
 }
 
 impl Display for Session {
@@ -216,21 +208,6 @@ impl Display for SessionContext {
         )
     }
 }
-
-// pub fn send(
-//     world: &mut World,
-//     entity: Entity,
-//     protocol: &(impl prost::Message + Protocol),
-// ) {
-//     let Ok(bytes) = encode(protocol) else {
-//         return;
-//     };
-//
-//     let Some(session) = world.get::<Session>(entity) else {
-//         return;
-//     };
-//     _ = session.egress_protocol_sender.send(bytes);
-// }
 
 pub fn register(schedule: &mut Schedule) {
     schedule.add_systems((
