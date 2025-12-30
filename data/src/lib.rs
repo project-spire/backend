@@ -17,3 +17,7 @@ pub mod character {
 pub mod item {
     include!(concat!(env!("OUT_DIR"), "/spire.data.item.rs"));
 }
+
+pub mod world {
+    include!(concat!(env!("OUT_DIR"), "/spire.data.world.rs"));
+}

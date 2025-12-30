@@ -69,7 +69,7 @@ impl Task {
         }
     }
 
-    pub fn new_with_result<F, T, E, C>(policy: Policy, future: F, callback: C) -> Self
+    pub fn new_with_return<F, T, E, C>(policy: Policy, future: F, callback: C) -> Self
     where
         F: Future<Output = Result<T, E>> + Send + 'static,
         T: Send + 'static,
@@ -111,14 +111,14 @@ impl Task {
         Self::new(Policy::Serial, future)
     }
 
-    pub fn serial_with_result<F, T, E, C>(future: F, callback: C) -> Self
+    pub fn serial_with_return<F, T, E, C>(future: F, callback: C) -> Self
     where
         F: Future<Output = Result<T, E>> + Send + 'static,
         T: Send + 'static,
         E: std::error::Error + Send + Sync + 'static,
         C: FnOnce(Result<T, Error>, &mut World, Entity) + Send + Sync + 'static,
     {
-        Self::new_with_result(Policy::Serial, future, callback)
+        Self::new_with_return(Policy::Serial, future, callback)
     }
 
     pub fn parallel<F>(future: F) -> Self
@@ -128,14 +128,14 @@ impl Task {
         Self::new(Policy::Parallel, future)
     }
 
-    pub fn parallel_with_result<F, T, E, C>(future: F, callback: C) -> Self
+    pub fn parallel_with_return<F, T, E, C>(future: F, callback: C) -> Self
     where
         F: Future<Output = Result<T, E>> + Send + 'static,
         T: Send + 'static,
         E: std::error::Error + Send + Sync + 'static,
         C: FnOnce(Result<T, Error>, &mut World, Entity) + Send + Sync + 'static,
     {
-        Self::new_with_result(Policy::Parallel, future, callback)
+        Self::new_with_return(Policy::Parallel, future, callback)
     }
 
     pub fn on_complete<F>(mut self, callback: F) -> Self

@@ -203,7 +203,7 @@ enum {enum_type_name} {{
 r#"
 impl Into<protocol::{enum_type_name}> for {enum_type_name} {{
     fn into(self) -> protocol::{enum_type_name} {{
-        type Target = protocol::Race;
+        type Target = protocol::{enum_type_name};
 
         match self {{
 {enum_matches_code}

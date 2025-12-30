@@ -31,7 +31,7 @@ impl ProtocolLocalHandler for PartyCreate {
             requester_id: ctx.entry.character_id,
             name: self.name,
         });
-        let task = Task::serial_with_result(future, move |result, world, entity| {
+        let task = Task::serial_with_return(future, move |result, world, entity| {
             let mut response = PartyCreateResult::default();
 
             let result = match result {

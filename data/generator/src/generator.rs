@@ -98,7 +98,7 @@ use tokio::sync::Mutex;
 "#)?;
             
             // If base module, generate initialize function.
-            if module.name.parent_namespace().is_empty() {
+            if module.name.name == "" {
                 self.generate_initialize(&mut writer)?;
             }
 
