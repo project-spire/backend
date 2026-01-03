@@ -1,5 +1,6 @@
 use std::fs;
-
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use glob::glob;
 use serde::Deserialize;
 
@@ -107,6 +108,8 @@ impl Generator {
         if self.config.generate_handle {
             self.generate_handle()?;
         }
+
+        self.generate_docs()?;
 
         Ok(())
     }
@@ -315,6 +318,54 @@ pub fn handle_global(
 
         let gen_file = PathBuf::from(&self.config.gen_dir).join("spire.protocol.game.handle.rs");
         fs::write(gen_file, &code)?;
+
+        Ok(())
+    }
+
+    fn generate_docs(&self) -> Result<(), Error> {
+
+        let Some(docs_dir) = self.config.docs_dir.as_ref() else {
+            return Ok(());
+        };
+        fs::create_dir_all(docs_dir)?;
+
+        let file = File::create(docs_dir.join("game.md"))?;
+        let mut writer = BufWriter::new(file);
+
+        write!(writer,
+r#"
+# Game
+
+## Protocol Header
+
+| Offset | Field | Size | Description |
+| :----:  | :--------: | :------: | :------------ |
+| 0 - 1 | Length | 2 Bytes | The total size of the protocol **excluding** header size. |
+| 2 - 3 | Protocol ID | 2 Bytes | An unique identifier for the protocol type. |
+
+## Protocols
+
+| Category | ID | Name | Target |
+|:--------:|---:|:----:|:------:|
+"#
+        )?;
+
+        for entry in &self.protocol_entries {
+            let target = match entry.protocol.target {
+                ProtocolTarget::Client => "Client",
+                ProtocolTarget::Server => "Server",
+                ProtocolTarget::All => "All",
+            };
+
+            write!(
+                writer,
+                "|{}|{}|{}|{}|\n",
+                entry.category,
+                entry.number,
+                entry.protocol.protocol,
+                target,
+            )?;
+        }
 
         Ok(())
     }

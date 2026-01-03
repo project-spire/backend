@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config = protocol_generator::Config {
         schema_dir: PathBuf::from("inner/schema"),
         gen_dir: PathBuf::from(env::var("OUT_DIR")?),
+        docs_dir: Some(PathBuf::from("inner/docs")),
         generate_impl: true,
         generate_handle: false,
     };

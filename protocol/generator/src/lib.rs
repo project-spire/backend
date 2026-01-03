@@ -10,6 +10,7 @@ use crate::generator::Generator;
 pub struct Config {
     pub schema_dir: PathBuf,
     pub gen_dir: PathBuf,
+    pub docs_dir: Option<PathBuf>,
     pub generate_impl: bool,
     pub generate_handle: bool,
 }
