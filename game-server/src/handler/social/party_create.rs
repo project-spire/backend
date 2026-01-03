@@ -1,21 +1,15 @@
 use actix::SystemService;
 use crate::handler::ProtocolLocalHandler;
-use crate::net::session;
+use crate::net::session::Session;
 use crate::social::party::{PartyManager, PartyMember};
 use crate::task::Task;
 use bevy_ecs::prelude::*;
-use futures::TryFutureExt;
 use tracing::error;
 use protocol::game::social::{party_create_result, PartyCreate, PartyCreateResult};
-use crate::net::session::{Session, SessionContext};
 
 impl ProtocolLocalHandler for PartyCreate {
-    fn handle(self, world: &mut World, entity: Entity, ctx: SessionContext) {
+    fn handle(self, world: &mut World, entity: Entity, session: Session) {
         use party_create_result::Error;
-
-        let Some(session) = world.get::<Session>(entity) else {
-            return;
-        };
 
         // Check if already joined to a party.
         if world.get::<PartyMember>(entity).is_some() {
@@ -28,7 +22,7 @@ impl ProtocolLocalHandler for PartyCreate {
         }
 
         let future = PartyManager::from_registry().send(crate::social::party::PartyCreate {
-            requester_id: ctx.entry.character_id,
+            requester_id: session.entry.character_id,
             name: self.name,
         });
         let task = Task::serial_with_return(future, move |result, world, entity| {
@@ -40,7 +34,7 @@ impl ProtocolLocalHandler for PartyCreate {
                     error!("Failed to create party: {}", e);
 
                     response.error = Some(Error::Internal.into());
-                    ctx.send(&response);
+                    session.send(&response);
                     return;
                 }
             };
@@ -52,7 +46,7 @@ impl ProtocolLocalHandler for PartyCreate {
                 Err(_) => {
                     // TODO: Use error type from result
                     response.error = Some(Error::Internal.into());
-                    ctx.send(&response);
+                    session.send(&response);
                     return;
                 }
             }

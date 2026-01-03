@@ -210,6 +210,6 @@ fn sync_movement_states(
         return;
     };
     for session in sessions.iter() {
-        _ = session.connection.send_datagram(protocol.clone());
+        _ = session.send_datagram(protocol.clone());
     }
 }

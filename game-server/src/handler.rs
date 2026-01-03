@@ -1,4 +1,4 @@
-use crate::net::session::SessionContext;
+use crate::net::session::Session;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::world::World;
 
@@ -10,9 +10,9 @@ mod social;
 mod tool;
 
 pub trait ProtocolLocalHandler {
-    fn handle(self, world: &mut World, entity: Entity, ctx: SessionContext);
+    fn handle(self, world: &mut World, entity: Entity, session: Session);
 }
 
 pub trait ProtocolGlobalHandler {
-    fn handle(self, ctx: SessionContext);
+    fn handle(self, session: Session);
 }

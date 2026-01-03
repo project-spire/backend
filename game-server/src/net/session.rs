@@ -4,40 +4,39 @@ use bytes::{Buf, Bytes, BytesMut};
 use protocol::game::{encode, Header, IngressLocalProtocol, Protocol, ProtocolHandler};
 use quinn::{Connection, RecvStream, SendStream, WriteError};
 use std::fmt::{Display, Formatter};
-use futures::FutureExt;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::io::AsyncReadExt;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 use tracing::{error, info};
 use util::rate_limiter::RateLimiter;
 
 pub type EgressProtocol = Bytes;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Entry {
     pub account_id: i64,
     pub character_id: i64,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Session {
     pub entry: Entry,
-
-    pub connection: Connection,
-    pub ingress_protocol_receiver: crossbeam_channel::Receiver<(SessionContext, IngressLocalProtocol)>,
-    pub egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
-
-    receive_task: Option<tokio::task::JoinHandle<Result<(), Error>>>,
-    send_task: Option<tokio::task::JoinHandle<Result<(), Error>>>,
+    inner: Arc<SessionInner>,
 }
 
-#[derive(Clone)]
-pub struct SessionContext {
-    pub entry: Entry,
-    pub egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
+struct SessionInner {
+    connection: Connection,
+    ingress_protocol_receiver: crossbeam_channel::Receiver<IngressLocalProtocol>,
+    egress_protocol_sender: mpsc::UnboundedSender<EgressProtocol>,
+
+    stop_signal_sender: broadcast::Sender<()>,
+    receive_finished: AtomicBool,
+    send_finished: AtomicBool,
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+enum Error {
     #[error(transparent)]
     Protocol(#[from] protocol::game::Error),
 
@@ -63,34 +62,38 @@ impl Session {
     ) -> Self {
         let (ingress_protocol_sender, ingress_protocol_receiver) = crossbeam_channel::unbounded();
         let (egress_protocol_sender, egress_protocol_receiver) = mpsc::unbounded_channel();
-        let ctx = SessionContext {
-            entry: entry.clone(),
-            egress_protocol_sender: egress_protocol_sender.clone(),
+        let (stop_signal_sender, stop_signal_receiver) = broadcast::channel(1);
+
+        let session = Self {
+            entry,
+            inner: Arc::new(SessionInner {
+                connection,
+                ingress_protocol_receiver,
+                egress_protocol_sender,
+                stop_signal_sender,
+                receive_finished: AtomicBool::new(false),
+                send_finished: AtomicBool::new(false),
+            }),
         };
 
-        let receive_task = Some(Self::start_receive(receive_stream, ingress_protocol_sender, ctx));
-        let send_task = Some(Self::start_send(send_stream, egress_protocol_receiver));
+        Self::start_receive(
+            session.clone(),
+            receive_stream,
+            ingress_protocol_sender,
+            stop_signal_receiver.resubscribe(),
+        );
+        Self::start_send(
+            session.clone(),
+            send_stream,
+            egress_protocol_receiver,
+            stop_signal_receiver.resubscribe(),
+        );
 
-        Self {
-            entry,
-            connection,
-            ingress_protocol_receiver,
-            egress_protocol_sender,
-            receive_task,
-            send_task,
-        }
+        session
     }
 
     pub fn stop(&self) {
-        if let Some(task) = &self.receive_task {
-            task.abort();
-        }
-
-        if let Some(task) = &self.send_task {
-            task.abort();
-        }
-
-        self.connection.close(0u32.into(), b"Session closed manually");
+        _ = self.inner.stop_signal_sender.send(());
     }
 
     pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
@@ -102,32 +105,66 @@ impl Session {
             }
         };
 
-        _ = self.egress_protocol_sender.send(bytes);
+        _ = self.inner.egress_protocol_sender.send(bytes);
+    }
+
+    pub fn send_datagram(&self, protocol: Bytes) {
+        if let Err(e) = self.inner.connection.send_datagram(protocol) {
+            error!("{} failed to send datagram: {}", self, e);
+        }
+    }
+
+    pub fn try_iter_ingress_protocols(&self) -> crossbeam_channel::TryIter<'_, IngressLocalProtocol> {
+        self.inner.ingress_protocol_receiver.try_iter()
     }
 
     fn start_receive(
-        mut stream: RecvStream,
-        ingress_protocol_sender: crossbeam_channel::Sender<(SessionContext, IngressLocalProtocol)>,
-        ctx: SessionContext,
-    ) -> tokio::task::JoinHandle<Result<(), Error>> {
-        let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
-            .map(|params| RateLimiter::new(params));
-        let mut ingress_bytes_limiter = config!(net).ingress.bytes_rate_limit
-            .map(|params| RateLimiter::new(params));
+        session: Session,
+        stream: RecvStream,
+        ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
+        stop_signal_receiver: broadcast::Receiver<()>,
+    ) {
+        async fn do_receive(
+            session: &Session,
+            mut stream: RecvStream,
+            ingress_protocol_sender: crossbeam_channel::Sender<IngressLocalProtocol>,
+            mut stop_signal_receiver: broadcast::Receiver<()>,
+        ) -> Result<(), Error> {
+            let mut ingress_protocols_limiter = config!(net).ingress.protocols_rate_limit
+                .map(|params| RateLimiter::new(params));
+            let mut ingress_bytes_limiter = config!(net).ingress.bytes_rate_limit
+                .map(|params| RateLimiter::new(params));
 
-        tokio::spawn(async move {
             let mut buffer = BytesMut::with_capacity(8 * 1024);
 
             loop {
                 while buffer.len() < Header::size() {
-                    stream.read_buf(&mut buffer).await?;
+                    tokio::select! {
+                        biased;
+                        res = stream.read_buf(&mut buffer) => {
+                            let n = res?;
+                            if n == 0 { return Ok(()); }
+                        }
+                        Ok(_) = stop_signal_receiver.recv() => {
+                            return Ok(());
+                        }
+                    }
                 }
 
                 let header = Header::decode(&mut buffer)?;
                 buffer.advance(Header::size());
 
                 while buffer.len() < header.length as usize {
-                    stream.read_buf(&mut buffer).await?;
+                    tokio::select! {
+                        biased;
+                        res = stream.read_buf(&mut buffer) => {
+                            let n = res?;
+                            if n == 0 { return Ok(()); }
+                        }
+                        Ok(_) = stop_signal_receiver.recv() => {
+                            return Ok(());
+                        }
+                    }
                 }
 
                 let body = buffer.split_to(header.length as usize).freeze();
@@ -142,36 +179,89 @@ impl Session {
                 match protocol::game::protocol_handler(header.id)? {
                     ProtocolHandler::Local => {
                         let protocol = protocol::game::decode_local(header.id, body)?;
-                        if let Err(crossbeam_channel::TrySendError::Disconnected(_)) = ingress_protocol_sender.try_send((ctx.clone(), protocol)) {
+                        if let Err(crossbeam_channel::TrySendError::Disconnected(_))
+                            = ingress_protocol_sender.try_send(protocol) {
                             break;
                         }
                     }
                     ProtocolHandler::Global => {
                         let protocol = protocol::game::decode_global(header.id, body)?;
-                        crate::handler::handle_global(ctx.clone(), protocol);
+                        crate::handler::handle_global(session.clone(), protocol);
                     }
                 }
             }
 
             Ok(())
-        })
+        }
+
+        tokio::spawn(async move {
+            if let Err(e) = do_receive(
+                &session,
+                stream,
+                ingress_protocol_sender,
+                stop_signal_receiver,
+            ).await {
+                error!(error = %e, "receive task failed");
+            }
+
+            session.inner.receive_finished.store(true, Ordering::Relaxed);
+        });
     }
 
     fn start_send(
-        mut stream: SendStream,
-        mut egress_protocol_receiver: mpsc::UnboundedReceiver<EgressProtocol>,
-    ) -> tokio::task::JoinHandle<Result<(), Error>> {
-        tokio::spawn(async move {
+        session: Session,
+        stream: SendStream,
+        egress_protocol_receiver: mpsc::UnboundedReceiver<EgressProtocol>,
+        stop_signal_receiver: broadcast::Receiver<()>,
+    ) {
+        async fn do_send(
+            session: &Session,
+            mut stream: SendStream,
+            mut egress_protocol_receiver: mpsc::UnboundedReceiver<EgressProtocol>,
+            mut stop_signal_receiver: broadcast::Receiver<()>,
+        ) -> Result<(), Error> {
             let mut protocols = Vec::with_capacity(16);
 
             loop {
-                egress_protocol_receiver.recv_many(&mut protocols, 16).await;
+                tokio::select! {
+                    biased;
+                    Ok(_) = stop_signal_receiver.recv() => {
+                        break;
+                    }
+                    n = egress_protocol_receiver.recv_many(&mut protocols, 16) => {
+                        if n == 0 { break; }
+                    }
+                }
 
-                for data in protocols.drain(..) {
-                    stream.write_all(&data[..]).await?;
+                for protocol in protocols.drain(..) {
+                    stream.write_all(&protocol[..]).await?;
                 }
             }
-        })
+
+            // Ensure remaining protocols are sent before finishing.
+            egress_protocol_receiver.close();
+            while let Some(protocol) = egress_protocol_receiver.recv().await {
+                stream.write_all(&protocol[..]).await?;
+            }
+
+            _ = stream.finish();
+
+            session.inner.send_finished.store(false, Ordering::Relaxed);
+            Ok(())
+        }
+
+        tokio::spawn(async move {
+            if let Err(e) = do_send(
+                &session,
+                stream,
+                egress_protocol_receiver,
+                stop_signal_receiver
+            ).await {
+                error!(error = %e, "send task failed");
+            }
+
+            session.inner.send_finished.store(true, Ordering::Relaxed);
+        });
     }
 }
 
@@ -179,32 +269,20 @@ impl Display for Session {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Session(account_id: {}, character_id: {})",
-            self.entry.account_id, self.entry.character_id,
+            "Session(aid: {}, cid: {})",
+            self.entry.account_id,
+            self.entry.character_id,
         )
     }
 }
 
-impl SessionContext {
-    pub fn send(&self, protocol: &(impl prost::Message + Protocol)) {
-        let bytes = match encode(protocol) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                error!("{} failed to encode protocol: {}", self, e);
-                return;
-            }
-        };
-
-        _ = self.egress_protocol_sender.send(bytes);
-    }
-}
-
-impl Display for SessionContext {
+impl Display for Entry {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "SessionContext(account_id: {}, character_id: {})",
-            self.entry.account_id, self.entry.character_id,
+            "Entry(aid: {}, cid: {})",
+            self.account_id,
+            self.character_id,
         )
     }
 }
@@ -219,28 +297,12 @@ fn cleanup(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Session)>,
 ) {
-    for (entity, mut session) in query.iter_mut() {
-        let receive_finished = session.receive_task.as_ref().map_or(true, |t| t.is_finished());
-        let send_finished = session.send_task.as_ref().map_or(true, |t| t.is_finished());
+    for (entity, session) in query.iter_mut() {
+        let receive_finished = session.inner.receive_finished.load(Ordering::Relaxed);
+        let send_finished = session.inner.send_finished.load(Ordering::Relaxed);
 
         if !receive_finished && !send_finished {
             continue;
-        }
-
-        if let Some(handle) = session.receive_task.take() {
-            if let Some(result) = handle.now_or_never() {
-                if let Ok(Err(e)) = result {
-                    error!("{} failed to receive: {}", *session, e);
-                }
-            }
-        }
-
-        if let Some(handle) = session.send_task.take() {
-            if let Some(result) = handle.now_or_never() {
-                if let Ok(Err(e)) = result {
-                    error!("{} failed to send: {}", *session, e);
-                }
-            }
         }
 
         info!("{} is cleaned up", *session);

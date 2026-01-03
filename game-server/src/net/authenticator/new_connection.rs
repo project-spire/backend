@@ -56,7 +56,7 @@ impl Handler<NewConnection> for Authenticator {
                 }
             };
 
-            info!("Authenticated: {:?}", entry);
+            info!("Authenticated: {}", entry);
 
             let session = Session::start(entry, connection, receive_stream, send_stream);
             Gateway::from_registry().do_send(NewPlayer {

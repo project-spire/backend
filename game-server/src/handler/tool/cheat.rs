@@ -2,13 +2,13 @@ mod item;
 
 use crate::config;
 use crate::handler::ProtocolLocalHandler;
-use crate::net::session::SessionContext;
+use crate::net::session::Session;
 use bevy_ecs::prelude::*;
 use protocol::game::tool::{Cheat, CheatResult};
 use protocol::game::tool::cheat::Kind;
 
 impl ProtocolLocalHandler for Cheat {
-    fn handle(self, world: &mut World, entity: Entity, ctx: SessionContext) {
+    fn handle(self, world: &mut World, entity: Entity, session: Session) {
         if !config!(app).cheat.enabled {
             return;
         }
@@ -18,7 +18,7 @@ impl ProtocolLocalHandler for Cheat {
         };
 
         if let Some((result, message)) = handle_result {
-            ctx.send(&CheatResult { result: result.into(), message });
+            session.send(&CheatResult { result: result.into(), message });
         }
     }
 }
