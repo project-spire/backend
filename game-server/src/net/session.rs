@@ -245,8 +245,7 @@ impl Session {
             }
 
             _ = stream.finish();
-
-            session.inner.send_finished.store(false, Ordering::Relaxed);
+            
             Ok(())
         }
 
@@ -261,6 +260,7 @@ impl Session {
             }
 
             session.inner.send_finished.store(true, Ordering::Relaxed);
+            session.inner.connection.close(0u32.into(), b"");
         });
     }
 }
